@@ -48,6 +48,7 @@ For example:
 
 ## Requirements
 
+* Smallworld Version >= 5.2.0
 * Requires Magik to be running in the VS Code integrated terminal.
 * Requires the utility procs to be loaded from vscode_dev.magik.
 
@@ -57,6 +58,12 @@ For example:
 
 ## Known Issues
 
+* The minimal set of development procs needs to be added to vscode_dev.magik to remove requirement to load magik_tools and to support older versions.
+* No auto indent support
+* No grammar support
+
+Please add issues here:
+https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 
 ## Release Notes
 
