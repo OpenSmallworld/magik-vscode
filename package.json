@@ -1,0 +1,77 @@
+{
+    "name": "magik-vscode",
+    "displayName": "Magik VS Code",
+    "description": "Magik language support for VS Code",
+    "version": "0.0.1",
+    "publisher": "ollie_sims",
+    "engines": {
+        "vscode": "^1.23.0"
+    },
+    "categories": [
+        "Programming Languages",
+        "Themes"
+    ],
+    "activationEvents": [
+        "onLanguage:magik",
+        "onCommand:magik.goto",
+        "onCommand:magik.compileMethod",
+        "onCommand:magik.compileFile",
+        "onCommand:magik.compileSelection"
+    ],
+    "main": "magik",
+    "contributes": {
+        "languages": [{
+            "id": "magik",
+            "aliases": ["Magik", "magik"],
+            "extensions": [".magik"],
+            "configuration": "./language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "magik",
+            "scopeName": "source.magik",
+            "path": "./syntaxes/magik.tmLanguage.json"
+        }],
+        "commands": [
+            {
+                "command": "magik.goto",
+                "title": "Magik Goto"
+            },
+            {
+                "command": "magik.compileMethod",
+                "title": "Magik Compile Method"
+            },
+            {
+                "command": "magik.compileFile",
+                "title": "Magik Compile File"
+            },
+            {
+                "command": "magik.compileSelection",
+                "title": "Magik Compile Selection"
+            }
+        ],
+        "keybindings": [
+            {
+                "command": "magik.compileMethod",
+                "key": "f7",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "magik.compileSelection",
+                "key": "ctrl+f7",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "magik.goto",
+                "key": "f3",
+                "when": "editorTextFocus"
+            }
+        ],
+        "iconThemes": [
+            {
+                "id": "magik-icons",
+                "label": "Magik Icons",
+                "path": "magik-icons.json"
+            }
+        ]
+    }
+}

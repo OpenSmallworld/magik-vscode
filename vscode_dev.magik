@@ -1,0 +1,157 @@
+#% text_encoding = iso8859_1
+_package sw
+$
+
+_block
+	# TODO: extract the minimal set of dev procs from magik_tools to load here.
+
+	_local core_repo << system.pathname_up(smallworld_product.product(:sw_core).directory)
+	# _local core_repo << "C:\projects\hg\corerepo"
+	_local dev_tools_dir << system.pathname_down( core_repo, "sw_core", "modules", "sw_dev_tools" )
+
+
+	# Load munit
+	# _local munit_dir << "C:\projects\hg\munit"
+	# smallworld_product.add_product( munit_dir )
+	# sw_module_manager.load_module( :munit_base )
+
+
+	_global default_trunk_branch_name
+	default_trunk_branch_name << "SW520"
+
+
+	# Reinitialise products to get source from local repositories
+	# _global relocate_products
+	# relocate_products()
+
+
+	# Load dev tools
+	smallworld_product.add_product( dev_tools_dir )
+	sw_module_manager.load_module( :dev_tools_application )
+
+
+	_global !debug_tracebacks?!
+	!debug_tracebacks?! << _true
+
+	_global !swift_build_method?!
+	!swift_build_method?! << _true
+
+_endblock
+$
+
+
+_pragma(classify_level=debug)
+## Open a file in VS Code
+_global _constant open_file <<
+_proc (file_path, _optional line_number, a_class, a_method)
+
+	command << write_string("cmd /c code -r ", file_path)
+
+	_if line_number _isnt _unset
+	_then
+		command << write_string("cmd /c code -r --goto ", file_path, ":", line_number)
+
+	_elif a_method _isnt _unset
+	_then
+		# Find the method declaration in the file to get the line number
+		class_name << a_method.owner.meta_at(:class_name)
+		method_name << a_method.name
+		last << method_name.subseq(method_name.size - 1, 2)
+
+		test << _if a_method.slot_accessor?
+			_then
+				>> write_string("*", class_name, "*.*define_slot_access*(*:", method_name, "*")
+			_elif last = "()"
+			_then
+				>> write_string("*_method *", class_name, "*.*", method_name.subseq(1, method_name.size - 2), "*(*")
+			_elif last = "<<"
+			_then
+				>> write_string("*_method *", class_name, "*.*", method_name.subseq(1, method_name.size - 2), "*<<*")
+			_else
+				>> write_string("*_method *", class_name, "*.*", method_name, "*")
+			_endif
+
+ 		_protect
+			input << external_text_input_stream.new( file_path )
+			line << 1
+			_loop
+				_if ( a_line << input.get_line() ) _is _unset
+				_then
+					_leave
+				_endif
+				_if a_line.matches?(test)
+				_then
+					col << a_line.size + 1
+					command << write_string("cmd /c code -r --goto ", file_path, ":", line, ":", col)
+					_leave
+				_endif
+				line +<< 1
+			_endloop
+		_protection
+			input.close()
+		_endprotect
+	_endif
+
+	system.do_command( command )
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+## Jump to source in VS Code
+_global _constant mgoto <<
+_proc ( method_string, _optional class_string, super? )
+
+	a_class << _unset
+
+	_if class_string _isnt _unset
+	_then
+		key << class_string.as_symbol()
+		class_string << _unset
+		# Use the provided class_string if it is a global.
+		_for a_package _over package.all_packages.fast_elements()
+		_loop
+			_if ( val << a_package[ key ] ) _isnt _unset
+			_then
+				a_class << val
+				class_string << write_string("^", a_class.class_name, "$")
+				_leave
+			_endif
+		_endloop
+	_endif
+
+	_if super? _is _true _andif a_class _isnt _unset
+	_then
+		class_string << _unset
+		mt << a_class.define_method_target
+		tables << rope.new()
+
+		# Find a parent implementation
+		_for parent_mt _over mt.parents( _true )
+		_loop
+			_if _not tables.includes?( parent_mt )
+			_then
+				super_class_string << write_string("^", parent_mt.meta_at(:class_name), "$")
+				results << mfind( method_string, super_class_string, _unset, 2, _false, _false, _false )
+				_if results.size _is 1
+				_then
+					mjump( 1 )
+					_return
+				_endif
+				tables.add_last( parent_mt )
+			_endif
+		_endloop
+	_endif
+
+	results << mfind( method_string, class_string, _unset, 2, _false, _false, _false )
+
+	_if results.size _is 1
+	_then
+		mjump( 1 )
+	_else
+		mfind( method_string, class_string )
+	_endif
+
+_endproc
+$

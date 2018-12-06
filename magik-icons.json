@@ -1,0 +1,11 @@
+{
+  "iconDefinitions": {
+    "magik_file": {
+      "fontCharacter": "M",
+      "fontColor": "#569cd6"
+    }
+  },
+  "fileExtensions": {
+    "magik": "magik_file"
+  }
+}
