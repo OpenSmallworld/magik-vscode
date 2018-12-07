@@ -2,8 +2,13 @@
 _package sw
 $
 
+# Contains the minimal set of Magik development procs to support working with Magik in VS Code.
+
+# Note: Please reload open_file() below if the dev procs are loaded from magik_tools (e.g. if the Dev Application is loaded)
+
+
 _block
-	# TODO: extract the minimal set of dev procs from magik_tools to load here.
+	# Optional dev setup - please update this block locally to suit your needs!
 
 	_local core_repo << system.pathname_up(smallworld_product.product(:sw_core).directory)
 	# _local core_repo << "C:\projects\hg\corerepo"
@@ -26,19 +31,21 @@ _block
 
 
 	# Load dev tools
-	smallworld_product.add_product( dev_tools_dir )
-	sw_module_manager.load_module( :dev_tools_application )
+	# smallworld_product.add_product( dev_tools_dir )
+	# sw_module_manager.load_module( :dev_tools_application )
 
 
-	_global !debug_tracebacks?!
-	!debug_tracebacks?! << _true
+	# _global !debug_tracebacks?!
+	# !debug_tracebacks?! << _true
 
-	_global !swift_build_method?!
-	!swift_build_method?! << _true
+	# _global !swift_build_method?!
+	# !swift_build_method?! << _true
 
 _endblock
 $
 
+
+# Redefined for use with VS Code
 
 _pragma(classify_level=debug)
 ## Open a file in VS Code
@@ -103,6 +110,9 @@ _pragma(classify_level=debug)
 _global _constant mgoto <<
 _proc ( method_string, _optional class_string, super? )
 
+	_global mjump
+	_global mfind
+
 	a_class << _unset
 
 	_if class_string _isnt _unset
@@ -154,4 +164,1314 @@ _proc ( method_string, _optional class_string, super? )
 	_endif
 
 _endproc
+$
+
+
+# ---------------------------------------------------------------------------------------
+# The procs below are a copy from magik_tools
+
+
+_pragma(classify_level=debug)
+##
+## Returns a rope of user repository paths.
+## Returns the global user_repository_paths if set, otherwise
+## searches the folder user_products_root (by default c:\projects\hg).
+## REPO_DIR_NAME defaults to "hg".
+##
+_global _constant user_repo_paths <<
+_proc ( _optional repo_dir_name )
+
+	_if repo_dir_name _is _unset
+	_then
+		repo_dir_name << "hg"
+	_endif
+
+	_global user_products_root
+	_if user_products_root _is _unset
+	_then
+		 user_products_root << _if system.os_name _is :windows
+				       _then >> "C:\projects\" + repo_dir_name + "\"
+				       _else >> system.pathname_down(system.getenv("HOME"),
+								     "projects", repo_dir_name)
+				       _endif
+	_endif
+
+	repo_paths << rope.new()
+
+	_try
+		dc << directory_channel.new( user_products_root )
+	_when file_no_access
+		write( "Access denied to ", user_products_root )
+	_endtry
+
+	_if dc _is _unset
+	_then
+		_return repo_paths
+	_endif
+
+	_protect
+		_loop
+			_if ( entry << dc.get_status() ) _is _unset
+			_then
+				_leave
+			_endif
+			_if entry.type _is :directory
+			_then
+				pathname << system.canonicalise( entry.name )
+				repo_paths.add_last( pathname )
+			_endif
+		_endloop
+	_protection
+		dc.close()
+	_endprotect
+
+	_return repo_paths
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## A collection of path strings to locate local user repositories.
+##
+_global user_repository_paths << user_repo_paths()
+$
+
+
+_pragma(classify_level=debug)
+##
+## Returns a local file path in a user repository if possible.
+##
+_global _constant check_source <<
+_proc( source_file )
+
+	_global user_repository_paths
+
+	_if source_file _is _unset _then _return _endif
+
+	source_file << system.canonicalise( source_file )
+
+	_if system.file_exists?( source_file )
+	_then
+		_return source_file
+	_endif
+
+	working_dir << system.canonicalise( system.working_directory )
+	sep << system.pathname_separator
+
+	_for pathname _over user_repository_paths.fast_elements()
+	_loop
+		repo_name << system.pathname_components( pathname )
+		index << source_file.index_of_seq( write_string(sep, repo_name, sep) )
+		_if index _isnt  _unset
+		_then
+			a_file << system.pathname_down(
+					  pathname,
+					  source_file.slice_to_end(index + repo_name.size + 2) )
+			_if system.file_exists?( a_file )
+			_then
+				_return a_file
+			_endif
+		_endif
+
+		index << source_file.index_of_seq( working_dir )
+		_if index _isnt  _unset
+		_then
+			a_file << system.pathname_down(
+					  pathname,
+					  source_file.slice_to_end(working_dir.size + 2) )
+			_if system.file_exists?( a_file )
+			_then
+				_return a_file
+			_endif
+		_endif
+	_endloop
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Returns the source file and class for CLASS_OR_NAME which
+## can be a class or a class name string.
+##
+_global _constant class_source <<
+_proc ( class_or_name, _optional prompt_string )
+
+	_if class_or_name.class_name _is :symbol
+	_then
+		class_or_name << class_or_name.write_string
+	_endif
+
+	_if class_or_name.is_class_of?( "" )
+	_then
+		_local search_string << _proc ( a_string )
+						s << a_string.size
+						_if s > 0
+						_then
+							_for i, c _over a_string.fast_keys_and_elements()
+							_loop
+								_if c _is %space
+								_then
+									a_string[i] << %*
+								_endif
+							_endloop
+
+							a_stream << internal_text_output_stream.new()
+							_if a_string[1] _is %^
+							_then
+								start << 2
+							_else
+								a_stream.put( %* )
+								start << 1
+							_endif
+							_if a_string[s] _is %$
+							_then
+								a_stream.write( a_string.slice(start, s - 1) )
+							_else
+								a_stream.write( a_string.slice(start, s) )
+								a_stream.put( %* )
+							_endif
+							_return a_stream.string
+						_else
+							_return _unset
+						_endif
+					_endproc
+
+		class_test << search_string( class_or_name )
+
+		_if class_test _is _unset
+		_then
+			write( "Cannot open file for ", %', class_or_name, %' )
+			_return _unset, :cancel
+		_endif
+
+		results << equality_set.new()
+
+		_for g _over package.all_globals()
+		_loop
+			val << g.value
+			_if val _is _unset _orif
+			    val.class_name _is :procedure
+			_then
+				_continue
+			_endif
+			mt << val.define_method_target
+			class_name << mt.meta_at(:class_name)
+			_if class_name.matches?( class_test )
+			_then
+				results.add( mt )
+			_endif
+		_endloop
+
+		n_results << results.size
+
+		_if n_results _is 0
+		_then
+			write( "Found no matches for ", %', class_or_name, %' )
+			_return
+
+		_elif n_results > 1
+		_then
+			sorted_results << sorted_collection.new( n_results,
+								 _proc( a, b )
+									 >> a[2] _cf b[2]
+								 _endproc )
+
+			max_s << 0
+			_for res _over results.fast_elements()
+			_loop
+				class_name << res.meta_at(:class_name)
+				max_s << max_s.max( class_name.size )
+				sorted_results.add( {res, class_name} )
+			_endloop
+
+			_local add_spaces << _proc ( a_stream, n )
+						     _over range(1, n)
+						     _loop
+							     a_stream.put( %space )
+						     _endloop
+					     _endproc
+
+			write( n_results, " results found" )
+			write()
+			max << 25
+			_for i, v _over sorted_results.fast_keys_and_elements()
+			_loop
+				res_stream << internal_text_output_stream.new()
+				res_stream.write( %[, i, %] )
+				_if i < 10 _andif n_results > 9
+				_then
+					add_spaces( res_stream, 3 )
+				_else
+					add_spaces( res_stream, 2 )
+				_endif
+				class_name << v[2]
+				res_stream.write( class_name )
+				module_name << v[1].meta_at(:exemplar).module_name
+				_if module_name _isnt _unset
+				_then
+					add_spaces( res_stream, max_s - class_name.size + 3 )
+					res_stream.write( %(, module_name, %) )
+				_endif
+				write( res_stream.string )
+				_if i _is max
+				_then
+					write( "..." )
+					_leave
+				_endif
+			_endloop
+			write()
+
+			_if prompt_string _is _unset
+			_then
+				prompt_string << "Display source (index)> "
+			_endif
+			!terminal!.write( prompt_string )
+			reply << !terminal!.get_line().trim_spaces()
+			index << reply.as_number()
+			_if index _is _unset
+			_then
+				_return _unset, :cancel
+			_endif
+
+			mt << sorted_results[ index ][1]
+		_else
+			mt << results.an_element()
+		_endif
+	_else
+		mt << class_or_name.define_method_target
+	_endif
+
+	_if mt _isnt _unset _andif
+	    ( source_file << check_source( mt.source_file ) ) _isnt _unset
+	_then
+		_return source_file, mt.meta_at(:exemplar)
+	_else
+		# Try the most common local method source file
+		methods << equality_hash_table.new()
+		_for m _over mt.local_methods()
+		_loop
+			_if _not m.slot_accessor?
+			_then
+				source_file << m.source_file
+				n << methods[ source_file ].default(0)
+				methods[ source_file ] << n + 1
+			_endif
+		_endloop
+		max << 0
+		_for f, total _over methods.fast_keys_and_elements()
+		_loop
+			_if total > max
+			_then
+				source_file << f
+				max << total
+			_endif
+		_endloop
+
+		_if ( source_file << check_source( source_file ) ) _isnt _unset
+		_then
+			_return source_file, mt.meta_at(:exemplar)
+		_else
+			write( "Cannot find source for ", %', class_or_name, %' )
+		_endif
+	_endif
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Opens the source file in Emacs for CLASS_OR_NAME which can
+## be a class or a class name string.
+##
+## A prompt to choose a class is displayed if multiple classes
+## are found matching the supplied string.
+##
+## Examples:
+##  open_class( sw_item )
+##  open_class( "map" )
+##  open_class( "_container$" )
+##  open_class( "text stream" )
+##
+_global _constant open_class <<
+_proc ( class_or_name, _optional line_number )
+
+	_global class_source
+
+	(source_file, a_class) << class_source( class_or_name )
+
+	_if source_file _isnt _unset _andif a_class.class_name _is :unset
+	_then
+		write( "No class found!" )
+		_return
+	_endif
+
+	_if source_file _isnt _unset
+	_then
+		open_file( source_file, line_number, a_class )
+	_endif
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Opens the source file in Emacs for CLASS_OR_NAME which can
+## be a class or a class name string.
+## Abbreviation of open_class()
+##
+_global _constant oc << open_class
+$
+
+
+_pragma(classify_level=debug)
+##
+## Last results from mfind() used by mjump()
+##
+_global mfind_results << {}
+$
+
+
+_pragma(classify_level=debug)
+##
+## Defines whether mfind() displays method arguments in its results.
+##
+_global mfind_args? << _false
+$
+
+
+_pragma(classify_level=debug)
+##
+## Returns a rope of the source lines of the method and the
+## start and end line number in the source file.
+##
+_global _constant method_lines <<
+_proc ( a_method, _optional source_file )
+
+	_global check_source
+
+	_if source_file _is _unset
+	_then
+		_if ( source_file << check_source( a_method.source_file ) ) _is _unset _orif
+		    source_file.index_of_seq( "register_mutating_methods.magik" ) _isnt _unset _orif
+		    source_file.index_of_seq( "load_mutated_methods.magik" ) _isnt _unset
+		_then
+			source_file << check_source( a_method.owner.source_file )
+		_endif
+	_endif
+
+	_if source_file _is _unset
+	_then
+		_return
+	_endif
+
+	file_lines << rope.new()
+	_protect
+		input << external_text_input_stream.new( source_file )
+		_loop
+			_if ( a_line << input.get_line() ) _is _unset
+			_then
+				_leave
+			_endif
+			file_lines.add_last( a_line )
+		_endloop
+	_protection
+		input.close()
+	_endprotect
+
+	class_name << a_method.owner.meta_at(:class_name)
+	method_name << a_method.name
+	n << _unset
+	_for c _over {%(, %<, %[}.fast_elements()
+	_loop
+		_if ( n << method_name.index_of( c ) ) _isnt _unset
+		_then
+			_leave
+		_endif
+	_endloop
+	_if n _isnt _unset
+	_then
+		method_name << method_name.subseq( 1, n - 1 )
+	_endif
+
+	start_str << write_string( "_method ", class_name, ".", method_name )
+	start_str_size << start_str.size
+	end_str << "_endmethod"
+	end_str_size << end_str.size
+
+	method_lines << rope.new()
+	start << end << _unset
+
+	found? << _false
+	_for r, a_line _over file_lines.fast_keys_and_elements()
+	_loop
+		n << a_line.size
+		_if found?
+		_then
+			method_lines.add_last( a_line )
+			_if n >= end_str_size _andif
+			    a_line.index_of_seq( end_str ) _isnt _unset
+			_then
+				end << r
+				_leave
+			_endif
+		_else
+			_if n > start_str_size _andif
+			    a_line.index_of_seq( start_str ) _isnt _unset
+			_then
+				found? << _true
+				start << r
+				method_lines.add_last( a_line )
+			_endif
+		_endif
+	_endloop
+
+	_if start _isnt _unset _andif
+	    start _isnt 1 _andif
+	    file_lines[ start - 1 ].index_of_seq( "_pragma" ) _isnt _unset
+	_then
+		method_lines.add_first( file_lines[ start - 1 ] )
+		start -<< 1
+	_endif
+
+	_return method_lines, start, end
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Send a method in the mfind results to Emacs.
+##
+## Update global user_repository_paths to define repository paths.
+##
+## Example:
+##  mjump( 1 )  ->  Show the source of the first result from mfind()
+##
+_global _constant mjump <<
+_proc ( results_index, _optional results )
+
+	_global check_source
+	_global open_file
+
+	_if results _is _unset
+	_then
+		_global mfind_results
+		results << mfind_results
+	_endif
+
+	_if results_index < 1 _orif results_index > results.size
+	_then
+		_return
+	_endif
+
+	a_method << results[ results_index ]
+	line_number << _unset
+	source_file << _unset
+
+	_if a_method.is_class_of?( {} )
+	_then
+		(a_method, line_number, source_file) << (_scatter a_method)
+		_if source_file _isnt _unset
+		_then
+			source_file << check_source( source_file )
+		_endif
+	_endif
+
+	_if a_method _isnt _unset _andif
+	    source_file _is _unset
+	_then
+		_if a_method.slot_accessor? _orif
+		    ( source_file << check_source( a_method.source_file ) ) _is _unset _orif
+		    source_file.index_of_seq( "register_mutating_methods.magik" ) _isnt _unset _orif
+		    source_file.index_of_seq( "load_mutated_methods.magik" ) _isnt _unset
+		_then
+			source_file << check_source( a_method.owner.source_file )
+		_endif
+	_endif
+
+	_if source_file _is _unset
+	_then
+		write( "Cannot open source!" )
+		_return
+	_endif
+
+	_if a_method _isnt _unset _andif
+	    line_number _isnt _unset
+	_then
+		# Check line number
+		(lines, start, end) << method_lines( a_method )
+		_if start _is _unset
+		_then
+			line_number << _unset
+		_else
+			_if line_number <= start
+			_then
+				line_number << start + line_number - 1
+			_endif
+
+			_if line_number <= start _orif
+			    line_number >= end
+			_then
+				line_number << _unset
+			_endif
+		_endif
+	_endif
+
+	open_file( source_file, line_number, _unset, a_method )
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Displays methods matching the method and class name string.
+##
+## mjump( <index> ) can be used to send the method to Emacs.
+##
+## MODE - can be one of
+##  :local (or :loc),
+##  :inherit (or :inh),
+##  :inherit_not_object (or :obj).
+##  Defaults to :inherit
+##
+## MAX - the maximum number of results. Defaults to 25.
+##
+## DISPLAY_RESULTS? - list the method results on the
+##  terminal if set to true. Otherwise returns a rope of
+##  matching methods. Defaults to true.
+##
+## DISPLAY_ARGS? - show the method arguments for the results.
+##  Press 'a' at the 'Display source>' prompt to show the
+##  arguments. Defaults to false.
+##
+## PROMPT? - show an input prompt to choose the method source
+##  to display. Defaults to true.
+##
+_global _constant mfind <<
+_proc ( method_string, _optional class_string, mode, max,
+	display_results?, display_args?, prompt? )
+
+	_global slot_access_method_name
+	_global display_mfind_results
+	_global mprompt
+
+	time << system.elapsed_seconds()
+
+	results << set.new()
+
+	_if method_string _is _unset
+	_then
+		method_string << ""
+	_else
+		method_string << method_string.write_string
+	_endif
+
+	_if class_string _is _unset
+	_then
+		class_string << ""
+	_else
+		class_string << class_string.write_string
+	_endif
+
+	_if mode _is _unset
+	_then
+		mode << :inherit
+	_endif
+	_if max _is _unset
+	_then
+		max << 25
+	_endif
+
+	_if display_results? _is _unset
+	_then
+		display_results? << _true
+	_endif
+	_if display_args? _is _unset
+	_then
+		_global mfind_args?
+		display_args? << mfind_args?
+	_endif
+
+	_local match_mode <<
+		_proc( a_string )
+			s << a_string.size
+			_if s = 0
+			_then
+				_return :all
+
+			_elif s = 1
+			_then
+				_return :seq
+
+			_elif a_string.index_of( %space ) _isnt _unset _orif
+			      a_string.index_of( %* ) _isnt _unset
+			_then
+				_return :match
+			_else
+				first? << a_string[1] _is %^
+				last? << a_string[s] _is %$
+				_if first? _andif last?
+				_then
+					_return :equal
+
+				_elif first?
+				_then
+					_return :seq_first
+
+				_elif last?
+				_then
+					_return :seq_last
+				_else
+					_return :seq
+				_endif
+			_endif
+		_endproc
+
+	class_mode << match_mode( class_string )
+	method_mode << match_mode( method_string )
+
+	_local test_string <<
+		_proc( a_string )
+			end << a_string.size
+			_if end = 0
+			_then
+				_return
+
+			_elif end = 1
+			_then
+				_return a_string
+			_else
+				match? << a_string.index_of( %space ) _isnt _unset _orif
+					  a_string.index_of( %* ) _isnt _unset
+
+				_if match?
+				_then
+					_for i, c _over a_string.fast_keys_and_elements()
+					_loop
+						_if c _is %space
+						_then
+							a_string[i] << %*
+						_endif
+					_endloop
+				_endif
+
+				a_stream << internal_text_output_stream.new()
+				_if a_string[1] _is %^
+				_then
+					start << 2
+				_else
+					_if match?
+					_then
+						a_stream.put( %* )
+					_endif
+					start << 1
+				_endif
+				_if a_string[end] _is %$
+				_then
+					a_stream.write( a_string.slice(start, end - 1) )
+				_else
+					a_stream.write( a_string.slice(start, end) )
+					_if match?
+					_then
+						a_stream.put( %* )
+					_endif
+				_endif
+				_return a_stream.string
+			_endif
+		_endproc
+
+	class_test << test_string( class_string )
+	method_test << test_string( method_string )
+
+	_local match_string? <<
+		_proc( name, test, mode )
+			_if mode _is :seq
+			_then
+				_return name.index_of_seq( test ) _isnt _unset
+
+			_elif mode _is :equal
+			_then
+				_return name = test
+
+			_elif mode _is :seq_first
+			_then
+				_return name.index_of_seq( test ) _is 1
+
+			_elif mode _is :seq_last
+			_then
+				_return name.index_of_seq( test ) _is name.size - test.size + 1
+
+			_elif mode _is :match
+			_then
+				_return name.matches?( test )
+			_else
+				# :all
+				_return _true
+			_endif
+		_endproc
+
+	#show( method_test, method_mode, class_test, class_mode )
+
+	local? << class_test _is _unset _orif
+		  mode _is :local _orif
+		  mode _is :loc
+
+	not_object? << mode _is :inherit_not_object _orif
+		       mode _is :obj
+
+	slot_mt << slot_access_method_name.method_table
+	serial_prefix << sw_canvas_container.serialisation_thread_name
+	serial_prefix_n << serial_prefix.size + 1
+	monitor_prefix << "object_monitor!"
+	monitor_prefix_n << monitor_prefix.size + 1
+
+	n << 0
+	done << set.new()
+	methods_to_ignore << set.new()
+
+	_for g _over package.all_globals()
+	_loop
+		val << g.value
+		_if val _is _unset _orif
+		    val.class_name _is :procedure
+		_then
+			_continue
+		_endif
+
+		mt << val.define_method_target
+		class_name << mt.meta_at(:class_name)
+		_if done.includes?( class_name )
+		_then
+			_continue
+		_endif
+		done.add( class_name )
+
+		_if class_test _isnt _unset _andif
+		    _not match_string?( class_name, class_test, class_mode )
+		_then
+			_continue
+		_endif
+
+		_for m _over mt.elements()
+		_loop
+			_if local? _andif
+			    m.owner _isnt mt
+			_then
+				_continue
+			_endif
+
+			_if not_object? _andif
+			    m.owner _is mt
+			_then
+				_continue
+			_endif
+
+			m_name << m.name
+			_if m_name _is :exemplar _orif
+			    m_name.method_table _is slot_mt _orif
+			    m_name.an_element() _is %$
+			_then
+				_continue
+			_endif
+
+			_if method_test _isnt _unset _andif
+			    _not match_string?( m_name, method_test, method_mode )
+			_then
+				_continue
+			_endif
+
+			_if m_name.index_of_seq( serial_prefix ) _is 1 _andif
+			    m_name.index_of( %!, serial_prefix_n ) _isnt _unset
+			_then
+				_continue
+			_endif
+
+			_if m_name.index_of_seq( monitor_prefix ) _is 1 _andif
+			    m_name.index_of( %!, monitor_prefix_n ) _isnt _unset
+			_then
+				_continue
+			_endif
+
+			_if _not methods_to_ignore.includes?( m )
+			_then
+				c_name << _if local?
+					  _then
+						  >> class_name
+					  _else
+						  >> m.owner.meta_at(:class_name)
+					  _endif
+				results.add( {m, m_name, c_name} )
+
+				methods_to_ignore.add( m )
+
+				n +<< 1
+			_endif
+		_endloop
+	_endloop
+
+	sorted_results << sorted_collection.new( _unset,
+						 _proc( a, b )
+							 res << a[2] _cf b[2]
+							 _if res _is _maybe
+							 _then
+								 _return a[3] _cf b[3]
+							 _else
+								 _return res
+							 _endif
+						 _endproc )
+	sorted_results.add_all( results )
+
+	all_methods << rope.new()
+	methods << rope.new()
+	_for i, v _over sorted_results.fast_keys_and_elements()
+	_loop
+		all_methods.add_last( v[1] )
+		_if i <= max
+		_then
+				methods.add_last( v[1] )
+		_endif
+	_endloop
+
+	_global mfind_results
+	mfind_results << all_methods
+
+	_if display_results?
+	_then
+		f << float_format.new_with_properties( :float_decimal_places, 0 )
+		search_time << (system.elapsed_seconds() - time) * 1000
+		write( n, " results found        (Search time: ", f.format(search_time), " ms)" )
+
+		display_mfind_results(1, max, display_args?)
+
+		_if prompt? _is _false
+		_then
+			_return methods
+		_elif n _is 0
+		_then
+			write(" ")
+		_else
+			mprompt( method_string, class_string, mode, max,
+				display_results?, display_args?, "Display source (index)> ", _unset, 1 )
+		_endif
+	_else
+		_return methods
+	_endif
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+## Display the mfind results at the terminal.
+_global _constant display_mfind_results <<
+_proc (start, max, display_args?)
+
+	_global mfind_results
+	_if mfind_results _is _unset _orif mfind_results.empty? _then _return _endif
+
+	end << mfind_results.size.min(start + max - 1)
+	sorted_results << rope.new()
+
+	_for i _over range(start, end)
+	_loop
+		m << mfind_results[i]
+		c_name << m.owner.meta_at(:class_name)
+		m_name << m.name
+		sorted_results.add({m, m_name, c_name})
+	_endloop
+
+	m_size << 0
+	c_size << 0
+	_for v _over sorted_results.fast_elements()
+	_loop
+		m_size << m_size.max( v[2].size )
+		c_size << c_size.max( v[3].size )
+	_endloop
+
+	_local add_spaces << _proc ( a_stream, n )
+							_over range(1, n)
+							_loop
+								a_stream.put( %space )
+							_endloop
+						_endproc
+
+	_local add_dots << _proc ( a_stream, n )
+						a_stream.put( %space )
+						_over range(1, n)
+						_loop
+							a_stream.put( %. )
+						_endloop
+						a_stream.put( %space )
+					_endproc
+
+	_local get_super_class_names
+	get_super_class_names <<
+		_proc ( n, t, supers )
+			_import get_super_class_names
+			_for parent_t _over t.parents()
+			_loop
+				_if ( m << parent_t.method_at( n ) ) _isnt _unset _andif
+						m.owner _is parent_t
+				_then
+					cn << parent_t.meta_at(:class_name)
+					_if _not supers.includes?( cn )
+					_then
+						supers.add_last( cn )
+					_endif
+				_else
+					get_super_class_names( n, parent_t, supers )
+				_endif
+			_endloop
+		_endproc
+
+	write(" ")
+	_if start > 1
+	_then
+		write("...")
+	_endif
+
+	_for i, v _over sorted_results.fast_keys_and_elements()
+	_loop
+		(m, m_name, c_name) << (_scatter v)
+		num << i + start - 1
+
+		res_stream << internal_text_output_stream.new()
+
+		res_stream.write( "[", num, "]" )
+		add_spaces( res_stream, end.write_string.size - num.write_string.size + 2 )
+
+		res_stream.put_charvec( m_name )
+		add_dots( res_stream, m_size - m_name.size + 3 )
+
+		res_stream.put_charvec( c_name )
+		add_spaces( res_stream, c_size - c_name.size + 3 )
+
+		res_stream.put_charvec(
+			_if m.slot_accessor?
+			_then >> "slot  "
+			_elif m.shared_constant?
+			_then >> "const "
+			_elif m.shared_variable?
+			_then >> "var   "
+			_elif procedure.is_class_of?(m.value)
+			_then >> "method"
+			#_elif iter_procedure.is_class_of?(m.value)
+			#_then >> "iter  "
+			_else >> ""
+			_endif )
+
+		# _if system.vm_version _is 3
+		# _then
+		# 	level << m.classify_level
+		# 	_if level _is :restricted
+		# 	_then
+		# 		res_stream.put_charvec( "    " )
+		# 	_else
+		# 		res_stream.write( " (", level.write_string[1].uppercase, ")" )
+		# 	_endif
+		# _endif
+
+		res_stream.put_charvec(
+			_if m.private?
+			_then >> " (P)"
+			_else >> "    "
+			_endif )
+
+		res_stream.put_charvec(
+			_if m.conflict?
+			_then >> " (C)"
+			_else >> "    "
+			_endif )
+
+		# mod_name << m.owner.meta_at(:exemplar).module_name
+		# _if mod_name _isnt _unset
+		# _then
+		# 	res_stream.write( "  ", mod_name )
+		# _endif
+
+		super_classes << rope.new()
+		get_super_class_names( m.name, m.owner, super_classes )
+		_if _not super_classes.empty?
+		_then
+			res_stream.write( " (", super_classes.join_as_strings(", "), ")" )
+		_endif
+
+		write( res_stream.string )
+
+		_if display_args? _is _true _andif
+				( p << m.value ).class_name _is :procedure _andif
+				_not ( arg_list << p.basic_arglist ).empty?
+		_then
+			res_stream << internal_text_output_stream.new()
+
+			add_spaces( res_stream, end.write_string.size + 6 )
+			res_stream.put_charvec( "( " )
+
+			n_args << arg_list.size
+			first_opt << p.num_mandatory_args + 1
+			gather << _if p.gather_arg?
+					_then
+						>> n_args
+					_else
+						>> n_args + 1
+					_endif
+
+			_for i, arg _over arg_list.fast_keys_and_elements()
+			_loop
+				_if i _is first_opt
+				_then
+					res_stream.put_charvec( "_optional " )
+
+				_elif i _is gather
+				_then
+					res_stream.put_charvec( "_gather " )
+				_endif
+
+				res_stream.put_charvec( arg )
+
+				_if i _isnt n_args
+				_then
+					res_stream.put_charvec( ", " )
+				_endif
+			_endloop
+
+			res_stream.put_charvec( " )" )
+
+			write( res_stream.string )
+		_endif
+	_endloop
+
+	_if mfind_results.size > start + max - 1
+	_then
+		write("...")
+	_endif
+	write(" ")
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Start the mfind prompt.
+##
+_global _constant mprompt <<
+_proc ( _optional method_string, class_string, mode, max,
+	display_results?, display_args?, prompt_string, callback, start )
+
+	_global mfind_results
+	_global display_mfind_results
+	_global check_source
+	_global open_file
+
+	_if method_string _is _unset
+	_then
+		method_string << ""
+	_else
+		method_string << method_string.write_string
+	_endif
+
+	_if class_string _is _unset
+	_then
+		class_string << ""
+	_else
+		class_string << class_string.write_string
+	_endif
+
+	_if mode _is _unset
+	_then
+		mode << :inherit
+	_endif
+	_if max _is _unset
+	_then
+		max << 25
+	_endif
+	_if start _is _unset
+	_then
+		start << 1
+	_endif
+
+	_if display_results? _is _unset
+	_then
+		display_results? << _true
+	_endif
+	_if display_args? _is _unset
+	_then
+		_global mfind_args?
+		display_args? << mfind_args?
+	_endif
+
+	!terminal!.write( prompt_string.default( "mfind> " ) )
+	reply << !terminal!.get_line().trim_spaces()
+	_if reply = "$"
+	_then
+		reply << !terminal!.get_line().trim_spaces()
+	_endif
+
+	n << reply.size
+	_if n > 1 _andif
+	    reply[n] _is %s _andif
+	    ( index << reply.subseq(1, n - 1).as_number() ) _isnt _unset _andif
+	    index > 0 _andif
+	    index <= mfind_results.size
+	_then
+		_local get_super_methods
+		get_super_methods <<
+			_proc ( n, t, supers )
+				_import get_super_methods
+				_for parent_t _over t.parents()
+				_loop
+					_if ( m << parent_t.method_at( n ) ) _isnt _unset _andif
+					    m.owner _is parent_t
+					_then
+						_if _not supers.includes?( m )
+						_then
+							supers.add_last( m )
+						_endif
+					_else
+						get_super_methods( n, parent_t, supers )
+					_endif
+				_endloop
+			_endproc
+
+		a_method << mfind_results[ index ]
+		_if a_method.is_class_of?( {} )
+		_then
+			a_method << a_method.an_element()
+		_endif
+
+		supers << rope.new()
+		get_super_methods( a_method.name, a_method.owner, supers )
+
+		_if supers.empty?
+		_then
+			mjump( index )
+		_else
+			_for sm _over supers.fast_elements()
+			_loop
+				_if sm.slot_accessor? _orif
+				    ( source_file << check_source( sm.source_file ) ) _is _unset _orif
+				    source_file.index_of_seq( "register_mutating_methods.magik" ) _isnt _unset _orif
+				    source_file.index_of_seq( "load_mutated_methods.magik" ) _isnt _unset
+				_then
+					source_file << check_source( sm.owner.source_file )
+				_endif
+
+				method_name << sm.name
+				class_name  << sm.owner.meta_at(:class_name)
+
+				_if source_file _is _unset
+				_then
+					write( "Cannot open source for ", class_name, ".", method_name )
+				_else
+					open_file( source_file, _unset, _unset, sm )
+				_endif
+			_endloop
+			write(" ")
+		_endif
+
+	_elif ( index << reply.as_number() ) _isnt _unset
+	_then
+		_if callback _isnt _unset
+		_then
+			callback.invoke( index )
+		_elif (index > 0 _andif index < start) _orif
+			(index >= start + max _andif index <= mfind_results.size)
+		_then
+			display_mfind_results(index, max, display_args?)
+
+			mprompt( method_string, class_string, mode, max,
+				 _true, display_args?, prompt_string, _unset, index )
+		_else
+			mjump( index )
+		_endif
+
+	_elif reply.lowercase = "args"
+	_then
+		mfind( method_string, class_string, mode, max,
+		       _true, _true, _true )
+
+	_elif reply.index_of_seq("mode=") _is 1
+	_then
+		new_mode << _unset
+		_if reply.size > 5
+		_then
+			new_mode << reply.slice_to_end(6).trim_spaces()
+		_endif
+		_if {"loc", "local", "obj",
+		     "inherit_not_object", "inh", "inherit"}.includes_by_equality?( new_mode )
+		_then
+			mode << new_mode
+		_else
+			write("Invalid Mode")
+		_endif
+
+		mprompt( method_string, class_string, mode, max,
+			      _true, display_args? )
+
+	_elif reply.index_of_seq("max=") _is 1
+	_then
+		new_max << _unset
+		_if reply.size > 4
+		_then
+			new_max << reply.slice_to_end(5).trim_spaces()
+		_endif
+		_if new_max.as_number() _isnt _unset
+		_then
+			max << new_max
+		_else
+			write("Invalid Max")
+		_endif
+
+		mprompt( method_string, class_string, mode, max,
+			      _true, display_args? )
+
+	_elif reply.class_name _is :char16_vector _andif
+	      _not reply.empty? _andif
+	      reply <> "$"
+	_then
+		index << _unset
+		_for sep _over {%,, %., %-, %;, %:, %#, %tab, %\, %/}.fast_elements()
+		_loop
+			_if ( index << reply.index_of(sep) ) _isnt _unset
+			_then
+				_leave
+			_endif
+		_endloop
+		_if index _is _unset
+		_then
+			method_string << reply
+		_else
+			method_string << reply.slice(1, index - 1)
+			class_string << reply.slice_to_end(index + 1)
+		_endif
+
+		mfind( method_string, class_string, mode, max,
+		       _true, display_args?, _true )
+	_endif
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Displays methods matching the method and class name string.
+## Abbreviation of mfind()
+##
+_global _constant mf << mfind
+$
+
+
+_pragma(classify_level=debug)
+##
+## Start the mfind prompt. Abbreviation of mprompt()
+##
+_global _constant mp << mprompt
 $

@@ -47,6 +47,10 @@
             {
                 "command": "magik.compileSelection",
                 "title": "Magik Compile Selection"
+            },
+            {
+                "command": "magik.indentMethod",
+                "title": "Magik Indent Method"
             }
         ],
         "keybindings": [
@@ -66,6 +70,17 @@
                 "when": "editorTextFocus"
             }
         ],
+        "configuration": {
+            "type": "object",
+            "title": "Magik configuration",
+            "properties": {
+                "magik-vscode.enableAutoIndentation": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Auto indent Magik code."
+                }
+            }
+        },
         "iconThemes": [
             {
                 "id": "magik-icons",

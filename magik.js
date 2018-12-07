@@ -76,6 +76,61 @@ const MAGIK_VARIABLE_KEYWORDS = [
 
 const INVALID_CHAR = /[^a-zA-Z0-9_\\?\\!]/;
 
+const incWords = [
+  '_then',
+  '_else',
+  '_loop',
+  '_try',
+  '_when',
+  '_protect',
+  '_protection',
+  '_block',
+  '_proc'
+];
+const incWordsLength = incWords.length;
+
+const decWords = [
+  '_else',
+  '_elif',
+  '_endif',
+  '_endloop',
+  '_endtry',
+  '_endprotection',
+  '_endmethod',
+  '_endblock',
+  '_endproc'
+];
+const decWordsLength = decWords.length;
+
+const endWords = [
+  '.',
+  '+',
+  '-',
+  '*',
+  '/',
+  '_andif',
+  '_and',
+  '_orif',
+  '_or',
+  '_xor'
+];
+const endWordsLength = endWords.length;
+
+const startAssignWords = [
+  '_if',
+  '_for',
+  '_try',
+  '_protect',
+  '_loop'
+];
+const endAssignWords = [
+  '_endif',
+  '_endloop',
+  '_endtry',
+  '_endprotect'
+];
+
+
 function compileText(lines) {
   const path = 'C:/temp/temp_magik_vscode.magik';
   const command = `load_file("${path}")\u000D`;
@@ -110,20 +165,29 @@ function compileSelection() {
   }
 }
 
-function compileMethod() {
+function getLines(methodOnly) {
   const editor = vscode.window.activeTextEditor;
   const doc = editor.document;
   const selection = editor.selection;
   const startRow = selection.active.line;
-  const methodLines = [];
-  let startFound = false;
-  let endFound = false;
+  const lines = [];
+  let firstRow;
+  let lastRow;
 
   for (let row = startRow; row > 0; row--) {
     const lineText = doc.lineAt(row).text;
-    methodLines.unshift(lineText);
-    if (lineText.trim().startsWith('_method ') || lineText.includes(' _method ')) {
-      startFound = true;
+    const lineTextTrimmed = lineText.trim();
+
+    lines.unshift(lineText);
+
+    if (lineTextTrimmed.startsWith('_method ') || lineTextTrimmed.includes(' _method ')) {
+      firstRow = row;
+      break;
+    } else if (lineTextTrimmed.startsWith('_endmethod') || lineTextTrimmed === '$') {
+      if (!methodOnly) {
+        lines.shift();
+        firstRow = row + 1;
+      }
       break;
     }
   }
@@ -131,49 +195,67 @@ function compileMethod() {
   for (let row = startRow + 1; row < doc.lineCount + 1; row++) {
     const lineText = doc.lineAt(row).text;
     const lineTextTrimmed = lineText.trim();
-    methodLines.push(lineText);
+
+    lines.push(lineText);
 
     if (lineTextTrimmed.startsWith('_endmethod')) {
-      endFound = true;
+      lastRow = row;
+      break;
+    } else if (lineTextTrimmed.startsWith('_pragma') ||
+      lineTextTrimmed.startsWith('_method ') ||
+      lineTextTrimmed.includes(' _method ') ||
+      lineTextTrimmed === '$') {
+      if (!methodOnly) {
+        lines.pop();
+        lastRow = row - 1;
+      }
       break;
     }
-    if (lineTextTrimmed.startsWith('_pragma')) break;
-    if (lineTextTrimmed === '$') break;
   }
 
-  if (startFound && endFound) {
-    const parts = methodLines[0].split('.')
-    const className = parts[0].split(' ').splice(-1)[0].trim();
-    let methodName;
-
-    if (parts.length > 1) {
-      methodName = parts[1].trim();
-      let index = methodName.search(INVALID_CHAR);
-      if (index === -1) index = methodName.length;
-      methodName = methodName.slice(0, index);
-      if (parts[1].includes('(')) {
-        methodName += '()';
-      } else if (parts[1].includes('<<')) {
-        methodName += '<<';
-      }
-    }
-
-    methodLines.unshift('$');
-    methodLines.unshift('_package sw');
-    methodLines.unshift('#% text_encoding = iso8859_1');
-    methodLines.push('$')
-
-    // Set source file
-    if (methodName) {
-      methodLines.push('_block');
-      methodLines.push(`_local meth << ${className}.method(:|${methodName}|)`);
-      methodLines.push(`_if meth _isnt _unset _then meth.compiler_info[:source_file] << "${doc.fileName}" _endif`);
-      methodLines.push('_endblock');
-      methodLines.push('$')
-    }
-
-    compileText(methodLines);
+  if (firstRow && lastRow) {
+    return {lines, firstRow, lastRow};
   }
+  return {};
+}
+
+function compileMethod() {
+  const lines = getLines(true).lines;
+  if (!lines) return;
+
+  const editor = vscode.window.activeTextEditor;
+  const doc = editor.document;
+  const parts = lines[0].split('.')
+  const className = parts[0].split(' ').splice(-1)[0].trim();
+  let methodName;
+
+  if (parts.length > 1) {
+    methodName = parts[1].trim();
+    let index = methodName.search(INVALID_CHAR);
+    if (index === -1) index = methodName.length;
+    methodName = methodName.slice(0, index);
+    if (parts[1].includes('(')) {
+      methodName += '()';
+    } else if (parts[1].includes('<<')) {
+      methodName += '<<';
+    }
+  }
+
+  lines.unshift('$');
+  lines.unshift('_package sw');
+  lines.unshift('#% text_encoding = iso8859_1');
+  lines.push('$')
+
+  // Set source file
+  if (methodName) {
+    lines.push('_block');
+    lines.push(`_local meth << ${className}.method(:|${methodName}|)`);
+    lines.push(`_if meth _isnt _unset _then meth.compiler_info[:source_file] << "${doc.fileName}" _endif`);
+    lines.push('_endblock');
+    lines.push('$')
+  }
+
+  compileText(lines);
 }
 
 function goto() {
@@ -233,6 +315,121 @@ function goto() {
   vscode.commands.executeCommand('workbench.action.terminal.sendSequence', {text: command});
 }
 
+async function indentMagik(currentRow) {
+  const { lines, firstRow } = getLines();
+  if (!lines) return;
+
+  const editor = vscode.window.activeTextEditor;
+  const doc = editor.document;
+
+  const incBrackets = /[\(\{]/g;
+  const decBrackets = /[\)\}]/g;
+  let indent = 0;
+  let tempIndent = false;
+  let assignIndentRow;
+
+  for (let row = 0; row < lines.length; row++) {
+    const text = lines[row];
+    const textLength = text.length;
+    const trim = text.trim();
+    let start = text.search(/\S/);
+    let matches;
+
+    if (start === -1) start = textLength;
+
+    if (trim !== '#') {
+      for (let i = 0; i < decWordsLength; i++) {
+        if (trim.startsWith(decWords[i])) {
+          indent--;
+          break;
+        }
+      }
+    }
+
+    const indentText = (indent === 0) ? '' : new Array(indent + 1).join('\t');
+
+    if (indentText !== text.slice(0, start)) {
+      //console.log('Update:', firstRow + row, text, indent);
+      if (!currentRow || firstRow + row === currentRow) {
+        const edit = new vscode.WorkspaceEdit();
+        const range = new vscode.Range(firstRow + row, 0, firstRow + row, start);
+        edit.replace(doc.uri, range, indentText);
+        await vscode.workspace.applyEdit(edit);
+      }
+    }
+
+    if (firstRow + row === currentRow) return;
+
+    if (trim[0] === '#') continue;
+
+    if (assignIndentRow) {
+      if (row === assignIndentRow + 1) {
+        let found = false;
+        for (let i = 0; i < startAssignWords.length; i++) {
+          if (trim.startsWith(startAssignWords[i])) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          indent--;
+          assignIndentRow = undefined;
+        }
+      } else {
+        for (let i = 0; i < endAssignWords.length; i++) {
+          if (trim.startsWith(endAssignWords[i])) {
+            indent--;
+            assignIndentRow = undefined;
+            break;
+          }
+        }
+      }
+    } else if (tempIndent) {
+      indent--;
+      tempIndent = false;
+    }
+
+    if (trim.startsWith('_method ') || trim.includes(' _method ')) {
+      indent++;
+    } else {
+      for (let i = 0; i < incWordsLength; i++) {
+        if (trim.startsWith(incWords[i])) {
+          indent++;
+          break;
+        }
+      }
+    }
+
+    // Remove strings and comments before counting brackets
+    const noStrings = removeStrings(text).split('#')[0];
+
+    matches = noStrings.match(incBrackets);
+    if (matches) {
+      indent += matches.length;
+    }
+    matches = noStrings.match(decBrackets);
+    if (matches) {
+      indent -= matches.length;
+    }
+
+    const beforeComment = trim.split('#')[0].trim();
+
+    if (textLength > 2 && beforeComment.slice(-2) === '<<') {
+      indent++;
+      assignIndentRow = row;
+    } else {
+      for (let i = 0; i < endWordsLength; i++) {
+        const word = endWords[i];
+        if (beforeComment.slice(-word.length) === word) {
+          indent++;
+          tempIndent = true;
+          break;
+        }
+      }
+    }
+  }
+}
+
 function currentClassName(doc, pos) {
   for (let row = pos.line; row > 0; row--) {
     const text = doc.lineAt(row).text;
@@ -264,11 +461,33 @@ function previousWord(doc, pos) {
   return text.split('').reverse().join('');
 }
 
-function addUnderscore(doc, pos, ch) {
+function removeStrings(text) {
+  const textLength = text.length;
+  let noStrings = [];
+  let count = 0;
+
+  for (let i = 0; i < textLength; i++) {
+    const c = text[i];
+    if (c === '"') {
+      count++;
+    } else if (!(count % 2)) {
+      noStrings.push(c);
+    }
+  }
+
+  return noStrings.join('');
+}
+
+async function addUnderscore(doc, pos, ch) {
   const line = doc.lineAt(pos.line);
   const lineText = line.text;
   const text = lineText.slice(0, pos.character);
   const textLength = text.length;
+
+  // Don't update in a comment
+  const noStrings = removeStrings(text);
+  const hashIndex = noStrings.indexOf('#');
+  if (hashIndex !== -1 && hashIndex < textLength) return;
 
   const keywords = (ch === '.') ? MAGIK_VARIABLE_KEYWORDS : MAGIK_KEYWORDS;
   const keywordsLength = keywords.length;
@@ -285,8 +504,35 @@ function addUnderscore(doc, pos, ch) {
     }
     if (last !== keyword) continue;
 
-    if (length + 1 === textLength || text[textLength - length - 2].search(INVALID_CHAR) === 0) {
-      return [vscode.TextEdit.insert(new vscode.Position(pos.line, pos.character - length - 1), '_')];
+    if (ch === '') {
+      if (length === textLength || text[textLength - length - 1].search(INVALID_CHAR) === 0) {
+        // Make the change now before checking the indentation
+        const edit = new vscode.WorkspaceEdit();
+        const insertPos = new vscode.Position(pos.line, pos.character - length);
+        edit.insert(doc.uri, insertPos, '_');
+        await vscode.workspace.applyEdit(edit);
+      }
+    } else {
+      if (length + 1 === textLength || text[textLength - length - 2].search(INVALID_CHAR) === 0) {
+        return vscode.TextEdit.insert(new vscode.Position(pos.line, pos.character - length - 1), '_');
+      }
+    }
+  }
+}
+
+async function formatMagik(doc, pos, ch) {
+  if (ch === '\n') {
+    if (vscode.workspace.getConfiguration('magik-vscode').enableAutoIndentation) {
+      const lastCol = doc.lineAt(pos.line - 1).text.length;
+      const lastPos = new vscode.Position(pos.line - 1, lastCol);
+      await addUnderscore(doc, lastPos, '');
+      await indentMagik(pos.line - 1);
+      await indentMagik(pos.line);
+    }
+  } else {
+    const edit = await addUnderscore(doc, pos, ch);
+    if (edit) {
+      return [edit];
     }
   }
 }
@@ -297,7 +543,8 @@ function activate(context) {
     ['goto', goto],
     ['compileMethod', compileMethod],
     ['compileFile', compileFile],
-    ['compileSelection', compileSelection]
+    ['compileSelection', compileSelection],
+    ['indentMethod', indentMagik]
   ];
 
   for (const [name, func] of config) {
@@ -312,9 +559,9 @@ function activate(context) {
         language: 'magik'
       },
       {
-        provideOnTypeFormattingEdits: addUnderscore
+        provideOnTypeFormattingEdits: formatMagik
       },
-      ' ', '.'));
+      ' ', '.', '\n'));
 }
 
 exports.activate = activate;

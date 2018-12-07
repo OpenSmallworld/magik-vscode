@@ -11,6 +11,8 @@ Adds the following features to VS Code:
 * Command `Magik Compile Selection`
 * Command `Magik Goto` (F3) to jump to the source of a method. Click on a method name and invoke the command to jump to source or display method candidates at the Magik prompt.
 * Adds _ before Magik keywords
+* Auto indenting of Magik code
+* Command `Magik Indent Method`
 
 (Use Ctrl + Shift + P to list available commands and type Magik)
 
@@ -36,31 +38,30 @@ e.g. S:\SW519\2018-11-30\core\bin\x86\runalias -a S:\SW519\2018-11-30\cambridge_
 
 3. Load the development procs:
 Load the file vscode_dev.magik at the Magik prompt.
-This will load the magik_tools module and utility procs supporting VS Code integration.
+This will load a set of utility procs to support navigating Magik in VS Code.
 
 (vscode_dev.magik is supplied in this extension - I would recommend copying this to a convenient location to load after a session starts.)
 
-The dev procs are then available at the Magik prompt.
-For example:
-* Open Class: oc("class name") - open a file in VS Code from the terminal.
-* Method Find: mf("method name", "class name")
+The dev procs mfind() (aka mf()) and open_class() (aka oc()) will then be available at the Magik prompt.
 
 
 ## Requirements
 
-* Smallworld Version >= 5.2.0
 * Requires Magik to be running in the VS Code integrated terminal.
 * Requires the utility procs to be loaded from vscode_dev.magik.
 
 
 ## Extension Settings
 
+* Enable auto indentation of Magik code (`true` by default)
+```json
+    "magik-vscode.enableAutoIndentation": true
+```
 
 ## Known Issues
 
-* The minimal set of development procs needs to be added to vscode_dev.magik to remove requirement to load magik_tools and to support older versions.
-* No auto indent support
 * No grammar support
+* No syntax highlighting for msg files
 
 Please add issues here:
 https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
