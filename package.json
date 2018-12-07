@@ -61,6 +61,11 @@
             },
             {
                 "command": "magik.compileSelection",
+                "key": "f8",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "magik.compileFile",
                 "key": "ctrl+f7",
                 "when": "editorTextFocus"
             },

@@ -94,8 +94,10 @@ const decWords = [
   '_elif',
   '_endif',
   '_endloop',
+  '_when',
   '_endtry',
-  '_endprotection',
+  '_protection',
+  '_endprotect',
   '_endmethod',
   '_endblock',
   '_endproc'

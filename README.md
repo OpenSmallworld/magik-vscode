@@ -7,12 +7,12 @@ Magik language extension for VS Code.
 Adds the following features to VS Code:
 * Magik Syntax highlighting
 * Command `Magik Compile Method` (F7)
-* Command `Magik Compile File`
-* Command `Magik Compile Selection`
-* Command `Magik Goto` (F3) to jump to the source of a method. Click on a method name and invoke the command to jump to source or display method candidates at the Magik prompt.
+* Command `Magik Compile File` (Ctrl + F7)
+* Command `Magik Compile Selection` (F8)
+* Command `Magik Goto` (F3) to jump to source. Click on a method name and invoke the command to jump to source or display method candidates at the Magik prompt.
+* Command `Magik Indent Method`
 * Adds _ before Magik keywords
 * Auto indenting of Magik code
-* Command `Magik Indent Method`
 
 (Use Ctrl + Shift + P to list available commands and type Magik)
 
@@ -20,7 +20,7 @@ This is a minimal implementation to assist with editing, navigation and compilin
 
 ## Installation
 
-Add the extension to VS Code by cloning the repo to %USERPROFILE%\.vscode\extensions
+1. Add the extension to VS Code by cloning the repo to %USERPROFILE%\.vscode\extensions
 
 I would recommend using these other extensions:
 * Bracket Pair Colorizer 2
@@ -28,10 +28,12 @@ I would recommend using these other extensions:
 * Git History
 * vscode-icons
 
+2. Enable `Editor: Format on Type` in the VS Code settings to allow adding _ and auto indentation.
+
 
 ## Usage
 
-1. Open a repository folder in VS Code (do this before opening a terminal)
+1. Open a repository folder in VS Code (**Note: Do this before opening a terminal**)
 
 2. Open a terminal in VS Code and start a magik session:
 e.g. S:\SW519\2018-11-30\core\bin\x86\runalias -a S:\SW519\2018-11-30\cambridge_db\config\gis_aliases cambridge_db_open
