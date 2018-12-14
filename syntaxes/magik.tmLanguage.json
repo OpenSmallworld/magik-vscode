@@ -130,12 +130,15 @@
 		"strings": {
 			"patterns": [
 				{
-					"begin": "\"",
+					"begin": "(?:^|[^%])(\")",
 					"beginCaptures": {
-						"0": {"name": "string.quoted.double.magik"}
+						"1": {"name": "string.quoted.double.magik"}
 					},
 					"end": "\"",
-					"name": "string.quoted.double.magik"
+					"endCaptures": {
+						"0": {"name": "string.quoted.double.magik"}
+					},
+					"contentName": "string.quoted.double.magik"
 				}
 			]
 		},
