@@ -107,7 +107,7 @@ $
 
 _pragma(classify_level=debug)
 ## Jump to source in VS Code
-_global _constant mgoto <<
+_global _constant vs_goto <<
 _proc ( method_string, _optional class_string, super? )
 
 	_global mjump
@@ -165,6 +165,59 @@ _proc ( method_string, _optional class_string, super? )
 
 _endproc
 $
+
+
+_pragma(classify_level=debug)
+## Load temp file created in VS Code with a custom message at the Magik terminal.
+_global _constant vs_load <<
+_proc ()
+	_dynamic !output!
+	source_file << "C:/temp/temp_magik_vscode.magik"
+
+	_if _not system.file_exists?(source_file)
+	_then
+		_return
+	_endif
+
+	msg << "Loading..."
+	input << _unset
+	_protect
+		input << external_text_input_stream.new( source_file )
+		_loop
+			_if ( a_line << input.get_line() ) _is _unset
+			_then
+				_leave
+			_endif
+			_if a_line.index_of_seq("# Output:") _is 1
+			_then
+				msg << a_line.slice_to_end(10)
+				_leave
+			_endif
+		_endloop
+	_protection
+		_if input _isnt _unset
+		_then
+			input.close()
+		_endif
+	_endprotect
+
+	orig_output << !output!
+	_protect
+		!output! << internal_text_output_stream.new()
+		orig_output.write(msg)
+		_try _with cond
+			load_file( source_file )
+		_when error
+			orig_output.write(%newline)
+			cond.report_on( orig_output )
+		_endtry
+	_protection
+		!output! << orig_output
+	_endprotect
+
+_endproc
+$
+
 
 
 # ---------------------------------------------------------------------------------------
