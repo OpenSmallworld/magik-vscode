@@ -31,6 +31,12 @@
             "aliases": ["Message", "message"],
             "extensions": [".msg"],
             "configuration": "./message-configuration.json"
+        },
+        {
+            "id": "definition",
+            "aliases": ["Definition", "definition"],
+            "extensions": [".def"],
+            "configuration": "./definition-configuration.json"
         }],
         "grammars": [{
             "language": "magik",
@@ -41,6 +47,11 @@
             "language": "message",
             "scopeName": "text.message",
             "path": "./syntaxes/message.tmLanguage.json"
+        },
+        {
+            "language": "definition",
+            "scopeName": "text.definition",
+            "path": "./syntaxes/definition.tmLanguage.json"
         }],
         "commands": [
             {
