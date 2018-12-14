@@ -1,0 +1,302 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Definition",
+	"patterns": [
+		{
+			"include": "#comments"
+		},
+		{
+			"include": "#definition"
+		},
+		{
+			"include": "#keywords"
+		}
+	],
+	"repository": {
+		"comments": {
+			"patterns": [
+				{
+					"match": "^#.*\\n",
+					"name": "comment.line.definition"
+				}
+			]
+		},
+		"definition": {
+			"patterns": [
+				{
+					"comment": "Pattern for module.def matches module name, base version, and current version.",
+					"match": "^\\s*([^\\s]+)(?:\\s+([\\d]+))?\\s+([\\d]+)\\s*$",
+					"captures": {
+						"1": {"name": "entity.name.tag.definition"},
+						"2": {"name": "constant.numeric.definition"},
+						"3": {"name": "constant.numeric.definition"}
+					}
+				},
+				{
+					"comment": "Pattern for product.def matches product name and product type.",
+					"match": "^\\s*([^\\s]+)\\s+(layered_product|config_product|customisation_product)\\s*$",
+					"captures": {
+						"1": {"name": "entity.name.tag.definition"},
+						"2": {"name": "constant.language.definition"}
+					}
+				}
+			]
+		},
+		"keywords": {
+			"patterns": [
+				{
+					"include": "#description"
+				},
+				{
+					"include": "#hidden"
+				},
+				{
+					"include": "#templates"
+				},
+				{
+					"include": "#requires"
+				},
+				{
+					"include": "#requires_datamodel"
+				},
+				{
+					"include": "#install_requires"
+				},
+				{
+					"include": "#condition_message_accessor"
+				},
+				{
+					"include": "#language"
+				},
+				{
+					"include": "#test_definitions"
+				},
+				{
+					"include": "#version"
+				},
+				{
+					"include": "#title"
+				}
+			]
+		},
+		"description": {
+			"patterns": [
+				{
+					"begin": "^(description)\\b",
+					"beginCaptures": {
+						"1": {"name": "keyword.other.definition"}
+					},
+					"end": "^(end)\\b",
+					"endCaptures": {
+						"1": {"name": "keyword.other.definition"}
+					},
+					"contentName": "string.unquoted.definition"
+				}
+			]
+		},
+		"hidden": {
+			"patterns": [
+				{
+					"match": "^(hidden)\\b",
+					"name": "keyword.other.definition"
+				}
+			]
+		},
+		"templates": {
+			"patterns": [
+				{
+					"begin": "^(templates)\\b",
+					"beginCaptures": {
+						"1": {"name": "keyword.other.definition"}
+					},
+					"end": "^(end)\\b",
+					"endCaptures": {
+						"1": {"name": "keyword.other.definition"}
+					},
+					"contentName": "string.unquoted.definition"
+				}
+			]
+		},
+		"requires": {
+			"patterns": [
+				{
+					"begin": "^(requires)\\b",
+					"beginCaptures": {
+						"1": {"name": "keyword.other.definition"}
+					},
+					"end": "^(end)\\b",
+					"endCaptures": {
+						"1": {"name": "keyword.other.definition"}
+					},
+					"patterns": [
+						{
+							"include": "#module"
+						}
+					]
+				}
+			]
+		},
+		"requires_datamodel": {
+			"patterns": [
+				{
+					"begin": "^(requires_datamodel)\\b",
+					"beginCaptures": {
+						"1": {"name": "keyword.other.definition"}
+					},
+					"end": "^(end)\\b",
+					"endCaptures": {
+						"1": {"name": "keyword.other.definition"}
+					},
+					"patterns": [
+						{
+							"include": "#module"
+						}
+					]
+				}
+			]
+		},
+		"install_requires": {
+			"patterns": [
+				{
+					"begin": "^(install_requires)\\b",
+					"beginCaptures": {
+						"1": {"name": "keyword.other.definition"}
+					},
+					"end": "^(end)\\b",
+					"endCaptures": {
+						"1": {"name": "keyword.other.definition"}
+					},
+					"patterns": [
+						{
+							"include": "#module"
+						}
+					]
+				}
+			]
+		},
+		"condition_message_accessor": {
+			"patterns": [
+				{
+					"begin": "^(condition_message_accessor)\\b",
+					"beginCaptures": {
+						"1": {"name": "keyword.other.definition"}
+					},
+					"end": "\\n",
+					"patterns": [
+						{
+							"include": "#module"
+						}
+					]
+				}
+			]
+		},
+		"language": {
+			"patterns": [
+				{
+					"begin": "^(language)\\b",
+					"beginCaptures": {
+						"1": {"name": "keyword.other.definition"}
+					},
+					"end": "\\n",
+					"patterns": [
+						{
+							"match": "\\w\\w_\\w\\w",
+							"name": "meta.object-literal.key.definition"
+						}
+					]
+				}
+			]
+		},
+		"test_definitions": {
+			"patterns": [
+				{
+					"include": "#tests_modules"
+				},
+				{
+					"include": "#test"
+				}
+			]
+		},
+		"version": {
+			"patterns": [
+				{
+					"match": "^(version)[\\s]+(\\d\\.\\d\\.\\d)(?:[\\s]+(.*))?$",
+					"captures": {
+						"1": {"name": "constant.language.definition"},
+						"2": {"name": "constant.numeric.definition"},
+						"3": {"name": "string.unquoted.definition"}
+					}
+				}
+			]
+		},
+		"title": {
+			"patterns": [
+				{
+					"begin": "^(title)\\b",
+					"beginCaptures": {
+						"1": {"name": "keyword.other.definition"}
+					},
+					"end": "^(end)\\b",
+					"endCaptures": {
+						"1": {"name": "keyword.other.definition"}
+					},
+					"contentName": "string.unquoted.definition"
+				}
+			]
+		},		
+		"tests_modules": {
+			"patterns": [
+				{
+					"begin": "^(tests_modules)\\b",
+					"beginCaptures": {
+						"1": {"name": "keyword.other.definition"}
+					},
+					"end": "^(end)\\b",
+					"endCaptures": {
+						"1": {"name": "keyword.other.definition"}
+					},
+					"patterns": [
+						{
+							"include": "#module"
+						}
+					]
+				}
+			]
+		},
+		"test": {
+			"patterns": [
+				{
+					"begin": "^(test)\\b",
+					"beginCaptures": {
+						"1": {"name": "keyword.other.definition"}
+					},
+					"end": "^(end)\\b",
+					"endCaptures": {
+						"1": {"name": "keyword.other.definition"}
+					},
+					"patterns": [
+						{
+							"match": "\\b(name|topics|framework|args)[\\s]+(.*)\\b",
+							"captures": {
+								"1": {"name": "constant.language.definition"},
+								"2": {"name": "variable.parameter.definition"}
+							}
+						}
+					]
+				}
+			]
+		},
+		"module": {
+			"patterns": [
+				{
+					"match": "\\s*([^\\s]+)(?:\\s+([\\d]+))?\\s*",
+					"captures": {
+						"1": {"name": "variable.other.definition"},
+						"2": {"name": "constant.numeric.definition"}
+					}
+				}
+			]
+		}
+	},
+	"scopeName": "text.definition"
+}
