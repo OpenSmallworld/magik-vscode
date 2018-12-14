@@ -1,0 +1,77 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Message",
+	"patterns": [
+		{
+			"include": "#comments"
+		},
+		{
+			"include": "#messages"
+		}
+	],
+	"repository": {
+		"comments": {
+			"patterns": [
+				{
+					"match": "^##.*\\n",
+					"name": "comment.block.documentation.message"
+				},
+				{
+					"match": "^#.*\\n",
+					"name": "comment.line.message"
+				}
+			]
+		},
+		"messages": {
+			"patterns": [
+				{
+					"comment": "The 'begin' captures the message symbol and (optionally) the language.",
+					"begin": "^((?:\\:[A-Za-z0-9_\\!\\?]+)|(?:\\:[A-Za-z0-9_\\!\\?]*\\|[^\\|]*\\|))\\s+(\\:\\w\\w_\\w\\w)?(?:\\s*)",
+					"beginCaptures": {
+						"1": {"name": "meta.object-literal.key.message"},
+						"2": {"name": "meta.object-literal.key.message"}
+					},
+					"end": "\\n",
+					"contentName": "string.unqouted.message",
+					"patterns": [
+						{
+							"include": "#notations"
+						}
+					]
+				},
+				{
+					"comment": "This pattern matches messages on a separate line from the message symbol.",
+					"name": "string.unquoted.message",
+					"begin": "^[^\\#\\:\\n]",
+					"end": "\\n",
+					"patterns": [
+						{
+							"include": "#notations"
+						}
+					]
+				}
+			]
+		},
+		"notations": {
+			"patterns": [
+				{
+					"match": "#\\d+",
+					"name": "variable.other.write.message"
+				},
+				{
+					"match": "#h\\d+",
+					"name": "variable.other.show.message"
+				},
+				{
+					"match": "#@\\d+",
+					"name": "variable.other.identifier.message"
+				},
+				{
+					"match": "(#n|#s|#t|##)",
+					"name": "constant.character.escape.message"
+				}
+			]
+		}
+	},
+	"scopeName": "text.message"
+}

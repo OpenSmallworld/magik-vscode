@@ -43,6 +43,7 @@ const MAGIK_KEYWORDS = [
   'protection',
   'endprotect',
   'method',
+  'endmethod',
   'proc',
   'endproc',
   'block',

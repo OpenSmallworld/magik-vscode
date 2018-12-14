@@ -130,12 +130,15 @@
 		"strings": {
 			"patterns": [
 				{
-					"begin": "\"",
+					"begin": "(?:^|[^%])(\")",
 					"beginCaptures": {
-						"0": {"name": "string.quoted.double.magik"}
+						"1": {"name": "string.quoted.double.magik"}
 					},
 					"end": "\"",
-					"name": "string.quoted.double.magik"
+					"endCaptures": {
+						"0": {"name": "string.quoted.double.magik"}
+					},
+					"contentName": "string.quoted.double.magik"
 				}
 			]
 		},
@@ -214,7 +217,7 @@
 		"symbol": {
 			"patterns": [
 				{
-					"match": "(?:\\s*[^#\"A-Za-z0-9_\\!\\?])(\\:[A-Za-z0-9_\\!\\?]+)(?=\\s*[^A-Za-z0-9_\\!\\?])",
+					"match": "(?:\\s*[^#\"A-Za-z0-9_\\!\\?])((?:\\:[A-Za-z0-9_\\!\\?]*\\|.+\\|)|(?:\\:[A-Za-z0-9_\\!\\?]+))(?=\\s*[^A-Za-z0-9_\\!\\?])",
 					"captures": {
 							"1": {"name": "meta.object-literal.key.magik"}
 					}
