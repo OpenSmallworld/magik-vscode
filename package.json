@@ -45,8 +45,13 @@
             },
             {
                 "id": "definition",
-                "aliases": ["Definition", "definition"],
-                "extensions": [".def"],
+                "aliases": [
+                    "Definition", 
+                    "definition"
+                ],
+                "extensions": [
+                    ".def"
+                ],
                 "configuration": "./definition-configuration.json"
             }
         ],
