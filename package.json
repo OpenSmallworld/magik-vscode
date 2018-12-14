@@ -25,11 +25,22 @@
             "aliases": ["Magik", "magik"],
             "extensions": [".magik"],
             "configuration": "./language-configuration.json"
+        },
+        {
+            "id": "message",
+            "aliases": ["Message", "message"],
+            "extensions": [".msg"],
+            "configuration": "./message-configuration.json"
         }],
         "grammars": [{
             "language": "magik",
             "scopeName": "source.magik",
             "path": "./syntaxes/magik.tmLanguage.json"
+        },
+        {
+            "language": "message",
+            "scopeName": "text.message",
+            "path": "./syntaxes/message.tmLanguage.json"
         }],
         "commands": [
             {
