@@ -18,41 +18,55 @@
         "onCommand:magik.compileFile",
         "onCommand:magik.compileSelection"
     ],
-    "main": "magik",
+    "main": "./src/magik",
     "contributes": {
-        "languages": [{
-            "id": "magik",
-            "aliases": ["Magik", "magik"],
-            "extensions": [".magik"],
-            "configuration": "./language-configuration.json"
-        },
-        {
-            "id": "message",
-            "aliases": ["Message", "message"],
-            "extensions": [".msg"],
-            "configuration": "./message-configuration.json"
-        },
-        {
-            "id": "definition",
-            "aliases": ["Definition", "definition"],
-            "extensions": [".def"],
-            "configuration": "./definition-configuration.json"
-        }],
-        "grammars": [{
-            "language": "magik",
-            "scopeName": "source.magik",
-            "path": "./syntaxes/magik.tmLanguage.json"
-        },
-        {
-            "language": "message",
-            "scopeName": "text.message",
-            "path": "./syntaxes/message.tmLanguage.json"
-        },
-        {
-            "language": "definition",
-            "scopeName": "text.definition",
-            "path": "./syntaxes/definition.tmLanguage.json"
-        }],
+        "languages": [
+            {
+                "id": "magik",
+                "aliases": [
+                    "Magik",
+                    "magik"
+                ],
+                "extensions": [
+                    ".magik"
+                ],
+                "configuration": "./languages/magik-configuration.json"
+            },
+            {
+                "id": "message",
+                "aliases": [
+                    "Message",
+                    "message"
+                ],
+                "extensions": [
+                    ".msg"
+                ],
+                "configuration": "./languages/message-configuration.json"
+            },
+            {
+                "id": "definition",
+                "aliases": ["Definition", "definition"],
+                "extensions": [".def"],
+                "configuration": "./definition-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "magik",
+                "scopeName": "source.magik",
+                "path": "./grammars/magik.tmLanguage.json"
+            },
+            {
+                "language": "message",
+                "scopeName": "text.message",
+                "path": "./grammars/message.tmLanguage.json"
+            },
+            {
+                "language": "definition",
+                "scopeName": "text.definition",
+                "path": "./grammars/definition.tmLanguage.json"
+            }
+        ],
         "commands": [
             {
                 "command": "magik.goto",
@@ -112,8 +126,22 @@
             {
                 "id": "magik-icons",
                 "label": "Magik Icons",
-                "path": "magik-icons.json"
+                "path": "./themes/magik-icons.json"
             }
         ]
+    },
+    "scripts": {
+        "lint": "eslint \"./src/**/*.js\"",
+        "lint:fix": "npm run lint -- --fix",
+        "prettier": "prettier --write \"src/**/*.js\""
+    },
+    "devDependencies": {
+        "eslint": "5.9.0",
+        "eslint-config-airbnb": "17.1.0",
+        "eslint-config-airbnb-base": "13.1.0",
+        "eslint-config-prettier": "3.3.0",
+        "eslint-plugin-import": "2.14.0",
+        "eslint-plugin-prettier": "3.0.0",
+        "prettier": "1.15.3"
     }
 }
