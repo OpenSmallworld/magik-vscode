@@ -3,6 +3,7 @@
 const vscode = require('vscode'); // eslint-disable-line
 const fs = require('fs');
 const path = require('path');
+const readline = require('readline');
 
 const MAGIK_KEYWORDS = [
   'self',
@@ -119,20 +120,8 @@ const endWordsLength = endWords.length;
 const startAssignWords = ['_if', '_for', '_try', '_protect', '_loop'];
 const endAssignWords = ['_endif', '_endloop', '_endtry', '_endprotect'];
 
+let classData = {};
 const openFiles = [];
-
-function currentClassName(doc, pos) {
-  for (let row = pos.line; row > 0; row--) {
-    const text = doc.lineAt(row).text;
-    if (text.trim().startsWith('_method ') || text.includes(' _method ')) {
-      const className = text
-        .split('_method ')
-        .splice(-1)[0]
-        .split('.')[0];
-      return className.trim();
-    }
-  }
-}
 
 function currentWord(doc, pos) {
   const col = pos.character;
@@ -163,7 +152,7 @@ function currentWord(doc, pos) {
   }
 }
 
-function previousWord(doc, pos) {
+function previousWord(doc, pos, varOnly) {
   const line = doc.lineAt(pos.line);
   let text = line.text.slice(0, pos.character);
   let index;
@@ -171,15 +160,38 @@ function previousWord(doc, pos) {
   text = text
     .split('')
     .reverse()
-    .join('');
+    .join('')
+    .trim();
 
   index = text.search(INVALID_CHAR);
+  if (index === -1) {
+    // Try previous row - ignore comments
+    for (let row = pos.line - 1; row > -1; row--) {
+      let newText = doc.lineAt(row).text;
+      if (newText.trim()[0] !== '#') {
+        newText = newText
+          .split('')
+          .reverse()
+          .join('')
+          .trim();
+        index = newText.search(INVALID_CHAR);
+        text = newText;
+        break;
+      }
+    }
+  }
   if (index === -1) return;
 
   text = text.slice(index).trim();
-  if (text[0] !== '.') return;
+  if (varOnly) {
+    if (text[0] !== '.') return;
+    text = text.slice(1).trim();
+  } else {
+    index = text.search(/[a-zA-Z0-9_\\?\\!]/);
+    if (index === -1) return;
+    text = text.slice(index);
+  }
 
-  text = text.slice(1).trim();
   index = text.search(INVALID_CHAR);
   if (index === -1) index = text.length;
 
@@ -188,6 +200,53 @@ function previousWord(doc, pos) {
     .split('')
     .reverse()
     .join('');
+}
+
+function nextWord(doc, pos) {
+  const line = doc.lineAt(pos.line);
+  let text = line.text.slice(pos.character);
+  let index = text.search(INVALID_CHAR);
+  if (index === -1) return;
+
+  text = text.slice(index);
+  index = text.search(/[a-zA-Z0-9_\\?\\!]/);
+  if (index === -1) {
+    // Try next row - ignore comments
+    for (let row = pos.line + 1; row < doc.lineCount; row++) {
+      const newText = doc.lineAt(row).text.trim();
+      if (newText[0] !== '#') {
+        index = newText.search(/[a-zA-Z0-9_\\?\\!]/);
+        text = newText;
+        break;
+      }
+    }
+  }
+  if (index === -1) return;
+
+  text = text.slice(index);
+  index = text.search(INVALID_CHAR);
+  if (index === -1) return;
+
+  return text.slice(0, index);
+}
+
+function currentClassName(doc, pos) {
+  for (let row = pos.line; row > -1; row--) {
+    const text = doc.lineAt(row).text;
+    const trim = text.trim();
+    if (trim.startsWith('_method ') || text.includes(' _method ')) {
+      const className = text
+        .split('_method ')
+        .splice(-1)[0]
+        .split('.')[0];
+      return className.trim();
+    }
+    if (trim.startsWith('def_slotted_exemplar')) {
+      const col = text.indexOf('def_slotted_exemplar') + 20;
+      const newPos = new vscode.Position(row, col);
+      return nextWord(doc, newPos);
+    }
+  }
 }
 
 function removeStrings(text) {
@@ -208,7 +267,7 @@ function removeStrings(text) {
 }
 
 function compileText(lines) {
-  const tempFile = 'C:/temp/temp_magik_vscode.magik';
+  const tempFile = 'C:/Temp/vscode_temp.magik';
   const command = 'vs_load()\u000D';
   const output = lines.join('\r\n');
 
@@ -414,7 +473,7 @@ function goto() {
     }
   }
 
-  let classText = previousWord(doc, position);
+  let classText = previousWord(doc, position, true);
   let inherit = '_false';
 
   if (['_self', '_super', '_clone'].includes(classText)) {
@@ -677,30 +736,10 @@ function findDefinition(fileName, word) {
 
 // TODO - only looking in current file, other open files and magik files in the current folder!
 function getMagikDefinition(doc, pos) {
-  const previous = previousWord(doc, pos);
+  const previous = previousWord(doc, pos, true);
   if (previous !== '_self') return;
 
   const current = currentWord(doc, pos);
-
-  // const methodTest = new RegExp(`(^_method | _method ).+\\.\\s*(${current})`);
-  // const defineTest = new RegExp(`\\.\\s*(define_slot_access|define_shared_constant|def_property|define_property|define_shared_variable)\\s*\\(\\s*:(${current})`);
-  // const lineCount = doc.lineCount;
-
-  // for (let row = 0; row < lineCount; row++) {
-  //   const line = doc.lineAt(row);
-  //   const text = line.text;
-  //   let index = text.search(methodTest);
-  //   if (index === -1) {
-  //     index = text.search(defineTest);
-  //   }
-
-  //   if (index !== -1) {
-  //     index = text.indexOf(current, index);
-  //     const range = new vscode.Range(row, index, row, index + current.length);
-  //     return new vscode.Location(doc.uri, range);
-  //   }
-  // }
-
   const currentFileName = doc.fileName;
   const currentDir = path.dirname(currentFileName);
   const doneFileNames = [];
@@ -762,45 +801,99 @@ function getMagikReferences(doc, pos) {
   return locs;
 }
 
-// TODO - currently only looking for method definitions
-function getMagikSymbols(doc) {
+function getClassAndMethodName(text) {
+  const parts = text.split('.');
+  const className = parts[0]
+    .split(' ')
+    .splice(-1)[0]
+    .trim();
+  let methodName;
+
+  if (parts.length > 1) {
+    methodName = parts[1].trim();
+    let index = methodName.search(INVALID_CHAR);
+    if (index === -1) index = methodName.length;
+    methodName = methodName.slice(0, index);
+    return {className, methodName};
+  }
+}
+
+// TODO - currently only looking for definitions on one line
+function getDocSymbols(doc) {
   const symbols = [];
-  const methodTest = new RegExp(`(^_method | _method ).+\\.\\s*.+`);
   const methodType = vscode.SymbolKind.Method;
+  const tests = [
+    {
+      test: new RegExp(`(^_method | _method ).+\\.\\s*.+`),
+      type: methodType,
+    },
+    {
+      test: new RegExp(`\\.\\s*(define_shared_constant)\\s*\\(\\s*:.+`),
+      type: vscode.SymbolKind.Constant,
+    },
+    {
+      test: new RegExp(
+        `\\.\\s*(define_slot_access|define_shared_variable)\\s*\\(\\s*:.+`
+      ),
+      type: vscode.SymbolKind.Variable,
+    },
+    {
+      test: new RegExp(`\\.\\s*(def_property|define_property)\\s*\\(\\s*:.+`),
+      type: vscode.SymbolKind.Property,
+    },
+    {
+      test: new RegExp(`(^def_slotted_exemplar)\\s*\\(\\s*:.+`),
+      type: vscode.SymbolKind.Class,
+    },
+  ];
+  const testsLength = tests.length;
+
   const lineCount = doc.lineCount;
   const uri = doc.uri;
 
   for (let row = 0; row < lineCount; row++) {
     const text = doc.lineAt(row).text;
 
-    if (text.search(methodTest) !== -1) {
-      const parts = text.split('.');
-      const className = parts[0]
-        .split(' ')
-        .splice(-1)[0]
-        .trim();
-      let methodName;
+    for (let i = 0; i < testsLength; i++) {
+      let index = text.search(tests[i].test);
 
-      if (parts.length > 1) {
-        methodName = parts[1].trim();
-        let index = methodName.search(INVALID_CHAR);
-        if (index === -1) index = methodName.length;
-        methodName = methodName.slice(0, index);
-        index = text.indexOf(methodName);
-        const range = new vscode.Range(
-          row,
-          index,
-          row,
-          index + methodName.length
-        );
-        const sym = new vscode.SymbolInformation(
-          methodName,
-          methodType,
-          range,
-          uri,
-          className
-        );
-        symbols.push(sym);
+      if (index !== -1) {
+        let className;
+        let methodName;
+
+        if (tests[i].type === methodType) {
+          const res = getClassAndMethodName(text);
+          if (res.methodName) {
+            className = res.className;
+            methodName = res.methodName;
+          }
+        } else {
+          const pos = new vscode.Position(row, index + 1);
+          const next = nextWord(doc, pos);
+          if (next) {
+            className = currentClassName(doc, pos);
+            methodName = next;
+          }
+        }
+
+        if (className) {
+          index = text.indexOf(methodName);
+          const range = new vscode.Range(
+            row,
+            index,
+            row,
+            index + methodName.length
+          );
+          const sym = new vscode.SymbolInformation(
+            methodName,
+            tests[i].type,
+            range,
+            uri,
+            className
+          );
+          symbols.push(sym);
+          break;
+        }
       }
     }
   }
@@ -808,13 +901,240 @@ function getMagikSymbols(doc) {
   return symbols;
 }
 
+async function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve();
+    }, ms);
+  });
+}
+
+async function loadSymbols() {
+  const symbolFile = 'C:/Temp/vscode_symbols.txt';
+  if (!fs.existsSync(symbolFile)) {
+    console.log('not loading symbols!');
+    return;
+  }
+
+  console.log('loading symbols...')
+
+  const input = fs.createReadStream(symbolFile);
+  const rl = readline.createInterface({input});
+
+  classData = {};
+
+  rl.on('line', (line) => {
+    const parts = line.split('|');
+    const className = parts[0];
+    const classSourceFile = parts[1];
+    const parents = parts[2].split(';');
+    parents.pop();
+    const methodParts = parts[3].split(';');
+    const methodLength = methodParts.length - 1;
+    const methods = [];
+
+    for (let i = 0; i < methodLength; i++) {
+      const data = methodParts[i].split(',');
+      const methodData = {
+        name: data[0],
+        variable: data[1] === '1',
+      };
+      if (data[2] !== '') {
+        methodData.sourceFile = data[2];
+      }
+      methods.push(methodData);
+    }
+
+    classData[className] = {
+      sourceFile: classSourceFile,
+      parents,
+      methods,
+    };
+  });
+
+  let done = false;
+  rl.on('close', () => {
+    done = true;
+  });
+
+  for (let i = 0; i < 50; i++) {
+    if (done) {
+      fs.unlinkSync(symbolFile);
+      return;
+    }
+    await wait(75); //eslint-disable-line
+  }
+}
+
+function refreshSymbols() {
+  const command = 'vs_save_symbols()\u000D';
+  vscode.commands.executeCommand('workbench.action.terminal.sendSequence', {
+    text: command,
+  });
+}
+
+function matchString(string, query) {
+  const length = query.length;
+  if (length > string.length) return false;
+
+  let index = 0;
+  for (let i = 0; i < length; i++) {
+    index = string.indexOf(query[i], index);
+    if (index === -1) return false;
+    index++;
+  }
+
+  return true;
+}
+
+function getMethodSymbol(name, fileName, methodData) {
+  let sym = methodData.symbol;
+  if (!sym) {
+    const type = methodData.variable
+      ? vscode.SymbolKind.Variable
+      : vscode.SymbolKind.Method;
+    const loc = new vscode.Location(vscode.Uri.file(fileName), undefined);
+    sym = new vscode.SymbolInformation(name, type, undefined, loc);
+    sym._fileName = fileName;
+    sym._methodName = methodData.name;
+    methodData.symbol = sym;
+  }
+  return sym;
+}
+
+function findMethods(
+  className,
+  methodString,
+  symbols,
+  doneMethods,
+  checkParents
+) {
+  const data = classData[className];
+  const sourceFile = data.sourceFile;
+  const methods = data.methods;
+  const methodsLength = methods.length;
+  const max = 500;
+
+  for (let methodIndex = 0; methodIndex < methodsLength; methodIndex++) {
+    const methodData = methods[methodIndex];
+    const name = `${className}.${methodData.name}`;
+
+    if (
+      !doneMethods.includes(name) &&
+      matchString(methodData.name, methodString)
+    ) {
+      let fileName = methodData.sourceFile;
+      if (!fileName) {
+        fileName = sourceFile;
+      }
+      const sym = getMethodSymbol(name, fileName, methodData);
+
+      symbols.push(sym);
+      doneMethods.push(name);
+
+      if (doneMethods.length === max) return;
+    }
+  }
+
+  if (checkParents) {
+    const parents = data.parents;
+    const parentsLength = parents.length;
+
+    for (let parentIndex = 0; parentIndex < parentsLength; parentIndex++) {
+      findMethods(
+        parents[parentIndex],
+        methodString,
+        symbols,
+        doneMethods,
+        true
+      );
+      if (doneMethods.length === max) return;
+    }
+  }
+}
+
+async function getWorkspaceSymbols(query) {
+  await loadSymbols();
+
+  const queryString = query.replace(' ', '');
+  const queryParts = queryString.split('.');
+  let classString;
+  let methodString;
+
+  if (queryParts.length > 1) {
+    classString = queryParts[0];
+    methodString = queryParts[1];
+    if (classString.length < 2 && methodString.length < 2) return;
+  } else {
+    methodString = queryParts[0];
+    if (methodString.length < 2) return;
+  }
+
+  const symbols = [];
+  const doneMethods = [];
+
+  const classNames = Object.keys(classData);
+  const classLength = classNames.length;
+
+  for (let classIndex = 0; classIndex < classLength; classIndex++) {
+    const className = classNames[classIndex];
+
+    if (!classString || matchString(className, classString)) {
+      findMethods(className, methodString, symbols, doneMethods, classString);
+    }
+  }
+
+  symbols.sort((a, b) => a.name.localeCompare(b.name));
+
+  return symbols;
+}
+
+function resolveSymbol(sym) {
+  const index = sym._methodName.search(INVALID_CHAR);
+  if (index !== -1) {
+    sym._methodName = sym._methodName.slice(0, index);
+  }
+  const loc = findDefinition(sym._fileName, sym._methodName);
+  if (loc) {
+    sym.location = loc;
+    return sym;
+  }
+}
+
+function getCompletionItems(doc, pos) {
+  const current = currentWord(doc, pos);
+  if (!current) return;
+
+  const items = [];
+  const length = MAGIK_KEYWORDS.length;
+
+  for (let i = 0; i < length; i++) {
+    const key = MAGIK_KEYWORDS[i];
+    if (key.startsWith(current)) {
+      const item = new vscode.CompletionItem(
+        `_${key}`,
+        vscode.CompletionItemKind.Keyword
+      );
+      item.detail = 'Magik Keyword';
+      items.push(item);
+    }
+  }
+
+  return items;
+}
+
 function activate(context) {
+  const magikFile = {
+    scheme: 'file',
+    language: 'magik',
+  };
   const config = [
     ['goto', goto],
     ['compileMethod', compileMethod],
     ['compileFile', compileFile],
     ['compileSelection', compileSelection],
     ['indentMethod', indentMagik],
+    ['refreshSymbols', refreshSymbols],
   ];
 
   for (const [name, func] of config) {
@@ -824,10 +1144,7 @@ function activate(context) {
 
   context.subscriptions.push(
     vscode.languages.registerOnTypeFormattingEditProvider(
-      {
-        scheme: 'file',
-        language: 'magik',
-      },
+      magikFile,
       {
         provideOnTypeFormattingEdits: formatMagik,
       },
@@ -838,39 +1155,34 @@ function activate(context) {
   );
 
   context.subscriptions.push(
-    vscode.languages.registerDefinitionProvider(
-      {
-        scheme: 'file',
-        language: 'magik',
-      },
-      {
-        provideDefinition: getMagikDefinition,
-      }
-    )
+    vscode.languages.registerDefinitionProvider(magikFile, {
+      provideDefinition: getMagikDefinition,
+    })
   );
 
   context.subscriptions.push(
-    vscode.languages.registerReferenceProvider(
-      {
-        scheme: 'file',
-        language: 'magik',
-      },
-      {
-        provideReferences: getMagikReferences,
-      }
-    )
+    vscode.languages.registerReferenceProvider(magikFile, {
+      provideReferences: getMagikReferences,
+    })
   );
 
   context.subscriptions.push(
-    vscode.languages.registerDocumentSymbolProvider(
-      {
-        scheme: 'file',
-        language: 'magik',
-      },
-      {
-        provideDocumentSymbols: getMagikSymbols,
-      }
-    )
+    vscode.languages.registerDocumentSymbolProvider(magikFile, {
+      provideDocumentSymbols: getDocSymbols,
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.languages.registerWorkspaceSymbolProvider({
+      provideWorkspaceSymbols: getWorkspaceSymbols,
+      resolveWorkspaceSymbol: resolveSymbol,
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.languages.registerCompletionItemProvider(magikFile, {
+      provideCompletionItems: getCompletionItems,
+    })
   );
 
   // No api for open editors

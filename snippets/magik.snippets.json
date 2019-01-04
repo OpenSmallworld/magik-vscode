@@ -1,0 +1,143 @@
+{
+    "if_then": {
+        "prefix": "if",
+        "body": [
+            "_if ${1:condition}",
+            "_then",
+            "\t$0",
+            "_endif"
+        ],
+        "description": "Magik If Statement"
+    },
+    "if_then_else": {
+        "prefix": "if else",
+        "body": [
+            "_if ${1:condition}",
+            "_then",
+            "\t$0",
+            "_else",
+            "\t",
+            "_endif"
+        ],
+        "description": "Magik If Then Else Statement"
+    },
+    "for_loop": {
+        "prefix": "for",
+        "body": [
+            "_for ${1:element} _over ${2:iterator}",
+            "_loop",
+            "\t$0",
+            "_endloop"
+        ],
+        "description": "Magik For Loop Statement"
+    },
+    "protect": {
+        "prefix": "protect",
+        "body": [
+            "_protect",
+            "\t$0",
+            "_protection",
+            "\t",
+            "_endprotect"
+        ],
+        "description": "Magik Protect Statement"
+    },
+    "try": {
+        "prefix": "try",
+        "body": [
+            "_try ${1:_with cond}",
+            "\t$0",
+            "_when ${2:error}",
+            "\t",
+            "_endtry"
+        ],
+        "description": "Magik Try Statement"
+    },
+    "method": {
+        "prefix": "method",
+        "body": [
+            "_pragma(classify_level=basic, topic=$1, usage=external)",
+            "_method ${1:class_name}.${2:method_name}()",
+            "\t## Function: ",
+            "\t## Arguments: ",
+            "\t## Returns: ",
+            "\t$0",
+            "_endmethod",
+            "$"
+        ],
+        "description": "Magik Method Definition"
+    },
+    "private_method": {
+        "prefix": "private method",
+        "body": [
+            "_pragma(classify_level=restricted, topic=$1, usage=internal)",
+            "_private _method ${1:class_name}.${2:method_name}()",
+            "\t## Function: ",
+            "\t## Arguments: ",
+            "\t## Returns: ",
+            "\t$0",
+            "_endmethod",
+            "$"
+        ],
+        "description": "Magik Private Method Definition"
+    },
+    "slot": {
+        "prefix": "define_slot_access",
+        "body": [
+            "_pragma(classify_level=restricted, topic=$1, usage=internal)",
+            "${1:class_name}.define_slot_access(:${2:name}, :${3:read}, :${4:private})",
+            "$"
+        ],
+        "description": "Magik Slot Definition"
+    },
+    "property": {
+        "prefix": "def_property",
+        "body": [
+            "_pragma(classify_level=restricted, topic=$1, usage=internal)",
+            "${1:class_name}.def_property(:${2:name},",
+            "\t:type, :${3:string},",
+            "\t:default_value, ${4:\"\"})",
+            "$"
+        ],
+        "description": "Magik Property Definition"
+    },
+    "pragma": {
+        "prefix": "pragma",
+        "body": "_pragma(classify_level=${1:basic,advanced,restricted,debug,depricated}, topic=${2:class_name}, usage=${3:external,internal,subclassable,redefinable})\r\n",
+        "description": "Magik Pragma Statement"
+    },
+    "condition": {
+        "prefix": "condition",
+        "body": [
+            "_pragma(classify_level=basic)",
+            "condition.define_condition(:${1:name},",
+            "\t${2:parent_name},",
+            "\t${3:data_name_list),",
+            "\t${4:optional reporter},",
+            "\t${5:message_accessor})",
+            "$"
+        ],
+        "description": "Magik Condition Definition"
+    },
+    "exemplar": {
+        "prefix": "def_slotted_exemplar",
+        "body": [
+            "_pragma(classify_level=basic, topic=$1)",
+            "def_slotted_exemplar(:${1:class_name},",
+            "\t{",
+            "\t\t{:${2:slot_name}, _unset}",
+            "\t})",
+            "$"
+        ],
+        "description": "Magik Exemplar Definition"
+    },
+    "text_encoding": {
+        "prefix": "text_encoding",
+        "body": [
+            "#% text_encoding = iso8859_1",
+            "_package ${1:sw}",
+            "$"
+        ],
+        "description": "Magik Text Encoding"
+    }
+}

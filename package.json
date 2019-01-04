@@ -2,8 +2,8 @@
     "name": "magik-vscode",
     "displayName": "Magik VS Code",
     "description": "Magik language support for VS Code",
-    "version": "0.0.1",
-    "publisher": "ollie_sims",
+    "version": "0.0.2",
+    "publisher": "GE Smallworld",
     "engines": {
         "vscode": "^1.23.0"
     },
@@ -16,7 +16,9 @@
         "onCommand:magik.goto",
         "onCommand:magik.compileMethod",
         "onCommand:magik.compileFile",
-        "onCommand:magik.compileSelection"
+        "onCommand:magik.compileSelection",
+        "onCommand:magik.indentMethod",
+        "onCommand:magik.refreshSymbols"
     ],
     "main": "./src/magik",
     "contributes": {
@@ -46,7 +48,7 @@
             {
                 "id": "definition",
                 "aliases": [
-                    "Definition", 
+                    "Definition",
                     "definition"
                 ],
                 "extensions": [
@@ -72,6 +74,12 @@
                 "path": "./grammars/definition.tmLanguage.json"
             }
         ],
+        "snippets": [
+			{
+				"language": "magik",
+				"path": "./snippets/magik.snippets.json"
+			}
+		],
         "commands": [
             {
                 "command": "magik.goto",
@@ -92,17 +100,21 @@
             {
                 "command": "magik.indentMethod",
                 "title": "Magik Indent Method"
+            },
+            {
+                "command": "magik.refreshSymbols",
+                "title": "Magik Refresh Symbols"
             }
         ],
         "keybindings": [
             {
-                "command": "magik.compileMethod",
-                "key": "f7",
+                "command": "magik.goto",
+                "key": "f3",
                 "when": "editorTextFocus"
             },
             {
-                "command": "magik.compileSelection",
-                "key": "f8",
+                "command": "magik.compileMethod",
+                "key": "f7",
                 "when": "editorTextFocus"
             },
             {
@@ -111,9 +123,18 @@
                 "when": "editorTextFocus"
             },
             {
-                "command": "magik.goto",
-                "key": "f3",
+                "command": "magik.compileSelection",
+                "key": "f8",
                 "when": "editorTextFocus"
+            },
+            {
+                "command": "magik.indentMethod",
+                "key": "alt+i",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "magik.refreshSymbols",
+                "key": "alt+t"
             }
         ],
         "configuration": {
