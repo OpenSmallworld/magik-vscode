@@ -911,12 +911,7 @@ async function wait(ms) {
 
 async function loadSymbols() {
   const symbolFile = 'C:/Temp/vscode_symbols.txt';
-  if (!fs.existsSync(symbolFile)) {
-    console.log('not loading symbols!');
-    return;
-  }
-
-  console.log('loading symbols...')
+  if (!fs.existsSync(symbolFile)) return;
 
   const input = fs.createReadStream(symbolFile);
   const rl = readline.createInterface({input});
