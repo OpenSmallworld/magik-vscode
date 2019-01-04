@@ -28,7 +28,7 @@ Adds the following features to VS Code:
 
 ## Installation
 
-1. Add the extension to VS Code by cloning the repo to %USERPROFILE%\.vscode\extensions
+1. Add the extension to VS Code by cloning the repo to %USERPROFILE%\\.vscode\extensions
 2. Enable `Editor: Format on Type` in the VS Code settings to allow adding _ and auto indentation.
 
 I would recommend using these other extensions:
