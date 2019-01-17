@@ -51,7 +51,7 @@
 				},
 				{
 					"name": "keyword.control.loop.magik",
-					"match": "\\b(_for|_over|_loop|_finally|_endloop)\\b"
+					"match": "\\b(_for|_over|_loop|_finally|_endloop|_while)\\b"
 				},
 				{
 					"name": "keyword.control.flow.magik",

@@ -29,6 +29,7 @@ const MAGIK_KEYWORDS = [
   'over',
   'loop',
   'endloop',
+  'while',
   'finally',
   'loopbody',
   'leave',
@@ -117,7 +118,7 @@ const endWords = [
 ];
 const endWordsLength = endWords.length;
 
-const startAssignWords = ['_if', '_for', '_try', '_protect', '_loop'];
+const startAssignWords = ['_if', '_for', '_try', '_protect', '_loop', '_while'];
 const endAssignWords = ['_endif', '_endloop', '_endtry', '_endprotect'];
 
 let classData = {};

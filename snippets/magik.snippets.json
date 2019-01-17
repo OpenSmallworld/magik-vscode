@@ -31,6 +31,16 @@
         ],
         "description": "Magik For Loop Statement"
     },
+    "while_loop": {
+        "prefix": "while",
+        "body": [
+            "_while ${1:condition}",
+            "_loop",
+            "\t$0",
+            "_endloop"
+        ],
+        "description": "Magik For While Loop Statement"
+    },
     "protect": {
         "prefix": "protect",
         "body": [
