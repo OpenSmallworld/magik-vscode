@@ -6,7 +6,6 @@ $
 
 # Note: Please reload open_file() below if the dev procs are loaded from magik_tools (e.g. if the Dev Application is loaded)
 
-
 _block
 	# Optional dev setup - please update this block locally to suit your needs!
 
@@ -39,6 +38,10 @@ _block
 
 	# _global !swift_build_method?!
 	# !swift_build_method?! << _true
+
+	_global !use_method_finder?!
+	!use_method_finder?! << _false
+	method_finder.auto_start? << _false
 
 _endblock
 $
@@ -206,6 +209,20 @@ _proc ()
 		orig_output.write(msg)
 		_try _with cond
 			load_file( source_file )
+			lines << !output!.string.split_by(%newline);
+			n_lines << lines.size
+			_if (n_lines > 1)
+			_then
+				orig_output.write(%newline)
+				_for i _over range(2, n_lines)
+				_loop
+					orig_output.write(lines[i])
+					_if i <> n_lines
+					_then
+						orig_output.write(%newline)
+					_endif
+				_endloop
+			_endif
 		_when error
 			orig_output.write(%newline)
 			cond.report_on( orig_output )

@@ -26,6 +26,9 @@ Adds the following features to VS Code:
 
 (Use Ctrl+Shift+P to list available commands and type Magik)
 
+You can search for Magik methods using **Ctrl+T** and typing `<method name>` or `<class name>`.`<method name>`.
+Use **Alt+T** to refresh symbols.
+
 ## Installation
 
 1. Add the extension to VS Code by cloning the repo to %USERPROFILE%\\.vscode\extensions
@@ -57,6 +60,7 @@ I would recommend using these other extensions:
 
 * Requires Magik to be running in the VS Code integrated terminal.
 * Requires the utility procs to be loaded from vscode_dev.magik.
+* VS Code must be included in your Path (e.g. 'C:\Program Files\Microsoft VS Code\bin').
 
 
 ## Extension Settings
@@ -68,7 +72,7 @@ I would recommend using these other extensions:
 
 ## Known Issues
 
-* Magik symbols are not loaded automatically after compiling code - use **Alt+I** to refresh symbols.
+* Magik symbols are not loaded automatically after compiling code - use **Alt+T** to refresh symbols.
 
 Please add issues here:
 https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues

@@ -104,6 +104,14 @@
             {
                 "command": "magik.refreshSymbols",
                 "title": "Magik Refresh Symbols"
+            },
+            {
+                "command": "magik.gotoPreviousDefinition",
+                "title": "Magik Go To Previous Definition"
+            },
+            {
+                "command": "magik.gotoNextDefinition",
+                "title": "Magik Go To Next Definition"
             }
         ],
         "keybindings": [
@@ -135,6 +143,16 @@
             {
                 "command": "magik.refreshSymbols",
                 "key": "alt+t"
+            },
+            {
+                "command": "magik.gotoPreviousDefinition",
+                "key": "alt+pageup",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "magik.gotoNextDefinition",
+                "key": "alt+pagedown",
+                "when": "editorTextFocus"
             }
         ],
         "configuration": {

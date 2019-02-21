@@ -86,6 +86,7 @@ const incWords = [
   '_protection',
   '_block',
   '_proc',
+  '_finally',
 ];
 const incWordsLength = incWords.length;
 
@@ -101,6 +102,7 @@ const decWords = [
   '_endmethod',
   '_endblock',
   '_endproc',
+  '_finally',
 ];
 const decWordsLength = decWords.length;
 
@@ -118,11 +120,52 @@ const endWords = [
 ];
 const endWordsLength = endWords.length;
 
-const startAssignWords = ['_if', '_for', '_try', '_protect', '_loop', '_while'];
-const endAssignWords = ['_endif', '_endloop', '_endtry', '_endprotect'];
+const startAssignWords = [
+  '_if',
+  '_for',
+  '_try',
+  '_protect',
+  '_over',
+  '_loop',
+  '_while',
+  '_proc',
+];
+const endAssignWords = [
+  '_endif',
+  '_endloop',
+  '_endtry',
+  '_endprotect',
+  '_endproc',
+];
+
+const definitionTests = [
+  {
+    test: new RegExp(`(^_method | _method ).+\\.\\s*.+`),
+    type: vscode.SymbolKind.Method,
+  },
+  {
+    test: new RegExp(`\\.\\s*(define_shared_constant)\\s*\\(\\s*:.+`),
+    type: vscode.SymbolKind.Constant,
+  },
+  {
+    test: new RegExp(
+      `\\.\\s*(define_slot_access|define_shared_variable)\\s*\\(\\s*:.+`
+    ),
+    type: vscode.SymbolKind.Variable,
+  },
+  {
+    test: new RegExp(`\\.\\s*(def_property|define_property)\\s*\\(\\s*:.+`),
+    type: vscode.SymbolKind.Property,
+  },
+  {
+    test: new RegExp(`(^def_slotted_exemplar)\\s*\\(\\s*:.+`),
+    type: vscode.SymbolKind.Class,
+  },
+];
 
 let classData = {};
 const openFiles = [];
+let diagnostics;
 
 function currentWord(doc, pos) {
   const col = pos.character;
@@ -432,66 +475,56 @@ function compileMethod() {
   compileText(lines);
 }
 
-function goto() {
-  const editor = vscode.window.activeTextEditor;
-  const doc = editor.document;
-  const selection = editor.selection;
-  const position = selection.active;
-  const col = position.character;
-  const text = doc.lineAt(position.line).text;
-  let revText;
-  let start;
-  let end;
-
-  revText = text.slice(0, col);
-  revText = revText
-    .split('')
-    .reverse()
-    .join('');
-  start = revText.search(INVALID_CHAR);
-  if (start === -1) return;
-
-  start = col - start;
-
-  end = text.slice(col).search(INVALID_CHAR);
-  if (end === -1) {
-    end = text.length;
-  } else {
-    end = col + end;
-  }
-
-  if (start === end) return;
-
-  let methodText = text.slice(start, end).trim();
-
-  const next = text.slice(end).search(/\S/);
-  if (next !== -1) {
-    const nextChar = text[end + next];
-    if (nextChar === '(') {
-      methodText += '()';
-    } else if (nextChar === '<' && text[end + next + 1] === '<') {
-      methodText += '<<';
+function cancelAssignIndent(testString) {
+  for (let i = 0; i < endAssignWords.length; i++) {
+    const endWord = endAssignWords[i];
+    if (
+      testString.startsWith(endWord) ||
+      testString.endsWith(` ${endWord}`) ||
+      testString.endsWith(`;${endWord}`)
+    ) {
+      return true;
     }
   }
+  return false;
+}
 
-  let classText = previousWord(doc, position, true);
-  let inherit = '_false';
+function methodStartTest(testString) {
+  return testString.startsWith('_method ') || testString.includes(' _method ');
+}
 
-  if (['_self', '_super', '_clone'].includes(classText)) {
-    const className = currentClassName(doc, position);
-    if (className) {
-      if (classText === '_super') {
-        inherit = '_true';
+function procAssignTest(testString) {
+  if (/(;|\s+)_endproc/.test(testString)) {
+    return false;
+  }
+  return /[a-zA-Z0-9_?!]+\s*<<\s*_proc\s*[@a-zA-Z0-9_?!]*\s*\(.*/.test(
+    testString
+  );
+}
+
+function statementAssignTest(testString) {
+  const pairs = [
+    ['_if', '_endif'],
+    ['_for', '_endloop'],
+    ['_loop', '_endloop'],
+    ['_over', '_endloop'],
+    ['_while', '_endloop'],
+  ];
+
+  let r;
+  for (const [start, end] of pairs) {
+    r = new RegExp(`(;|\\s+)${end}`);
+    if (!r.test(testString)) {
+      r = new RegExp(`[a-zA-Z0-9_\\?\\!]+\\s*<<\\s*${start}\\s*`);
+      if (r.test(testString)) {
+        return true;
       }
-      classText = className;
     }
   }
+}
 
-  const command = `vs_goto("^${methodText}$", "${classText}", ${inherit})\u000D`;
-  vscode.commands.executeCommand('workbench.action.terminal.focus', {});
-  vscode.commands.executeCommand('workbench.action.terminal.sendSequence', {
-    text: command,
-  });
+function arrowAssignTest(testString) {
+  return testString.slice(-2) === '<<';
 }
 
 async function indentMagik(currentRow) {
@@ -505,20 +538,21 @@ async function indentMagik(currentRow) {
   const decBrackets = /[)}]/g;
   let indent = 0;
   let tempIndent = false;
-  let assignIndentRow;
+  let assignIndent = false;
+  let indentRow;
 
   for (let row = 0; row < lines.length; row++) {
     const text = lines[row];
     const textLength = text.length;
-    const trim = text.trim();
+    let testString = text.trim();
     let start = text.search(/\S/);
     let matches;
 
     if (start === -1) start = textLength;
 
-    if (trim !== '#') {
+    if (testString !== '#') {
       for (let i = 0; i < decWordsLength; i++) {
-        if (trim.startsWith(decWords[i])) {
+        if (testString.startsWith(decWords[i])) {
           indent--;
           break;
         }
@@ -543,47 +577,70 @@ async function indentMagik(currentRow) {
 
     if (firstRow + row === currentRow) return;
 
-    if (trim[0] !== '#') {
-      if (assignIndentRow) {
-        if (row === assignIndentRow + 1) {
+    if (testString[0] !== '#') {
+      testString = testString.split('#')[0].trim();
+
+      if (indentRow !== undefined) {
+        if (row === indentRow + 1) {
           let found = false;
           for (let i = 0; i < startAssignWords.length; i++) {
-            if (trim.startsWith(startAssignWords[i])) {
+            if (testString.startsWith(startAssignWords[i])) {
               found = true;
               break;
             }
           }
           if (!found) {
             indent--;
-            assignIndentRow = undefined;
+            indentRow = undefined;
           }
-        } else {
-          for (let i = 0; i < endAssignWords.length; i++) {
-            if (trim.startsWith(endAssignWords[i])) {
-              indent--;
-              assignIndentRow = undefined;
-              break;
-            }
-          }
+        }
+        if (indentRow !== undefined && cancelAssignIndent(testString)) {
+          indent--;
+          indentRow = undefined;
+        }
+      } else if (assignIndent) {
+        if (cancelAssignIndent(testString)) {
+          indent--;
+          assignIndent = false;
         }
       } else if (tempIndent) {
         indent--;
         tempIndent = false;
       }
 
-      if (trim.startsWith('_method ') || trim.includes(' _method ')) {
+      if (methodStartTest(testString)) {
         indent++;
+      } else if (statementAssignTest(testString)) {
+        indent++;
+        assignIndent = true;
+      } else if (procAssignTest(testString)) {
+        indent += 2;
+        assignIndent = true;
       } else {
         for (let i = 0; i < incWordsLength; i++) {
-          if (trim.startsWith(incWords[i])) {
+          const iWord = incWords[i];
+          if (testString === iWord || testString.startsWith(`${iWord} `)) {
             indent++;
             break;
           }
         }
       }
 
-      // Remove strings and comments before counting brackets
-      const noStrings = removeStrings(text).split('#')[0];
+      if (arrowAssignTest(testString)) {
+        indent++;
+        indentRow = row;
+      } else {
+        for (let i = 0; i < endWordsLength; i++) {
+          if (testString.endsWith(endWords[i])) {
+            indent++;
+            tempIndent = true;
+            break;
+          }
+        }
+      }
+
+      // Remove strings before counting brackets
+      const noStrings = removeStrings(testString);
 
       matches = noStrings.match(incBrackets);
       if (matches) {
@@ -593,22 +650,8 @@ async function indentMagik(currentRow) {
       if (matches) {
         indent -= matches.length;
       }
-
-      const beforeComment = trim.split('#')[0].trim();
-
-      if (textLength > 2 && beforeComment.slice(-2) === '<<') {
-        indent++;
-        assignIndentRow = row;
-      } else {
-        for (let i = 0; i < endWordsLength; i++) {
-          const word = endWords[i];
-          if (beforeComment.slice(-word.length) === word) {
-            indent++;
-            tempIndent = true;
-            break;
-          }
-        }
-      }
+    } else if (indentRow !== undefined) {
+      indentRow++;
     }
   }
 }
@@ -633,7 +676,17 @@ async function addUnderscore(doc, pos, ch) {
   }
   if (quotesCount % 2) return;
 
-  const keywords = ch === '.' ? MAGIK_VARIABLE_KEYWORDS : MAGIK_KEYWORDS;
+  let keywords;
+  switch (ch) {
+    case '.':
+      keywords = MAGIK_VARIABLE_KEYWORDS;
+      break;
+    case '(':
+      keywords = ['proc', 'loopbody'];
+      break;
+    default:
+      keywords = MAGIK_KEYWORDS;
+  }
   const keywordsLength = keywords.length;
 
   for (let index = 0; index < keywordsLength; index++) {
@@ -643,7 +696,7 @@ async function addUnderscore(doc, pos, ch) {
     if (length <= textLength) {
       let last = text.slice(-length - 1).trim();
 
-      if (ch === '.') {
+      if (ch === '.' || ch === '(') {
         last = last.slice(0, last.length - 1);
       }
 
@@ -735,50 +788,6 @@ function findDefinition(fileName, word) {
   }
 }
 
-// TODO - only looking in current file, other open files and magik files in the current folder!
-function getMagikDefinition(doc, pos) {
-  const previous = previousWord(doc, pos, true);
-  if (previous !== '_self') return;
-
-  const current = currentWord(doc, pos);
-  const currentFileName = doc.fileName;
-  const currentDir = path.dirname(currentFileName);
-  const doneFileNames = [];
-  let loc;
-
-  // Check current file
-  loc = findDefinition(currentFileName, current);
-  if (loc) return loc;
-  doneFileNames.push(currentFileName);
-
-  // Check other open files
-  for (let i = 0; i < openFiles.length; i++) {
-    const fileName = openFiles[i];
-
-    if (
-      !doneFileNames.includes(fileName) &&
-      path.extname(fileName) === '.magik'
-    ) {
-      loc = findDefinition(fileName, current);
-      if (loc) return loc;
-      doneFileNames.push(fileName);
-    }
-  }
-
-  // Check other magik files from the directory
-  const files = getMagikFilesInDirectory(currentDir);
-
-  for (let i = 0; i < files.length; i++) {
-    const fileName = files[i];
-
-    if (!doneFileNames.includes(fileName)) {
-      loc = findDefinition(fileName, current);
-      if (loc) return loc;
-      doneFileNames.push(fileName);
-    }
-  }
-}
-
 // TODO - only looking in current file
 function getMagikReferences(doc, pos) {
   const locs = [];
@@ -819,82 +828,104 @@ function getClassAndMethodName(text) {
   }
 }
 
+function getDefinitionSymbol(doc, row, text, defTest) {
+  let index = text.search(defTest.test);
+
+  if (index === -1) return;
+
+  let className;
+  let methodName;
+
+  if (defTest.type === vscode.SymbolKind.Method) {
+    const res = getClassAndMethodName(text);
+    if (res.methodName) {
+      className = res.className;
+      methodName = res.methodName;
+    }
+  } else {
+    const pos = new vscode.Position(row, index + 1);
+    const next = nextWord(doc, pos);
+    if (next) {
+      className = currentClassName(doc, pos);
+      methodName = next;
+    }
+  }
+
+  if (className) {
+    index = text.indexOf(methodName);
+    const range = new vscode.Range(row, index, row, index + methodName.length);
+    const sym = new vscode.SymbolInformation(
+      methodName,
+      defTest.type,
+      range,
+      doc.uri,
+      className
+    );
+    return sym;
+  }
+}
+
+function gotoPreviousDefinition() {
+  const editor = vscode.window.activeTextEditor;
+  const doc = editor.document;
+  const startRow = editor.selection.active.line - 1;
+  const testsLength = definitionTests.length;
+
+  for (let row = startRow; row > 0; row--) {
+    const text = doc.lineAt(row).text;
+
+    for (let i = 0; i < testsLength; i++) {
+      const defTest = definitionTests[i];
+      const sym = getDefinitionSymbol(doc, row, text, defTest);
+      if (sym) {
+        const range = sym.location.range;
+        editor.selection = new vscode.Selection(range.start, range.end);
+        editor.revealRange(range); // , vscode.TextEditorRevealType.InCenter);
+        return;
+      }
+    }
+  }
+}
+
+function gotoNextDefinition() {
+  const editor = vscode.window.activeTextEditor;
+  const doc = editor.document;
+  const startRow = editor.selection.active.line + 1;
+  const lineCount = doc.lineCount;
+  const testsLength = definitionTests.length;
+
+  for (let row = startRow; row < lineCount; row++) {
+    const text = doc.lineAt(row).text;
+
+    for (let i = 0; i < testsLength; i++) {
+      const defTest = definitionTests[i];
+      const sym = getDefinitionSymbol(doc, row, text, defTest);
+      if (sym) {
+        const range = sym.location.range;
+        editor.selection = new vscode.Selection(range.start, range.end);
+        editor.revealRange(range); // , vscode.TextEditorRevealType.InCenter);
+        return;
+      }
+    }
+  }
+}
+
 // TODO - currently only looking for definitions on one line
 function getDocSymbols(doc) {
   const symbols = [];
-  const methodType = vscode.SymbolKind.Method;
-  const tests = [
-    {
-      test: new RegExp(`(^_method | _method ).+\\.\\s*.+`),
-      type: methodType,
-    },
-    {
-      test: new RegExp(`\\.\\s*(define_shared_constant)\\s*\\(\\s*:.+`),
-      type: vscode.SymbolKind.Constant,
-    },
-    {
-      test: new RegExp(
-        `\\.\\s*(define_slot_access|define_shared_variable)\\s*\\(\\s*:.+`
-      ),
-      type: vscode.SymbolKind.Variable,
-    },
-    {
-      test: new RegExp(`\\.\\s*(def_property|define_property)\\s*\\(\\s*:.+`),
-      type: vscode.SymbolKind.Property,
-    },
-    {
-      test: new RegExp(`(^def_slotted_exemplar)\\s*\\(\\s*:.+`),
-      type: vscode.SymbolKind.Class,
-    },
-  ];
-  const testsLength = tests.length;
+  const testsLength = definitionTests.length;
 
   const lineCount = doc.lineCount;
-  const uri = doc.uri;
 
   for (let row = 0; row < lineCount; row++) {
     const text = doc.lineAt(row).text;
 
     for (let i = 0; i < testsLength; i++) {
-      let index = text.search(tests[i].test);
-
-      if (index !== -1) {
-        let className;
-        let methodName;
-
-        if (tests[i].type === methodType) {
-          const res = getClassAndMethodName(text);
-          if (res.methodName) {
-            className = res.className;
-            methodName = res.methodName;
-          }
-        } else {
-          const pos = new vscode.Position(row, index + 1);
-          const next = nextWord(doc, pos);
-          if (next) {
-            className = currentClassName(doc, pos);
-            methodName = next;
-          }
-        }
-
-        if (className) {
-          index = text.indexOf(methodName);
-          const range = new vscode.Range(
-            row,
-            index,
-            row,
-            index + methodName.length
-          );
-          const sym = new vscode.SymbolInformation(
-            methodName,
-            tests[i].type,
-            range,
-            uri,
-            className
-          );
-          symbols.push(sym);
-          break;
-        }
+      const defTest = definitionTests[i];
+      const sym = getDefinitionSymbol(doc, row, text, defTest);
+      if (sym) {
+        symbols.push(sym);
+        break;
       }
     }
   }
@@ -969,18 +1000,30 @@ function refreshSymbols() {
   });
 }
 
-function matchString(string, query) {
-  const length = query.length;
-  if (length > string.length) return false;
+function matchString(string, query, matchType) {
+  if (matchType === 0) {
+    const length = query.length;
+    if (length > string.length) return false;
 
-  let index = 0;
-  for (let i = 0; i < length; i++) {
-    index = string.indexOf(query[i], index);
-    if (index === -1) return false;
-    index++;
+    let index = 0;
+    for (let i = 0; i < length; i++) {
+      index = string.indexOf(query[i], index);
+      if (index === -1) return false;
+      index++;
+    }
+
+    return true;
   }
-
-  return true;
+  if (matchType === 1) {
+    return string === query;
+  }
+  if (matchType === 2) {
+    return string.startsWith(query);
+  }
+  if (matchType === 3) {
+    return string.endsWith(query);
+  }
+  return false;
 }
 
 function getMethodSymbol(name, fileName, methodData) {
@@ -1003,7 +1046,8 @@ function findMethods(
   methodString,
   symbols,
   doneMethods,
-  checkParents
+  checkParents,
+  methodMatchType
 ) {
   const data = classData[className];
   const sourceFile = data.sourceFile;
@@ -1017,7 +1061,7 @@ function findMethods(
 
     if (
       !doneMethods.includes(name) &&
-      matchString(methodData.name, methodString)
+      matchString(methodData.name, methodString, methodMatchType)
     ) {
       let fileName = methodData.sourceFile;
       if (!fileName) {
@@ -1042,20 +1086,61 @@ function findMethods(
         methodString,
         symbols,
         doneMethods,
-        true
+        true,
+        methodMatchType
       );
       if (doneMethods.length === max) return;
     }
   }
 }
 
-async function getWorkspaceSymbols(query) {
+function findSuperMethods(
+  className,
+  methodString,
+  symbols,
+  doneMethods,
+  methodMatchType
+) {
+  const data = classData[className];
+  const parents = data.parents;
+  const parentsLength = parents.length;
+  const max = 500;
+
+  for (let parentIndex = 0; parentIndex < parentsLength; parentIndex++) {
+    findMethods(
+      parents[parentIndex],
+      methodString,
+      symbols,
+      doneMethods,
+      false,
+      methodMatchType
+    );
+    if (doneMethods.length === max) return;
+  }
+
+  if (doneMethods.length === 0) {
+    for (let parentIndex = 0; parentIndex < parentsLength; parentIndex++) {
+      findSuperMethods(
+        parents[parentIndex],
+        methodString,
+        symbols,
+        doneMethods,
+        methodMatchType
+      );
+      if (doneMethods.length === max) return;
+    }
+  }
+}
+
+async function getWorkspaceSymbols(query, inherit) {
   await loadSymbols();
 
   const queryString = query.replace(' ', '');
   const queryParts = queryString.split('.');
   let classString;
   let methodString;
+  let classMatchType = 0;
+  let methodMatchType = 0;
 
   if (queryParts.length > 1) {
     classString = queryParts[0];
@@ -1064,6 +1149,32 @@ async function getWorkspaceSymbols(query) {
   } else {
     methodString = queryParts[0];
     if (methodString.length < 2) return;
+  }
+
+  if (classString) {
+    if (classString[0] === '^' && classString[classString.length - 1] === '$') {
+      classMatchType = 1;
+      classString = classString.substr(1, classString.length - 2);
+    } else if (classString[0] === '^') {
+      classMatchType = 2;
+      classString = classString.substr(1, classString.length - 1);
+    } else if (classString[classString.length - 1] === '$') {
+      classMatchType = 3;
+      classString = classString.substr(0, classString.length - 1);
+    }
+  }
+  if (
+    methodString[0] === '^' &&
+    methodString[methodString.length - 1] === '$'
+  ) {
+    methodMatchType = 1;
+    methodString = methodString.substr(1, methodString.length - 2);
+  } else if (methodString[0] === '^') {
+    methodMatchType = 2;
+    methodString = methodString.substr(1, methodString.length - 1);
+  } else if (methodString[methodString.length - 1] === '$') {
+    methodMatchType = 3;
+    methodString = methodString.substr(0, methodString.length - 1);
   }
 
   const symbols = [];
@@ -1075,8 +1186,25 @@ async function getWorkspaceSymbols(query) {
   for (let classIndex = 0; classIndex < classLength; classIndex++) {
     const className = classNames[classIndex];
 
-    if (!classString || matchString(className, classString)) {
-      findMethods(className, methodString, symbols, doneMethods, classString);
+    if (!classString || matchString(className, classString, classMatchType)) {
+      if (inherit) {
+        findSuperMethods(
+          className,
+          methodString,
+          symbols,
+          doneMethods,
+          methodMatchType
+        );
+      } else {
+        findMethods(
+          className,
+          methodString,
+          symbols,
+          doneMethods,
+          classString,
+          methodMatchType
+        );
+      }
     }
   }
 
@@ -1094,6 +1222,164 @@ function resolveSymbol(sym) {
   if (loc) {
     sym.location = loc;
     return sym;
+  }
+}
+
+async function getCurrentDefinitionSymbol(doc, pos) {
+  const col = pos.character;
+  const text = doc.lineAt(pos.line).text;
+  let revText;
+  let start;
+  let end;
+
+  revText = text.slice(0, col);
+  revText = revText
+    .split('')
+    .reverse()
+    .join('');
+  start = revText.search(INVALID_CHAR);
+  if (start === -1) return {};
+
+  start = col - start;
+
+  end = text.slice(col).search(INVALID_CHAR);
+  if (end === -1) {
+    end = text.length;
+  } else {
+    end = col + end;
+  }
+
+  if (start === end) return {};
+
+  let currentText = text.slice(start, end).trim();
+
+  const next = text.slice(end).search(/\S/);
+  if (next !== -1) {
+    const nextChar = text[end + next];
+    if (nextChar === '(') {
+      currentText += '()';
+    } else if (nextChar === '<' && text[end + next + 1] === '<') {
+      currentText += '<<';
+    }
+  }
+
+  const previousText = previousWord(doc, pos, true);
+  let classText = previousText;
+  let symbol;
+  let inherit = false;
+
+  if (previousText) {
+    if (['_self', '_super', '_clone'].includes(previousText)) {
+      const className = currentClassName(doc, pos);
+      if (className) {
+        classText = className;
+        if (previousText === '_super') {
+          inherit = true;
+        }
+      }
+    }
+
+    let query = `^${classText}$.^${currentText}$`;
+    let symbols = await getWorkspaceSymbols(query, inherit);
+
+    if (symbols.length !== 1) {
+      query = `^${currentText}$`;
+      symbols = await getWorkspaceSymbols(query);
+    }
+
+    if (symbols.length === 1) {
+      const resSymbol = resolveSymbol(symbols[0]);
+      if (resSymbol) {
+        symbol = resSymbol;
+      }
+    }
+  }
+
+  return {
+    symbol,
+    classText,
+    currentText,
+    previousText,
+  };
+}
+
+async function goto() {
+  let editor = vscode.window.activeTextEditor;
+  const doc = editor.document;
+  const pos = editor.selection.active;
+
+  const {
+    symbol,
+    classText,
+    currentText,
+    previousText,
+  } = await getCurrentDefinitionSymbol(doc, pos);
+
+  if (symbol) {
+    const range = symbol.location.range;
+    await vscode.commands.executeCommand('vscode.open', symbol.location.uri);
+    editor = vscode.window.activeTextEditor;
+    editor.selection = new vscode.Selection(range.start, range.end);
+    editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+    return;
+  }
+
+  const inherit = previousText === '_super' ? '_true' : '_false';
+
+  const command = `vs_goto("^${currentText}$", "${classText}", ${inherit})\u000D`;
+  vscode.commands.executeCommand('workbench.action.terminal.focus', {});
+  vscode.commands.executeCommand('workbench.action.terminal.sendSequence', {
+    text: command,
+  });
+}
+
+async function getMagikDefinition(doc, pos) {
+  const {symbol, previousText} = await getCurrentDefinitionSymbol(doc, pos);
+
+  if (symbol) {
+    return symbol.location;
+  }
+
+  if (!['_self', '_super', '_clone'].includes(previousText)) return;
+
+  // Revert to checking some files...
+
+  const current = currentWord(doc, pos);
+  const currentFileName = doc.fileName;
+  const currentDir = path.dirname(currentFileName);
+  const doneFileNames = [];
+  let loc;
+
+  // Check current file
+  loc = findDefinition(currentFileName, current);
+  if (loc) return loc;
+  doneFileNames.push(currentFileName);
+
+  // Check other open files
+  for (let i = 0; i < openFiles.length; i++) {
+    const fileName = openFiles[i];
+
+    if (
+      !doneFileNames.includes(fileName) &&
+      path.extname(fileName) === '.magik'
+    ) {
+      loc = findDefinition(fileName, current);
+      if (loc) return loc;
+      doneFileNames.push(fileName);
+    }
+  }
+
+  // Check other magik files from the directory
+  const files = getMagikFilesInDirectory(currentDir);
+
+  for (let i = 0; i < files.length; i++) {
+    const fileName = files[i];
+
+    if (!doneFileNames.includes(fileName)) {
+      loc = findDefinition(fileName, current);
+      if (loc) return loc;
+      doneFileNames.push(fileName);
+    }
   }
 }
 
@@ -1119,6 +1405,25 @@ function getCompletionItems(doc, pos) {
   return items;
 }
 
+function findUnassignedVariables(lines) {
+  // TODO
+}
+
+function findErrors(doc) {
+  // const symbols = getDocSymbols(doc);
+  // const symbolsLength = symbols.length;
+  // for (let i = 0; i < symbolsLength; i++) {
+  //   const sym = symbols[i];
+  //   if (sym.kind === vscode.SymbolKind.Method) {
+  //     const startLine = sym.location.range.start.line;
+  //     const lines = currentRegion(true, startLine).lines;
+  //     if (lines) {
+  //       findUnassignedVariables(lines);
+  //     }
+  //   }
+  // }
+}
+
 function activate(context) {
   const magikFile = {
     scheme: 'file',
@@ -1131,6 +1436,8 @@ function activate(context) {
     ['compileSelection', compileSelection],
     ['indentMethod', indentMagik],
     ['refreshSymbols', refreshSymbols],
+    ['gotoPreviousDefinition', gotoPreviousDefinition],
+    ['gotoNextDefinition', gotoNextDefinition],
   ];
 
   for (const [name, func] of config) {
@@ -1146,6 +1453,7 @@ function activate(context) {
       },
       ' ',
       '.',
+      '(',
       '\n'
     )
   );
@@ -1180,6 +1488,12 @@ function activate(context) {
       provideCompletionItems: getCompletionItems,
     })
   );
+
+  diagnostics = vscode.languages.createDiagnosticCollection('magik');
+
+  vscode.workspace.onDidSaveTextDocument((doc) => {
+    findErrors(doc);
+  });
 
   // No api for open editors
   context.subscriptions.push(
