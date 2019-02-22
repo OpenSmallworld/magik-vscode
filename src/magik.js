@@ -164,8 +164,9 @@ const definitionTests = [
 ];
 
 let classData = {};
+let classNames = [];
 const openFiles = [];
-let diagnostics;
+let diagnosticCollection;
 
 function currentWord(doc, pos) {
   const col = pos.character;
@@ -246,7 +247,7 @@ function previousWord(doc, pos, varOnly) {
     .join('');
 }
 
-function nextWord(doc, pos) {
+function nextWord(doc, pos, searchNextLine) {
   const line = doc.lineAt(pos.line);
   let text = line.text.slice(pos.character);
   let index = text.search(INVALID_CHAR);
@@ -254,7 +255,7 @@ function nextWord(doc, pos) {
 
   text = text.slice(index);
   index = text.search(/[a-zA-Z0-9_\\?\\!]/);
-  if (index === -1) {
+  if (searchNextLine !== false && index === -1) {
     // Try next row - ignore comments
     for (let row = pos.line + 1; row < doc.lineCount; row++) {
       const newText = doc.lineAt(row).text.trim();
@@ -269,7 +270,7 @@ function nextWord(doc, pos) {
 
   text = text.slice(index);
   index = text.search(INVALID_CHAR);
-  if (index === -1) return;
+  if (index === -1) return text;
 
   return text.slice(0, index);
 }
@@ -475,13 +476,30 @@ function compileMethod() {
   compileText(lines);
 }
 
-function cancelAssignIndent(testString) {
-  for (let i = 0; i < endAssignWords.length; i++) {
-    const endWord = endAssignWords[i];
+function cancelAssignIndent(testString, startKeyword) {
+  let cancelWords = endAssignWords;
+  if (startKeyword) {
+    const pairs = [
+      ['_if', '_endif'],
+      ['_for', '_endloop'],
+      ['_loop', '_endloop'],
+      ['_over', '_endloop'],
+      ['_while', '_endloop'],
+    ];
+    for (const [start, end] of pairs) {
+      if (startKeyword === start) {
+        cancelWords = [end];
+        break;
+      }
+    }
+  }
+
+  for (let i = 0; i < cancelWords.length; i++) {
+    const word = cancelWords[i];
     if (
-      testString.startsWith(endWord) ||
-      testString.endsWith(` ${endWord}`) ||
-      testString.endsWith(`;${endWord}`)
+      testString.startsWith(word) ||
+      testString.endsWith(` ${word}`) ||
+      testString.endsWith(`;${word}`)
     ) {
       return true;
     }
@@ -517,7 +535,7 @@ function statementAssignTest(testString) {
     if (!r.test(testString)) {
       r = new RegExp(`[a-zA-Z0-9_\\?\\!]+\\s*<<\\s*${start}\\s*`);
       if (r.test(testString)) {
-        return true;
+        return start;
       }
     }
   }
@@ -539,7 +557,8 @@ async function indentMagik(currentRow) {
   let indent = 0;
   let tempIndent = false;
   let assignIndent = false;
-  let indentRow;
+  let arrowAssignRow;
+  let assignIndentKeyword;
 
   for (let row = 0; row < lines.length; row++) {
     const text = lines[row];
@@ -580,28 +599,32 @@ async function indentMagik(currentRow) {
     if (testString[0] !== '#') {
       testString = testString.split('#')[0].trim();
 
-      if (indentRow !== undefined) {
-        if (row === indentRow + 1) {
-          let found = false;
+      if (arrowAssignRow !== undefined) {
+        if (row === arrowAssignRow + 1) {
           for (let i = 0; i < startAssignWords.length; i++) {
             if (testString.startsWith(startAssignWords[i])) {
-              found = true;
+              assignIndentKeyword = startAssignWords[i];
               break;
             }
           }
-          if (!found) {
+          if (!assignIndentKeyword) {
             indent--;
-            indentRow = undefined;
+            arrowAssignRow = undefined;
           }
         }
-        if (indentRow !== undefined && cancelAssignIndent(testString)) {
+        if (
+          arrowAssignRow !== undefined &&
+          cancelAssignIndent(testString, assignIndentKeyword)
+        ) {
           indent--;
-          indentRow = undefined;
+          arrowAssignRow = undefined;
+          assignIndentKeyword = undefined;
         }
       } else if (assignIndent) {
-        if (cancelAssignIndent(testString)) {
+        if (cancelAssignIndent(testString, assignIndentKeyword)) {
           indent--;
           assignIndent = false;
+          assignIndentKeyword = undefined;
         }
       } else if (tempIndent) {
         indent--;
@@ -610,25 +633,30 @@ async function indentMagik(currentRow) {
 
       if (methodStartTest(testString)) {
         indent++;
-      } else if (statementAssignTest(testString)) {
-        indent++;
-        assignIndent = true;
-      } else if (procAssignTest(testString)) {
-        indent += 2;
-        assignIndent = true;
       } else {
-        for (let i = 0; i < incWordsLength; i++) {
-          const iWord = incWords[i];
-          if (testString === iWord || testString.startsWith(`${iWord} `)) {
-            indent++;
-            break;
+        const statementAssignKeyword = statementAssignTest(testString);
+        if (statementAssignKeyword) {
+          indent++;
+          assignIndent = true;
+          assignIndentKeyword = statementAssignKeyword;
+        } else if (procAssignTest(testString)) {
+          indent += 2;
+          assignIndent = true;
+        } else {
+          for (let i = 0; i < incWordsLength; i++) {
+            const iWord = incWords[i];
+            if (testString === iWord || testString.startsWith(`${iWord} `)) {
+              indent++;
+              break;
+            }
           }
         }
       }
 
       if (arrowAssignTest(testString)) {
         indent++;
-        indentRow = row;
+        arrowAssignRow = row;
+        assignIndentKeyword = undefined;
       } else {
         for (let i = 0; i < endWordsLength; i++) {
           if (testString.endsWith(endWords[i])) {
@@ -641,17 +669,24 @@ async function indentMagik(currentRow) {
 
       // Remove strings before counting brackets
       const noStrings = removeStrings(testString);
+      let incCount = 0;
+      let decCount = 0;
 
       matches = noStrings.match(incBrackets);
       if (matches) {
         indent += matches.length;
+        incCount = matches.length;
       }
       matches = noStrings.match(decBrackets);
       if (matches) {
         indent -= matches.length;
+        decCount = matches.length;
       }
-    } else if (indentRow !== undefined) {
-      indentRow++;
+      if (tempIndent && incCount > decCount) {
+        indent--;
+      }
+    } else if (arrowAssignRow !== undefined) {
+      arrowAssignRow++;
     }
   }
 }
@@ -986,6 +1021,7 @@ async function loadSymbols() {
 
   for (let i = 0; i < 50; i++) {
     if (done) {
+      classNames = Object.keys(classData);
       fs.unlinkSync(symbolFile);
       return;
     }
@@ -1179,8 +1215,6 @@ async function getWorkspaceSymbols(query, inherit) {
 
   const symbols = [];
   const doneMethods = [];
-
-  const classNames = Object.keys(classData);
   const classLength = classNames.length;
 
   for (let classIndex = 0; classIndex < classLength; classIndex++) {
@@ -1405,23 +1439,277 @@ function getCompletionItems(doc, pos) {
   return items;
 }
 
-function findUnassignedVariables(lines) {
-  // TODO
+function getMethodParams(doc, lines, startRow) {
+  const params = {};
+  const linesLength = lines.length;
+  const ignore = ['_optional', '_gather'];
+
+  for (let i = 0; i < linesLength; i++) {
+    const row = startRow + i;
+    const line = lines[i];
+    let startIndex = 0;
+
+    if (i === 0) {
+      const res = line.match(/(\(|<<|\[)/);
+      if (!res) break;
+      startIndex = res.index;
+    }
+
+    let pos;
+    let next;
+    do {
+      pos = new vscode.Position(row, startIndex);
+      next = nextWord(doc, pos, false);
+      if (next) {
+        startIndex = line.indexOf(next, startIndex);
+        if (!ignore.includes(next)) {
+          params[next] = {
+            row,
+            index: startIndex,
+            count: 1,
+            param: true,
+          };
+        }
+        startIndex += next.length;
+      }
+    } while (next);
+
+    if (/(\)|<<|\])/.test(line)) break;
+  }
+
+  return params;
 }
 
-function findErrors(doc) {
-  // const symbols = getDocSymbols(doc);
-  // const symbolsLength = symbols.length;
-  // for (let i = 0; i < symbolsLength; i++) {
-  //   const sym = symbols[i];
-  //   if (sym.kind === vscode.SymbolKind.Method) {
-  //     const startLine = sym.location.range.start.line;
-  //     const lines = currentRegion(true, startLine).lines;
-  //     if (lines) {
-  //       findUnassignedVariables(lines);
-  //     }
-  //   }
-  // }
+function checkVariables(doc, diagnostics, lines, startRow) {
+  const assignedVars = getMethodParams(doc, lines, startRow);
+  // console.log('PARAMS:', assignedVars);
+  // const vars = [];
+  const reg = /[a-zA-Z0-9_\\?\\!]+/g;
+  // FIXME - need all globals (other than classes)
+  const ignoreWords = ['error', 'warning', 'cond'];
+  const ignorePrevChars = ['.', ':', '"', '%', '|'];
+  const end = lines.length - 1;
+  const showUndefined = classNames.length > 0;
+  let search = false;
+
+  for (let i = 0; i < end; i++) {
+    const row = startRow + i;
+    const line = lines[i];
+    const testString = line.split('#')[0];
+
+    if (search) {
+      let match;
+      const assignSplit = testString.split('<<');
+      const assignSplitLength = assignSplit.length;
+
+      if (assignSplitLength > 1) {
+        for (let j = 0; j < assignSplitLength; j += 2) {
+          const assignedTestString = assignSplit[j].split('(').slice(-1)[0];
+
+          while (match = reg.exec(assignedTestString)) { // eslint-disable-line
+            const varName = match[0];
+            const varIndex = match.index;
+
+            if (
+              !assignedVars[varName] &&
+              isNaN(Number(varName)) &&
+              !ignoreWords.includes(varName) &&
+              !ignorePrevChars.includes(assignedTestString[varIndex - 1]) &&
+              assignedTestString[varIndex] !== '_' &&
+              assignedTestString[varIndex + varName.length] !== '('
+            ) {
+              // FIXME - globals
+              const dynamic =
+                assignedTestString.substring(varIndex - 9, varIndex) ===
+                '_dynamic ';
+              assignedVars[varName] = {
+                row,
+                index: varIndex,
+                count: 1,
+                dynamic,
+              };
+            }
+          }
+        }
+      }
+
+      // TODO - loop scopes
+      if (testString.includes('_for ') && testString.includes(' _over ')) {
+        const overSplit = testString.split(' _over ');
+        const iterTestString = overSplit[0].split('_for ').slice(-1)[0];
+
+        while (match = reg.exec(iterTestString)) { // eslint-disable-line
+          assignedVars[match[0]] = {
+            row,
+            index: match.index,
+            count: 1,
+          };
+        }
+      }
+
+      while (match = reg.exec(testString)) { // eslint-disable-line
+        const varName = match[0];
+        const varIndex = match.index;
+
+        if (
+          isNaN(Number(varName)) &&
+          !ignoreWords.includes(varName) &&
+          !ignorePrevChars.includes(testString[varIndex - 1]) &&
+          testString[varIndex] !== '_' &&
+          testString[varIndex + varName.length] !== '('
+        ) {
+          const data = assignedVars[varName];
+          if (showUndefined && !data && !classData[varName]) {
+            // FIXME - globals
+            const dynamic =
+              testString.substring(varIndex - 9, varIndex) === '_dynamic ';
+            if (dynamic) {
+              assignedVars[varName] = {
+                row,
+                index: varIndex,
+                count: 1,
+                dynamic,
+              };
+            } else {
+              const range = new vscode.Range(
+                row,
+                varIndex,
+                row,
+                varIndex + varName.length
+              );
+              const d = new vscode.Diagnostic(
+                range,
+                `'${varName}' is not defined.`,
+                vscode.DiagnosticSeverity.Error
+              );
+              diagnostics.push(d);
+            }
+          }
+          // if (!vars.includes(varName)) {
+          //   vars.push(varName);
+          // }
+          if (data && (data.row !== row || data.index !== match.index)) {
+            data.count += 1;
+          }
+        }
+      }
+    } else if (/(\)|<<|\])/.test(testString)) {
+      search = true;
+    }
+  }
+
+  // console.log(assignedVars);
+  // console.log(vars);
+
+  for (const [varName, data] of Object.entries(assignedVars)) {
+    if (data.count === 1 && !data.dynamic) {
+      const range = new vscode.Range(
+        data.row,
+        data.index,
+        data.row,
+        data.index + varName.length
+      );
+      const msg = data.param
+        ? `"${varName}" is never used.`
+        : `"${varName}" is defined but never used.`;
+      const d = new vscode.Diagnostic(
+        range,
+        msg,
+        vscode.DiagnosticSeverity.Error
+      );
+      diagnostics.push(d);
+    }
+  }
+}
+
+function checkPublicComment(doc, diagnostics, lines, startRow) {
+  if (startRow === 0) return;
+
+  const prevLine = doc.lineAt(startRow - 1).text;
+  if (
+    !prevLine.includes('_pragma(') ||
+    !prevLine.includes('classify_level=basic')
+  )
+    return;
+
+  const firstLine = lines[0];
+
+  if (
+    firstLine.trim().startsWith('_private ') ||
+    firstLine.includes(' _private ')
+  ) {
+    const errorIndex = firstLine.indexOf('_private');
+    const range = new vscode.Range(
+      startRow,
+      errorIndex,
+      startRow,
+      errorIndex + 8
+    );
+    const d = new vscode.Diagnostic(
+      range,
+      'Private method should not be classified "basic".',
+      vscode.DiagnosticSeverity.Error
+    );
+    diagnostics.push(d);
+    return;
+  }
+
+  const end = lines.length;
+  let noComment = true;
+
+  for (let i = 0; i < end; i++) {
+    const line = lines[i];
+    if (line.trim().startsWith('##')) {
+      noComment = false;
+      break;
+    }
+  }
+
+  if (noComment) {
+    const names = getClassAndMethodName(firstLine);
+    const errorString = names.methodName ? names.methodName : firstLine;
+    const errorIndex = firstLine.indexOf(errorString);
+    const range = new vscode.Range(
+      startRow,
+      errorIndex,
+      startRow,
+      errorIndex + errorString.length
+    );
+    const d = new vscode.Diagnostic(
+      range,
+      'Public method should have a comment.',
+      vscode.DiagnosticSeverity.Error
+    );
+    diagnostics.push(d);
+  }
+}
+
+async function checkMagik(doc) {
+  await loadSymbols();
+
+  const diagnostics = [];
+  const symbols = getDocSymbols(doc);
+  const symbolsLength = symbols.length;
+
+  for (let i = 0; i < symbolsLength; i++) {
+    const sym = symbols[i];
+
+    if (sym.kind === vscode.SymbolKind.Method) {
+      const startRow = sym.location.range.start.line;
+      const region = currentRegion(true, startRow);
+      const {lines} = region;
+
+      if (lines) {
+        const {firstRow} = region;
+        // console.log(sym.name);
+
+        checkVariables(doc, diagnostics, lines, firstRow);
+        checkPublicComment(doc, diagnostics, lines, firstRow);
+      }
+    }
+  }
+
+  diagnosticCollection.set(doc.uri, diagnostics);
 }
 
 function activate(context) {
@@ -1489,10 +1777,24 @@ function activate(context) {
     })
   );
 
-  diagnostics = vscode.languages.createDiagnosticCollection('magik');
+  diagnosticCollection = vscode.languages.createDiagnosticCollection('magik');
 
-  vscode.workspace.onDidSaveTextDocument((doc) => {
-    findErrors(doc);
+  vscode.workspace.onDidOpenTextDocument(async (doc) => {
+    const ext = doc.uri.fsPath.split('.').slice(-1)[0];
+    if (ext === 'magik') {
+      await checkMagik(doc);
+    }
+  });
+
+  vscode.workspace.onDidSaveTextDocument(async (doc) => {
+    const ext = doc.uri.fsPath.split('.').slice(-1)[0];
+    if (ext === 'magik') {
+      await checkMagik(doc);
+    }
+  });
+
+  vscode.workspace.onDidCloseTextDocument((doc) => {
+    diagnosticCollection.delete(doc.uri);
   });
 
   // No api for open editors
