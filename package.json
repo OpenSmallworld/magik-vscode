@@ -98,8 +98,16 @@
                 "title": "Magik Compile Selection"
             },
             {
-                "command": "magik.indentMethod",
-                "title": "Magik Indent Method"
+                "command": "magik.indentRegion",
+                "title": "Magik Indent Region"
+            },
+            {
+                "command": "magik.indentFile",
+                "title": "Magik Indent File"
+            },
+            {
+                "command": "magik.checkFile",
+                "title": "Magik Check File"
             },
             {
                 "command": "magik.refreshSymbols",
@@ -136,8 +144,13 @@
                 "when": "editorTextFocus"
             },
             {
-                "command": "magik.indentMethod",
-                "key": "alt+i",
+                "command": "magik.indentRegion",
+                "key": "ctrl+i",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "magik.indentFile",
+                "key": "ctrl+shift+i",
                 "when": "editorTextFocus"
             },
             {

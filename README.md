@@ -19,15 +19,29 @@ Adds the following features to VS Code:
     * Auto completion for Magik keywords
     * Adds _ before Magik keywords
     * Snippets for common Magik definitions
-    * Command `Magik Indent Method` (**Alt+I**)
+    * Command `Magik Indent Region` (**Ctrl+I**)
+    * Command `Magik Indent File` (**Ctrl+Shift+I**)
+* Linting:
+    * Highlights undefined variables and method.
+    * Highlights unused variables.
+    * Highlights long or complex methods.
+    * Highlights incorrect method classification.
+    * Command `Magik Check File`
 * Symbols:
-    * Magik methods in the current session (**Ctrl+T**)
+    * Search Magik methods in the current session (**Ctrl+T**)
     * Magik definitions in the current file to support Outline view
 
 (Use Ctrl+Shift+P to list available commands and type Magik)
 
+### Method Search
+
 You can search for Magik methods using **Ctrl+T** and typing `<method name>` or `<class name>`.`<method name>`.
 Use **Alt+T** to refresh symbols.
+
+### Magik Linting
+
+Magik files are scanned when they are opened and saved or by using the command `Magik Check File`.
+Warning: This does not confirm the code is without issues!
 
 ## Installation
 
@@ -78,6 +92,11 @@ Please add issues here:
 https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 
 ## Release Notes
+
+### 0.0.3
+
+Added linting for Magik files.
+Refactored extension code.
 
 ### 0.0.2
 

@@ -149,5 +149,14 @@
             "$"
         ],
         "description": "Magik Text Encoding"
+    },
+    "block" : {
+        "prefix": "block",
+        "body": [
+            "_block",
+            "\t$0",
+            "_endblock"
+        ],
+        "description": "Magik Block Statement"
     }
 }

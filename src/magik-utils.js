@@ -311,7 +311,12 @@ function currentRegion(methodOnly, startLine) {
 
     lines.unshift(lineText);
 
-    if (methodReg.test(lineTextTrimmed)) {
+    if (
+      methodReg.test(lineTextTrimmed) ||
+      (!methodOnly &&
+        lineTextTrimmed.length > 0 &&
+        lineText.match(/^\s*/)[0].length === 0)
+    ) {
       firstRow = row;
       break;
     } else if (
@@ -325,6 +330,8 @@ function currentRegion(methodOnly, startLine) {
       break;
     }
   }
+
+  if (firstRow === undefined) return {};
 
   for (let row = startLine; row < lineCount; row++) {
     const lineText = doc.lineAt(row).text;
@@ -350,10 +357,9 @@ function currentRegion(methodOnly, startLine) {
     }
   }
 
-  if (firstRow !== undefined && lastRow !== undefined) {
-    return {lines, firstRow, lastRow};
-  }
-  return {};
+  if (lastRow === undefined) return {};
+
+  return {lines, firstRow, lastRow};
 }
 
 function getClassAndMethodName(text) {
@@ -411,6 +417,38 @@ function getMethodParams(doc, lines, startLine) {
     if (/(\)|<<|\])/.test(line)) break;
   }
 
+  // Find internal proc params
+  for (let i = 0; i < linesLength; i++) {
+    const row = startLine + i;
+    const line = lines[i];
+
+    const match = line.match(/(\s+|\()_proc\s*\(/);
+    if (match) {
+      let startIndex = match.index + match[0].length - 1;
+      const endIndex = line.indexOf(')', startIndex);
+      let pos;
+      let next;
+
+      do {
+        pos = new vscode.Position(row, startIndex);
+        next = nextWord(doc, pos, false);
+        if (next) {
+          startIndex = line.indexOf(next, startIndex);
+          if (startIndex > endIndex) break;
+          if (!ignore.includes(next)) {
+            params[next] = {
+              row,
+              index: startIndex,
+              count: 1,
+              param: true,
+            };
+          }
+          startIndex += next.length;
+        }
+      } while (next);
+    }
+  }
+
   return params;
 }
 
@@ -421,7 +459,7 @@ function removeStrings(text) {
 
   for (let i = 0; i < textLength; i++) {
     const c = text[i];
-    if (c === '"') {
+    if (c === '"' && text[i - 1] !== '%') {
       count++;
     } else if (!(count % 2)) {
       noStrings.push(c);

@@ -174,7 +174,14 @@ _pragma(classify_level=debug)
 _global _constant vs_load <<
 _proc ()
 	_dynamic !output!
-	source_file << "C:/temp/vscode_temp.magik"
+
+	temp_dir << _if system.os_name _is :windows
+		_then
+			>> system.getenv("TEMP")
+		_else
+			>> "/tmp"
+		_endif
+	source_file << system.pathname_down(temp_dir, "vscode_temp.magik")
 
 	_if _not system.file_exists?(source_file)
 	_then
@@ -239,11 +246,17 @@ _pragma(classify_level=debug)
 ## Save methods names to file to load as symbols in VS Code.
 _global _constant vs_save_symbols <<
 _proc @vs_save_symbols()
-
 	_global slot_access_method_name
 
-	output_name << "C:\Temp\vscode_symbols.txt"
-	temp_output_name << "C:\Temp\vscode_symbols_temp.txt"
+	temp_dir << _if system.os_name _is :windows
+		_then
+			>> system.getenv("TEMP")
+		_else
+			>> "/tmp"
+		_endif
+	output_name << system.pathname_down(temp_dir, "vscode_symbols.txt")
+	temp_output_name << system.pathname_down(temp_dir, "vscode_symbols_temp.txt")
+
 	_try
 		system.unlink(output_name)
 	_when error
@@ -310,9 +323,11 @@ _proc @vs_save_symbols()
 		_for g _over package.all_globals()
 		_loop
 			val << g.value
+
 			_if val _is _unset _orif
 				val.class_name _is :procedure
 			_then
+				output.write("glob:", g.key, newline_char)
 				_continue
 			_endif
 
@@ -382,6 +397,12 @@ _proc @vs_save_symbols()
 
 			str << write_string(c_name, "|", source_file, "|", parents_str.string, "|", methods_str.string)
 			output.write(str, newline_char)
+		_endloop
+
+		# Add conditions
+		_for key _over condition.sys!perform(:template_map).fast_keys()
+		_loop
+			output.write("cond:", key, newline_char)
 		_endloop
 
 	_protection

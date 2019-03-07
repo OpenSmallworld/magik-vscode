@@ -2,6 +2,7 @@
 
 const vscode = require('vscode'); // eslint-disable-line
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const readline = require('readline');
 const magikUtils = require('./magik-utils');
@@ -10,22 +11,12 @@ class MagikVSCode {
   constructor(context) {
     this.classData = {};
     this.classNames = [];
+    this.globals = [];
     this.openFiles = [];
+    this.resolveSymbols = true;
 
     this._initialise(context);
   }
-
-  // get classData() {
-  //   return this.classData;
-  // }
-
-  // get classNames() {
-  //   return this.classNames;
-  // }
-
-  // get openFiles() {
-  //   return this.openFiles;
-  // }
 
   _registerFiles(context) {
     // No api for open editors
@@ -90,7 +81,7 @@ class MagikVSCode {
   }
 
   _compileText(lines) {
-    const tempFile = 'C:/Temp/vscode_temp.magik';
+    const tempFile = path.join(os.tmpdir(), 'vscode_temp.magik');
     const command = 'vs_load()\u000D';
     const output = lines.join('\r\n');
 
@@ -572,14 +563,18 @@ class MagikVSCode {
     return symbols;
   }
 
-  _resolveSymbol(sym) {
+  resolveWorkspaceSymbol(sym) {
     const index = sym._methodName.search(magikUtils.INVALID_CHAR);
     if (index !== -1) {
       sym._methodName = sym._methodName.slice(0, index);
     }
-    const loc = this._findDefinition(sym._fileName, sym._methodName);
-    if (loc) {
-      sym.location = loc;
+    if (this.resolveSymbols) {
+      const loc = this._findDefinition(sym._fileName, sym._methodName);
+      if (loc) {
+        sym.location = loc;
+        return sym;
+      }
+    } else {
       return sym;
     }
   }
@@ -708,15 +703,21 @@ class MagikVSCode {
   }
 
   async loadSymbols() {
-    const symbolFile = 'C:/Temp/vscode_symbols.txt';
+    const symbolFile = path.join(os.tmpdir(), 'vscode_symbols.txt');
     if (!fs.existsSync(symbolFile)) return;
 
     const input = fs.createReadStream(symbolFile);
     const rl = readline.createInterface({input});
 
     this.classData = {};
+    this.globals = [];
 
     rl.on('line', (line) => {
+      if (line.startsWith('glob:') || line.startsWith('cond:')) {
+        const globalName = line.split(':')[1];
+        this.globals.push(globalName);
+        return;
+      }
       const parts = line.split('|');
       const className = parts[0];
       const classSourceFile = parts[1];

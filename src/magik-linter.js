@@ -4,7 +4,6 @@ const vscode = require('vscode'); // eslint-disable-line
 const magikUtils = require('./magik-utils');
 
 const VAR_TEST = /[a-zA-Z0-9_\\?\\!]+/g;
-const VAR_IGNORE_WORDS = ['error', 'warning', 'cond']; // FIXME - need all globals (other than classes)
 const VAR_IGNORE_PREV_CHARS = ['.', ':', '"', '%', '|', '@'];
 
 class MagikLinter {
@@ -38,9 +37,24 @@ class MagikLinter {
     });
 
     context.subscriptions.push(
-      vscode.commands.registerCommand('magik.indentMethod', () =>
-        this._indentMagik()
+      vscode.commands.registerCommand('magik.indentRegion', () =>
+        this._indentRegion()
       )
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand('magik.indentFile', () =>
+        this._indentFile()
+      )
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand('magik.checkFile', async () => {
+        // FIXME - check there is an editor
+        const editor = vscode.window.activeTextEditor;
+        const doc = editor.document;
+        await this._checkMagik(doc);
+      })
     );
 
     context.subscriptions.push(
@@ -138,6 +152,8 @@ class MagikLinter {
         ['_loop', '_endloop'],
         ['_over', '_endloop'],
         ['_while', '_endloop'],
+        ['_proc', '_endproc'],
+        ['_try', '_endtry'],
       ];
       for (const [start, end] of pairs) {
         if (startKeyword === start) {
@@ -164,15 +180,6 @@ class MagikLinter {
     return /(^|\s+)_method\s+/.test(testString);
   }
 
-  _procAssignTest(testString) {
-    if (/(;|\s+)_endproc/.test(testString)) {
-      return false;
-    }
-    return /[a-zA-Z0-9_?!]+\s*<<\s*_proc\s*[@a-zA-Z0-9_?!]*\s*\(.*/.test(
-      testString
-    );
-  }
-
   _statementAssignTest(testString) {
     const pairs = [
       ['_if', '_endif'],
@@ -180,14 +187,20 @@ class MagikLinter {
       ['_loop', '_endloop'],
       ['_over', '_endloop'],
       ['_while', '_endloop'],
+      [
+        '_proc',
+        '_endproc',
+        /[a-zA-Z0-9_?!]+\s*<<\s*_proc\s*[@a-zA-Z0-9_?!]*\s*\(.*/,
+      ],
+      ['_try', '_endtry'],
     ];
 
-    let r;
-    for (const [start, end] of pairs) {
-      r = new RegExp(`(;|\\s+)${end}`);
-      if (!r.test(testString)) {
-        r = new RegExp(`[a-zA-Z0-9_\\?\\!]+\\s*<<\\s*${start}\\s*`);
-        if (r.test(testString)) {
+    for (const [start, end, reg] of pairs) {
+      const endReg = new RegExp(`(;|\\s+)${end}`);
+      if (!endReg.test(testString)) {
+        const startReg =
+          reg || new RegExp(`[a-zA-Z0-9_\\?\\!]+\\s*<<\\s*${start}\\s*`);
+        if (startReg.test(testString)) {
           return start;
         }
       }
@@ -297,9 +310,14 @@ class MagikLinter {
             indent++;
             assignIndent = true;
             assignIndentKeyword = statementAssignKeyword;
-          } else if (this._procAssignTest(testString)) {
-            indent += 2;
-            assignIndent = true;
+            if (
+              statementAssignKeyword === '_proc' ||
+              statementAssignKeyword === '_try'
+            ) {
+              indent++;
+            }
+          } else if (/^_proc\s*[@a-zA-Z0-9_?!]*\s*\(/.test(testString)) {
+            indent++;
           } else {
             const incWordsLength = magikUtils.INDENT_INC_WORDS.length;
             for (let i = 0; i < incWordsLength; i++) {
@@ -353,11 +371,22 @@ class MagikLinter {
     return lineIndents;
   }
 
-  async _indentMagik() {
+  async _indentRegion(currentRow) {
     const {lines, firstRow} = magikUtils.currentRegion();
     if (lines) {
-      await this._indentMagikLines(lines, firstRow);
+      await this._indentMagikLines(lines, firstRow, currentRow);
     }
+  }
+
+  async _indentFile() {
+    const editor = vscode.window.activeTextEditor;
+    const doc = editor.document;
+    const lines = [];
+    const linesLength = doc.lineCount;
+    for (let i = 0; i < linesLength; i++) {
+      lines.push(doc.lineAt(i).text);
+    }
+    await this._indentMagikLines(lines, 0);
   }
 
   async _getLineIndents(lines, firstRow) {
@@ -379,8 +408,8 @@ class MagikLinter {
         const lastCol = doc.lineAt(row - 1).text.length;
         const lastPos = new vscode.Position(row - 1, lastCol);
         await this._addUnderscore(doc, lastPos, '');
-        await this._indentMagik(row - 1);
-        await this._indentMagik(row);
+        await this._indentRegion(row - 1);
+        await this._indentRegion(row);
       }
     } else {
       const edit = await this._addUnderscore(doc, pos, ch);
@@ -390,32 +419,33 @@ class MagikLinter {
     }
   }
 
-  _findAssignedVariables(testString, row, assignedVars) {
-    const assignSplit = testString.split('<<');
+  _findAssignedVariables(text, row, assignedVars) {
+    const assignSplit = text.split('<<');
     const assignSplitLength = assignSplit.length;
     if (assignSplitLength < 2) return;
 
     let match;
 
     for (let i = 0; i < assignSplitLength - 1; i++) {
-      const assignedTestString = assignSplit[i].split('(').slice(-1)[0];
+      let testString = assignSplit[i].split('(').slice(-1)[0];
+      let startIndex = text.indexOf(testString);
+      testString = magikUtils.removeStrings(testString);
 
-      while (match = VAR_TEST.exec(assignedTestString)) { // eslint-disable-line
+      while (match = VAR_TEST.exec(testString)) { // eslint-disable-line
         const varName = match[0];
         const varIndex = match.index;
 
         if (
           !assignedVars[varName] &&
           Number.isNaN(Number(varName)) &&
-          !VAR_IGNORE_WORDS.includes(varName) &&
-          !VAR_IGNORE_PREV_CHARS.includes(assignedTestString[varIndex - 1]) &&
-          assignedTestString[varIndex] !== '_' &&
-          assignedTestString[varIndex + varName.length] !== '('
+          testString[varIndex] !== '_' &&
+          testString[varIndex + varName.length] !== '(' &&
+          !VAR_IGNORE_PREV_CHARS.includes(testString[varIndex - 1])
         ) {
-          // FIXME - globals
-          const index = testString.indexOf(varName);
-          const dynamic =
-            testString.substring(index - 9, index) === '_dynamic ';
+          const index = text.indexOf(varName, startIndex);
+          startIndex = index;
+          const dynamic = text.substring(index - 9, index) === '_dynamic ';
+
           assignedVars[varName] = {
             row,
             index,
@@ -429,68 +459,84 @@ class MagikLinter {
 
   _checkVariables(doc, diagnostics, lines, firstRow) {
     const assignedVars = magikUtils.getMethodParams(doc, lines, firstRow);
-    const end = lines.length - 1;
+    const defineKeywords = ['_local ', '_dynamic ', ' _with ', '_global '];
+    const defLength = defineKeywords.length;
     const showUndefined = this.magikVSCode.classNames.length > 0;
+    const end = lines.length - 1;
     let search = false;
 
     for (let i = 0; i < end; i++) {
       const row = firstRow + i;
       const line = lines[i];
-      const testString = line.split('#')[0];
+      const text = line.split('#')[0];
+      let startIndex;
       let match;
 
       if (search) {
-        this._findAssignedVariables(testString, row, assignedVars);
+        const testString = magikUtils.removeStrings(text);
+
+        this._findAssignedVariables(text, row, assignedVars);
 
         // TODO - loop scopes
         if (testString.includes('_for ') && testString.includes(' _over ')) {
           const overSplit = testString.split(' _over ');
           const iterTestString = overSplit[0].split('_for ').slice(-1)[0];
+          startIndex = text.indexOf(iterTestString);
 
           while (match = VAR_TEST.exec(iterTestString)) { // eslint-disable-line
-            assignedVars[match[0]] = {
+            const varName = match[0];
+            const varIndex = text.indexOf(varName, startIndex);
+            startIndex = varIndex;
+
+            assignedVars[varName] = {
               row,
-              index: match.index,
+              index: varIndex,
               count: 1,
             };
           }
         }
 
+        startIndex = 0;
+
         while (match = VAR_TEST.exec(testString)) { // eslint-disable-line
           const varName = match[0];
-          const varIndex = match.index;
+          let varIndex = match.index;
 
           if (
             Number.isNaN(Number(varName)) &&
-            !VAR_IGNORE_WORDS.includes(varName) &&
-            !VAR_IGNORE_PREV_CHARS.includes(testString[varIndex - 1]) &&
             testString[varIndex] !== '_' &&
-            testString[varIndex + varName.length] !== '('
+            testString[varIndex + varName.length] !== '(' &&
+            !VAR_IGNORE_PREV_CHARS.includes(testString[varIndex - 1])
           ) {
             const data = assignedVars[varName];
+            varIndex = text.indexOf(varName, startIndex);
+            startIndex = varIndex;
 
             if (
               showUndefined &&
               !data &&
-              !this.magikVSCode.classData[varName]
+              !this.magikVSCode.classData[varName] &&
+              !this.magikVSCode.globals.includes(varName)
             ) {
-              // FIXME - globals
-              if (testString.substring(varIndex - 7, varIndex) === '_local ') {
-                assignedVars[varName] = {
-                  row,
-                  index: varIndex,
-                  count: 1,
-                };
-              } else if (
-                testString.substring(varIndex - 9, varIndex) === '_dynamic '
-              ) {
-                assignedVars[varName] = {
-                  row,
-                  index: varIndex,
-                  count: 1,
-                  dynamic: true,
-                };
-              } else {
+              let def = false;
+
+              for (let defIndex = 0; defIndex < defLength; defIndex++) {
+                const defKeyword = defineKeywords[defIndex];
+                if (
+                  text.substring(varIndex - defKeyword.length, varIndex) ===
+                  defKeyword
+                ) {
+                  assignedVars[varName] = {
+                    row,
+                    index: varIndex,
+                    count: 1,
+                    dynamic: defKeyword === '_dynamic ',
+                  };
+                  def = true;
+                }
+              }
+
+              if (!def) {
                 const range = new vscode.Range(
                   row,
                   varIndex,
@@ -506,14 +552,14 @@ class MagikLinter {
               }
             }
 
-            if (data && (data.row !== row || data.index !== match.index)) {
+            if (data && (data.row !== row || data.index !== varIndex)) {
               data.count += 1;
             }
           }
         }
       } else if (
-        /(\)|<<|\])/.test(testString) ||
-        /(^|\s+)_method\s+.*[a-zA-Z0-9_\\?\\!]$/
+        /(\)|<<|\])/.test(text) ||
+        /(^|\s+)_method\s+.*[a-zA-Z0-9_\\?\\!]$/.test(text)
       ) {
         search = true;
       }
@@ -544,12 +590,20 @@ class MagikLinter {
     }
   }
 
+  async _methodExists(name) {
+    this.magikVSCode.resolveSymbols = false;
+    const symbols = await this.magikVSCode.provideWorkspaceSymbols(`^${name}`);
+    this.magikVSCode.resolveSymbols = true;
+    return symbols.length > 0;
+  }
+
   // Simple check for method call typos
   async _checkMethodCalls(doc, diagnostics, lines, firstRow, methodNames) {
     if (this.magikVSCode.classNames.length === 0) return;
 
     const end = lines.length - 1;
-    const ignorePrevChars = ['(', ' ', '\t'];
+    const ignoreWords = ['0e'];
+    const ignorePrevChars = [' ', '\t', '(', '{'];
 
     for (let i = 1; i < end; i++) {
       const row = firstRow + i;
@@ -564,16 +618,16 @@ class MagikLinter {
         if (
           Number.isNaN(Number(name)) &&
           testString[index - 1] === '.' &&
-          !ignorePrevChars.includes(testString[index - 2])
+          !ignorePrevChars.includes(testString[index - 2]) &&
+          !ignoreWords.includes(name)
         ) {
-          let error = methodNames[name];
-          if (error === undefined) {
-            const symbols = await this.magikVSCode.provideWorkspaceSymbols(`^${name}`); // eslint-disable-line
-            error = symbols.length === 0;
-            methodNames[name] = error;
+          let exists = methodNames[name];
+          if (exists === undefined) {
+            exists = this._methodExists(name);
+            methodNames[name] = exists;
           }
 
-          if (error) {
+          if (!exists) {
             const range = new vscode.Range(
               row,
               index,
