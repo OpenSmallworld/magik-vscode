@@ -45,6 +45,17 @@ Use **Alt+T** to refresh symbols.
 Magik files are scanned when they are opened and saved or by using the command `Magik Check File`.
 Warning: This does not confirm the code is without issues!
 
+The following errors/warnings are highlighted in the code:
+* Undefined variables
+* Unused variables
+* Undefined method usage
+* Private methods that are classified as Basic
+* Missing comment from a Basic method
+* (Hint) Complex methods with a cyclomatic complexity over 10
+* (Hint) Long methods with more than 40 lines of code
+
+The linting can be enable/diabled using the setting `magik-vscode.enableLinting`.
+
 ## Installation
 
 1. Add the extension to VS Code by cloning the repo to %USERPROFILE%\\.vscode\extensions

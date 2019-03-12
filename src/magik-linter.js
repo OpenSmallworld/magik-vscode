@@ -825,7 +825,7 @@ class MagikLinter {
       const d = new vscode.Diagnostic(
         range,
         'Complex method. Consider refactoring this method.',
-        vscode.DiagnosticSeverity.Warning
+        vscode.DiagnosticSeverity.Hint
       );
       diagnostics.push(d);
     }
