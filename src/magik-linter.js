@@ -5,21 +5,75 @@ const magikUtils = require('./magik-utils');
 
 const VAR_IGNORE_PREV_CHARS = ['.', ':', '"', '%', '|', '@'];
 const STATEMENT_PAIRS = [
-  ['_if', '_endif'],
-  ['_for', '_endloop'],
+  [
+    '_if',
+    '_endif',
+    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_if\s*/,
+    /(;|\s+)_endif/,
+  ],
+  [
+    '_for',
+    '_endloop',
+    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_for\s*/,
+    /(;|\s+)_endloop/,
+  ],
   [
     '_proc',
     '_endproc',
     /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_proc\s*[@a-zA-Z0-9_?!]*\s*\(.*/,
+    /(;|\s+)_endproc/,
   ],
-  ['_try', '_endtry'],
-  ['_while', '_endloop'],
-  ['_catch', '_endcatch'],
-  ['_loop', '_endloop'],
-  ['_over', '_endloop'],
-  ['_block', '_endblock'],
+  [
+    '_try',
+    '_endtry',
+    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_try\s*/,
+    /(;|\s+)_endtry/,
+  ],
+  [
+    '_while',
+    '_endloop',
+    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_while\s*/,
+    /(;|\s+)_endloop/,
+  ],
+  [
+    '_loop',
+    '_endloop',
+    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_loop\s*/,
+    /(;|\s+)_endloop/,
+  ],
+  [
+    '_catch',
+    '_endcatch',
+    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_catch\s*/,
+    /(;|\s+)_endcatch/,
+  ],
+  [
+    '_block',
+    '_endblock',
+    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_block\s*/,
+    /(;|\s+)_endblock/,
+  ],
+  [
+    '_lock',
+    '_endlock',
+    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_lock\s*/,
+    /(;|\s+)_endlock/,
+  ],
+  [
+    '_over',
+    '_endloop',
+    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_over\s*/,
+    /(;|\s+)_endloop/,
+  ],
 ];
 const DEFINE_KEYWORDS = ['_local ', '_dynamic ', ' _with ', '_global '];
+const INDENT_INC_STATEMENT_WORDS = [
+  '_proc',
+  '_try',
+  '_catch',
+  '_block',
+  '_lock',
+];
 
 class MagikLinter {
   constructor(magikVSCode, context) {
@@ -80,7 +134,8 @@ class MagikLinter {
         ' ',
         '.',
         '(',
-        '\n'
+        '\n',
+        ','
       )
     );
   }
@@ -108,15 +163,20 @@ class MagikLinter {
     let keywords;
     switch (ch) {
       case '.':
+        keywords = magikUtils.MAGIK_OBJECT_KEYWORDS;
+        break;
+      case ',':
         keywords = magikUtils.MAGIK_VARIABLE_KEYWORDS;
         break;
       case '(':
         keywords = ['proc', 'loopbody'];
         break;
       default:
+        // space, return and empty string
         keywords = magikUtils.MAGIK_KEYWORDS;
     }
     const keywordsLength = keywords.length;
+    const separators = ['.', '(', ','];
 
     for (let index = 0; index < keywordsLength; index++) {
       const keyword = keywords[index];
@@ -125,7 +185,7 @@ class MagikLinter {
       if (length <= textLength) {
         let last = text.slice(-length - 1).trim();
 
-        if (ch === '.' || ch === '(') {
+        if (separators.includes(ch)) {
           last = last.slice(0, last.length - 1);
         }
 
@@ -143,7 +203,7 @@ class MagikLinter {
                 pos.character - length
               );
               edit.insert(doc.uri, insertPos, '_');
-            await vscode.workspace.applyEdit(edit); // eslint-disable-line
+              await vscode.workspace.applyEdit(edit); // eslint-disable-line
             }
           } else if (
             length + 1 === textLength ||
@@ -188,14 +248,8 @@ class MagikLinter {
   }
 
   _statementAssignTest(testString) {
-    for (const [start, end, reg] of STATEMENT_PAIRS) {
-      const endReg = new RegExp(`(;|\\s+)${end}`);
+    for (const [start, end, startReg, endReg] of STATEMENT_PAIRS) {
       if (!endReg.test(testString)) {
-        const startReg =
-          reg ||
-          new RegExp(
-            `([a-zA-Z0-9_\\?\\!]+\\s*\\)?\\s*\\<<|\\s+>>|^>>)\\s*${start}\\s*`
-          );
         if (startReg.test(testString)) {
           return start;
         }
@@ -313,11 +367,7 @@ class MagikLinter {
           if (statementAssignKeyword) {
             indent++;
             assignIndentKeywords.push(statementAssignKeyword);
-            if (
-              ['_proc', '_try', '_catch', '_block'].includes(
-                statementAssignKeyword
-              )
-            ) {
+            if (INDENT_INC_STATEMENT_WORDS.includes(statementAssignKeyword)) {
               indent++;
             }
           } else if (/^_proc\s*[@a-zA-Z0-9_?!]*\s*\(/.test(testString)) {
@@ -469,7 +519,7 @@ class MagikLinter {
   _checkVariables(diagnostics, lines, firstRow) {
     const assignedVars = magikUtils.getMethodParams(lines, firstRow);
     const defLength = DEFINE_KEYWORDS.length;
-    const showUndefined = this.magikVSCode.classNames.length > 0;
+    const showUndefined = this.magikVSCode.classNames.length > 0; // Need class name and globals
     const end = lines.length - 1;
     let search = false;
 

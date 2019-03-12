@@ -70,7 +70,15 @@ const MAGIK_KEYWORDS = [
   'package',
 ];
 
-const MAGIK_VARIABLE_KEYWORDS = ['self', 'super', 'clone', 'thisthread'];
+const MAGIK_OBJECT_KEYWORDS = ['self', 'super', 'clone', 'thisthread'];
+const MAGIK_VARIABLE_KEYWORDS = [
+  'unset',
+  'self',
+  'true',
+  'false',
+  'maybe',
+  'thisthread',
+];
 
 const INDENT_INC_WORDS = [
   '_then',
@@ -80,10 +88,11 @@ const INDENT_INC_WORDS = [
   '_when',
   '_protect',
   '_protection',
-  '_block',
   '_proc',
-  '_finally',
   '_catch',
+  '_block',
+  '_finally',
+  '_lock',
 ];
 
 const INDENT_DEC_WORDS = [
@@ -96,10 +105,11 @@ const INDENT_DEC_WORDS = [
   '_protection',
   '_endprotect',
   '_endmethod',
-  '_endblock',
   '_endproc',
-  '_finally',
   '_endcatch',
+  '_endblock',
+  '_finally',
+  '_endlock',
 ];
 
 const END_WORDS = [
@@ -108,6 +118,9 @@ const END_WORDS = [
   '-',
   '*',
   '/',
+  '=',
+  '>',
+  '<',
   '_andif',
   '_and',
   '_orif',
@@ -121,20 +134,22 @@ const START_ASSIGN_WORDS = [
   '_proc',
   '_try',
   '_while',
-  '_catch',
   '_loop',
-  '_over',
-  '_block',
   '_protect',
+  '_catch',
+  '_block',
+  '_lock',
+  '_over',
 ];
 const END_ASSIGN_WORDS = [
   '_endif',
   '_endloop',
   '_endproc',
   '_endtry',
+  '_endprotect',
   '_endcatch',
   '_endblock',
-  '_endprotect',
+  '_endlock',
 ];
 
 const VALID_CHAR = /[a-zA-Z0-9_\\?\\!]/;
@@ -482,6 +497,7 @@ function removeStrings(text) {
 
 module.exports = {
   MAGIK_KEYWORDS,
+  MAGIK_OBJECT_KEYWORDS,
   MAGIK_VARIABLE_KEYWORDS,
   INDENT_INC_WORDS,
   INDENT_DEC_WORDS,
