@@ -424,6 +424,43 @@ _endblock
 $
 
 
+_pragma(classify_level=debug)
+## Run the test for the supplied test class and method name.
+_global _constant vs_run_test <<
+_proc @vs_run_test(class_name, method_name)
+	_global run_tests
+	_global test_case
+
+	a_class << _unset
+
+	key << class_name.as_symbol()
+	_for a_package _over package.all_packages.fast_elements()
+	_loop
+		_if ( val << a_package[ key ] ) _isnt _unset
+		_then
+			a_class << val
+			_leave
+		_endif
+	_endloop
+
+	_if a_class _isnt _unset _andif
+		a_class.is_kind_of?( test_case )
+	_then
+		name << write_string(method_name, "()")
+		_for a_test _over a_class.suite().tests()
+		_loop
+			_if a_test.get_name() = name
+			_then
+				run_tests({a_test}, _false)
+				_leave
+			_endif
+		_endloop
+	_endif
+
+_endproc
+$
+
+
 # ---------------------------------------------------------------------------------------
 # The procs below are a copy from magik_tools
 
@@ -1731,4 +1768,180 @@ _pragma(classify_level=debug)
 ## Start the mfind prompt. Abbreviation of mprompt()
 ##
 _global _constant mp << mprompt
+$
+
+
+_pragma(classify_level=debug)
+##
+## Runs the supplied collection of test cases.
+## Reports the total runs, assertions, failures and errors.
+##
+## The tests are run in separate thread if BACKGROUND? is
+## true. Defaults to true.
+##
+## Returns the test thread if available.
+##
+_global _constant run_tests <<
+_proc ( tests, _optional background? )
+
+	_global load_file_name
+	_global test_case
+	_global test_runner
+	_global mtest_result
+
+	_if tests.is_kind_of?( "" )
+	_then
+		load_file_name( tests )
+		tests << get_global_value( tests )
+	_endif
+
+	_if tests _is _unset
+	_then
+		write( "Test not found!" )
+		_return
+	_endif
+
+	_if _not tests.is_kind_of?( basic_collection_mixin )
+	_then
+		tests << {tests}
+	_endif
+
+	test_proc << _proc @run_tests( tests )
+
+		ignore_aspects? << test_case.ignore_aspects?
+		test_case.ignore_aspects? << _true
+
+		n_runs << 0
+		n_assertions << 0
+		n_failures << 0
+		n_errors << 0
+
+		a_stream << internal_text_output_stream.new()
+		runner << test_runner.new( a_stream )
+
+		failing_tests << rope.new()
+		tests_with_errors << rope.new()
+
+		run_start_time << system.elapsed_seconds()
+
+		_protect
+			_for a_test _over tests.fast_elements()
+			_loop
+				_if a_test _is _unset _then _continue _endif
+
+				_for t _over a_test.tests()
+				_loop
+					write()
+					name << t.get_name()
+					_if name _is _unset
+					_then
+						name << t.class_name
+					_else
+						name << write_string( t.class_name, ".", name )
+					_endif
+					write( "RUNNING ", name )
+
+					start_time << system.elapsed_seconds()
+
+					a_test_result << mtest_result.new( _false )
+					t.run( a_test_result )
+
+					end_time << system.elapsed_seconds()
+					write( " Time: ", ((end_time - start_time)*1000).floor, " ms" )
+
+					failures << a_test_result.failure_count()
+					errors << a_test_result.error_count()
+
+					a_stream.reset()
+					runner.sys!slot(:test_result) << a_test_result
+					runner.print()
+
+					_if failures > 0 _orif errors > 0
+					_then
+						write()
+					_endif
+					lines << a_stream.string.split_by( %newline )
+					_for a_line _over lines.fast_elements()
+					_loop
+						write( " ", a_line )
+					_endloop
+					write()
+
+					n_runs +<< a_test_result.run_count()
+					n_assertions +<< a_test_result.assert_count()
+
+					_if failures > 0
+					_then
+						failing_tests.add_last( name )
+						n_failures +<< failures
+					_endif
+
+					_if errors > 0
+					_then
+						tests_with_errors.add_last( name )
+						n_errors +<< errors
+					_endif
+				_endloop
+			_endloop
+
+			_if n_runs > 1
+			_then
+				total_time << system.elapsed_seconds() - run_start_time
+
+				write()
+				_if failing_tests.empty? _andif tests_with_errors.empty?
+				_then
+					write( "**** SUCCESS ****" )
+				_else
+					write( "**** FAILED ****" )
+				_endif
+				_if total_time < 1.0
+				_then
+					write( " Time: ", (total_time*1000).floor, " ms" )
+				_else
+					write( " Time: ", total_time, " s" )
+				_endif
+
+				write( " Tests run: ", n_runs, "   Tests failed: ", failing_tests.size )
+				write( " Assertions: ", n_assertions, "   Failures: ", n_failures, "   Errors: ", n_errors )
+				write()
+
+				_if n_runs > 8
+				_then
+					_if _not failing_tests.empty?
+					_then
+						write( "FAILURES:" )
+						_for a_name _over failing_tests.fast_elements()
+						_loop
+							write( " ", a_name )
+						_endloop
+						write()
+					_endif
+
+					_if _not tests_with_errors.empty?
+					_then
+						write( "ERRORS:" )
+						_for a_name _over tests_with_errors.fast_elements()
+						_loop
+							write( " ", a_name )
+						_endloop
+						write()
+					_endif
+				_endif
+			_endif
+
+		_protection
+			test_case.ignore_aspects? << ignore_aspects?
+		_endprotect
+
+	_endproc
+
+	_if background? _is _false
+	_then
+		test_proc.invoke( tests )
+	_else
+		_return test_proc.fork_at( _thisthread.vm_priority - 1, tests )
+	_endif
+
+_endproc
 $

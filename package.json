@@ -120,6 +120,10 @@
             {
                 "command": "magik.gotoNextDefinition",
                 "title": "Magik Go To Next Definition"
+            },
+            {
+                "command": "magik.runTest",
+                "title": "Magik Run Test"
             }
         ],
         "keybindings": [

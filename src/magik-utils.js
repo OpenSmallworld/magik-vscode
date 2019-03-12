@@ -37,6 +37,7 @@ const MAGIK_KEYWORDS = [
   'endtry',
   'throw',
   'catch',
+  'endcatch',
   'handling',
   'protect',
   'protection',
@@ -82,6 +83,7 @@ const INDENT_INC_WORDS = [
   '_block',
   '_proc',
   '_finally',
+  '_catch',
 ];
 
 const INDENT_DEC_WORDS = [
@@ -97,6 +99,7 @@ const INDENT_DEC_WORDS = [
   '_endblock',
   '_endproc',
   '_finally',
+  '_endcatch',
 ];
 
 const END_WORDS = [
@@ -115,23 +118,28 @@ const END_WORDS = [
 const START_ASSIGN_WORDS = [
   '_if',
   '_for',
-  '_try',
-  '_protect',
-  '_over',
-  '_loop',
-  '_while',
   '_proc',
+  '_try',
+  '_while',
+  '_catch',
+  '_loop',
+  '_over',
+  '_block',
+  '_protect',
 ];
 const END_ASSIGN_WORDS = [
   '_endif',
   '_endloop',
-  '_endtry',
-  '_endprotect',
   '_endproc',
+  '_endtry',
+  '_endcatch',
+  '_endblock',
+  '_endprotect',
 ];
 
 const VALID_CHAR = /[a-zA-Z0-9_\\?\\!]/;
 const INVALID_CHAR = /[^a-zA-Z0-9_\\?\\!]/;
+const VAR_TEST = /[a-zA-Z0-9_\\?\\!]+/g;
 
 const DEFINITION_TESTS = [
   {
@@ -288,6 +296,8 @@ function currentClassName(doc, pos) {
 
 function currentRegion(methodOnly, startLine) {
   const editor = vscode.window.activeTextEditor;
+  if (!editor) return {};
+
   const doc = editor.document;
   const methodReg = /(^|\s+)_method\s+/;
 
@@ -362,6 +372,20 @@ function currentRegion(methodOnly, startLine) {
   return {lines, firstRow, lastRow};
 }
 
+function getPackageName(doc) {
+  const lineCount = doc.lineCount;
+
+  for (let row = 0; row < lineCount; row++) {
+    const text = doc.lineAt(row).text.trim();
+
+    if (text.startsWith('_package ')) {
+      return text.split(' ')[1];
+    }
+  }
+
+  return 'sw';
+}
+
 function getClassAndMethodName(text) {
   const parts = text.split('.');
   const className = parts[0]
@@ -379,73 +403,62 @@ function getClassAndMethodName(text) {
   }
 }
 
-function getMethodParams(doc, lines, startLine) {
-  const params = {};
-  const linesLength = lines.length;
+function _findParams(lines, startLine, startRow, startRowIndex, params) {
+  const end = lines.length;
   const ignore = ['_optional', '_gather'];
 
-  for (let i = 0; i < linesLength; i++) {
+  for (let i = startRow; i < end; i++) {
     const row = startLine + i;
-    const line = lines[i];
-    let startIndex = 0;
+    const text = lines[i].split('#')[0];
+    let startIndex = i === startRow ? startRowIndex : 0;
+    let endIndex = text.indexOf(')', startIndex);
+    if (endIndex === -1) endIndex = text.length;
+    const testString = text.substring(startIndex, endIndex);
+    const testStringLength = testString.length;
+    let match;
 
-    if (i === 0) {
-      const res = line.match(/(\(|<<|\[)/);
-      if (!res) break;
-      startIndex = res.index;
+    while (match = /[a-zA-Z0-9_\\?\\!]+/g.exec(testString)) { // eslint-disable-line
+      const varName = match[0];
+      const varIndex = text.indexOf(varName, startIndex);
+
+      if (!ignore.includes(varName)) {
+        params[varName] = {
+          row,
+          index: varIndex,
+          count: 1,
+          param: true,
+        };
+      }
+
+      if (match.index + varName.length === testStringLength) break;
+      startIndex = varIndex + 1;
     }
 
-    let pos;
-    let next;
-    do {
-      pos = new vscode.Position(row, startIndex);
-      next = nextWord(doc, pos, false);
-      if (next) {
-        startIndex = line.indexOf(next, startIndex);
-        if (!ignore.includes(next)) {
-          params[next] = {
-            row,
-            index: startIndex,
-            count: 1,
-            param: true,
-          };
-        }
-        startIndex += next.length;
-      }
-    } while (next);
+    if (/(\)|<<|\])/.test(text)) break;
+  }
+}
 
-    if (/(\)|<<|\])/.test(line)) break;
+function getMethodParams(lines, startLine) {
+  const params = {};
+  const end = lines.length - 1;
+  let match;
+
+  match = lines[0].match(/(\(|<<|\[)/);
+  if (match) {
+    _findParams(lines, startLine, 0, match.index, params);
   }
 
   // Find internal proc params
-  for (let i = 0; i < linesLength; i++) {
-    const row = startLine + i;
-    const line = lines[i];
+  const procReg = /(\s+|\()_proc\s*[@a-zA-Z0-9_?!]*\s*\(/;
 
-    const match = line.match(/(\s+|\()_proc\s*\(/);
+  for (let i = 1; i < end; i++) {
+    const line = lines[i].split('#')[0];
+
+    match = line.match(procReg);
     if (match) {
-      let startIndex = match.index + match[0].length - 1;
-      const endIndex = line.indexOf(')', startIndex);
-      let pos;
-      let next;
+      const startIndex = match.index + match[0].length - 1;
 
-      do {
-        pos = new vscode.Position(row, startIndex);
-        next = nextWord(doc, pos, false);
-        if (next) {
-          startIndex = line.indexOf(next, startIndex);
-          if (startIndex > endIndex) break;
-          if (!ignore.includes(next)) {
-            params[next] = {
-              row,
-              index: startIndex,
-              count: 1,
-              param: true,
-            };
-          }
-          startIndex += next.length;
-        }
-      } while (next);
+      _findParams(lines, startLine, i, startIndex, params);
     }
   }
 
@@ -479,12 +492,14 @@ module.exports = {
   END_ASSIGN_WORDS,
   VALID_CHAR,
   INVALID_CHAR,
+  VAR_TEST,
   DEFINITION_TESTS,
   currentWord,
   previousWord,
   nextWord,
   currentClassName,
   currentRegion,
+  getPackageName,
   getClassAndMethodName,
   getMethodParams,
   removeStrings,

@@ -30,6 +30,8 @@ Adds the following features to VS Code:
 * Symbols:
     * Search Magik methods in the current session (**Ctrl+T**)
     * Magik definitions in the current file to support Outline view
+* Testing:
+    * Command `Magik Run Test` to run the current test method.
 
 (Use Ctrl+Shift+P to list available commands and type Magik)
 

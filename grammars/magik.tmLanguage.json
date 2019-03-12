@@ -63,7 +63,7 @@
 				},
 				{
 					"name": "keyword.control.trycatch.magik",
-					"match": "\\b(_try|_with|_when|_endtry|_throw|_catch|_handling|_default|_protect|_protection|_endprotect)\\b"
+					"match": "\\b(_try|_with|_when|_endtry|_throw|_catch|_handling|_endcatch|_default|_protect|_protection|_endprotect)\\b"
 				},
 				{
 					"name": "variable.language.magik",

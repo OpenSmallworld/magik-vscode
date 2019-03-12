@@ -7,11 +7,13 @@ const path = require('path');
 const readline = require('readline');
 const magikUtils = require('./magik-utils');
 
+const DEFAULT_GLOBALS = ['newline_char', '!print_length!'];
+
 class MagikVSCode {
   constructor(context) {
     this.classData = {};
     this.classNames = [];
-    this.globals = [];
+    this.globals = [...DEFAULT_GLOBALS];
     this.openFiles = [];
     this.resolveSymbols = true;
 
@@ -48,6 +50,7 @@ class MagikVSCode {
       ['refreshSymbols', this._refreshSymbols],
       ['gotoPreviousDefinition', this._gotoPreviousDefinition],
       ['gotoNextDefinition', this._gotoNextDefinition],
+      ['runTest', this._runTest],
     ];
 
     for (const [name, func] of commandConfig) {
@@ -94,6 +97,7 @@ class MagikVSCode {
 
   _compileFile() {
     const editor = vscode.window.activeTextEditor;
+    if (!editor) return;
     const doc = editor.document;
     const {fileName} = doc;
 
@@ -114,6 +118,7 @@ class MagikVSCode {
 
   _compileSelection() {
     const editor = vscode.window.activeTextEditor;
+    if (!editor) return;
     const doc = editor.document;
     const selection = editor.selection;
 
@@ -121,9 +126,10 @@ class MagikVSCode {
       const text = doc.getText(
         new vscode.Range(selection.start, selection.end)
       );
+      const packageName = magikUtils.getPackageName(doc);
       const lines = [
         '#% text_encoding = iso8859_1',
-        '_package sw',
+        `_package ${packageName}`,
         '$',
         '# Output:Loading selection ...',
       ];
@@ -138,6 +144,7 @@ class MagikVSCode {
 
     const editor = vscode.window.activeTextEditor;
     const doc = editor.document;
+    const packageName = magikUtils.getPackageName(doc);
 
     const parts = lines[0].split('.');
     const className = parts[0]
@@ -160,7 +167,7 @@ class MagikVSCode {
 
     lines.unshift(`# Output:Loading ${className}.${methodName} ...`);
     lines.unshift('$');
-    lines.unshift('_package sw');
+    lines.unshift(`_package ${packageName}`);
     lines.unshift('#% text_encoding = iso8859_1');
     lines.push('$');
 
@@ -180,7 +187,7 @@ class MagikVSCode {
     this._compileText(lines);
   }
 
-  // TODO - assumes definitions are on one line!
+  // TODO - handle definitions across multiple lines
   _findDefinition(fileName, word) {
     const lines = fs
       .readFileSync(fileName)
@@ -274,6 +281,7 @@ class MagikVSCode {
 
   _gotoPreviousDefinition() {
     const editor = vscode.window.activeTextEditor;
+    if (!editor) return;
     const doc = editor.document;
     const startLine = editor.selection.active.line - 1;
     const testsLength = magikUtils.DEFINITION_TESTS.length;
@@ -298,6 +306,7 @@ class MagikVSCode {
 
   _gotoNextDefinition() {
     const editor = vscode.window.activeTextEditor;
+    if (!editor) return;
     const doc = editor.document;
     const startLine = editor.selection.active.line + 1;
     const lineCount = doc.lineCount;
@@ -325,7 +334,6 @@ class MagikVSCode {
   provideDocumentSymbols(doc) {
     const symbols = [];
     const testsLength = magikUtils.DEFINITION_TESTS.length;
-
     const lineCount = doc.lineCount;
 
     for (let row = 0; row < lineCount; row++) {
@@ -659,6 +667,7 @@ class MagikVSCode {
 
   async _goto() {
     let editor = vscode.window.activeTextEditor;
+    if (!editor) return;
     const doc = editor.document;
     const pos = editor.selection.active;
 
@@ -710,7 +719,7 @@ class MagikVSCode {
     const rl = readline.createInterface({input});
 
     this.classData = {};
-    this.globals = [];
+    this.globals = [...DEFAULT_GLOBALS];
 
     rl.on('line', (line) => {
       if (line.startsWith('glob:') || line.startsWith('cond:')) {
@@ -845,6 +854,42 @@ class MagikVSCode {
     }
 
     return items;
+  }
+
+  _parentClasses(className, parents) {
+    const data = this.classData[className];
+    if (data) {
+      for (const parentClassName of data.parents) {
+        parents.push(parentClassName);
+        this._parentClasses(parentClassName, parents);
+      }
+    }
+  }
+
+  async _runTest() {
+    const lines = magikUtils.currentRegion(true).lines;
+    if (!lines) return;
+
+    await this.loadSymbols();
+
+    const res = magikUtils.getClassAndMethodName(lines[0]);
+    if (res.methodName) {
+      const parents = [];
+      this._parentClasses(res.className, parents);
+
+      if (res.methodName.startsWith('test_') && parents.includes('test_case')) {
+        const command = `vs_run_test("${res.className}", "${
+          res.methodName
+        }")\u000D`;
+        vscode.commands.executeCommand('workbench.action.terminal.focus', {});
+        vscode.commands.executeCommand(
+          'workbench.action.terminal.sendSequence',
+          {
+            text: command,
+          }
+        );
+      }
+    }
   }
 }
 
