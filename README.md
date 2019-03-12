@@ -86,9 +86,15 @@ I would recommend using these other extensions:
     "magik-vscode.enableAutoIndentation": true
 ```
 
+* Enable linting of Magik code (`true` by default)
+```json
+    "magik-vscode.enableLinting": true
+```
+
 ## Known Issues
 
 * Magik symbols are not loaded automatically after compiling code - use **Alt+T** to refresh symbols.
+* No highlighting or formatting at the Magik prompt - I suggest creating a temp magik file for writing Magik.
 
 Please add issues here:
 https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
@@ -97,8 +103,10 @@ https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 
 ### 0.0.3
 
-Added linting for Magik files.
-Refactored extension code.
+* Added linting for Magik files.
+* Fixed indenting for procs and >>
+* Refactored extension code.
+* Added Magik Run Test.
 
 ### 0.0.2
 

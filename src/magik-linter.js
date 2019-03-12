@@ -374,6 +374,9 @@ class MagikLinter {
     return lineIndents;
   }
 
+  // TODO - ensure space after ,
+  // TODO - remove spaces inside of parentheses
+
   async _indentRegion(currentRow) {
     const {lines, firstRow} = magikUtils.currentRegion();
     if (lines) {
@@ -811,6 +814,9 @@ class MagikLinter {
   }
 
   async _checkMagik(doc) {
+    if (!vscode.workspace.getConfiguration('magik-vscode').enableLinting)
+      return;
+
     await this.magikVSCode.loadSymbols();
 
     const diagnostics = [];

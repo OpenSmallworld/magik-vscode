@@ -179,7 +179,12 @@
                 "magik-vscode.enableAutoIndentation": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Auto indent Magik code."
+                    "description": "Enable Magik code auto indenting."
+                },
+                "magik-vscode.enableLinting": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable Magik code linting."
                 }
             }
         },

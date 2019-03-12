@@ -7,7 +7,12 @@ const path = require('path');
 const readline = require('readline');
 const magikUtils = require('./magik-utils');
 
-const DEFAULT_GLOBALS = ['newline_char', '!print_length!'];
+const DEFAULT_GLOBALS = [
+  'newline_char',
+  'tab_char',
+  'space_char',
+  '!print_length!',
+];
 
 class MagikVSCode {
   constructor(context) {
@@ -686,6 +691,8 @@ class MagikVSCode {
       editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
       return;
     }
+
+    // TODO - recognise _super()
 
     const inherit = previousText === '_super' ? '_true' : '_false';
 
