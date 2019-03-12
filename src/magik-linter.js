@@ -436,7 +436,6 @@ class MagikLinter {
       let testString = assignSplit[i].split('(').slice(-1)[0];
       let startIndex = text.indexOf(testString);
       testString = magikUtils.removeStrings(testString);
-      const testStringLength = testString.length;
 
       while (match = magikUtils.VAR_TEST.exec(testString)) { // eslint-disable-line
         const varName = match[0];
@@ -450,7 +449,7 @@ class MagikLinter {
           !VAR_IGNORE_PREV_CHARS.includes(testString[varIndex - 1])
         ) {
           const index = text.indexOf(varName, startIndex);
-          startIndex = index;
+          startIndex = index + 1;
           const dynamic = text.substring(index - 9, index) === '_dynamic ';
 
           assignedVars[varName] = {
@@ -460,8 +459,6 @@ class MagikLinter {
             dynamic,
           };
         }
-
-        if (varIndex + varName.length === testStringLength) break;
       }
     }
   }
@@ -473,7 +470,7 @@ class MagikLinter {
     const end = lines.length - 1;
     let search = false;
 
-    for (let i = 1; i < end; i++) {
+    for (let i = 0; i < end; i++) {
       const row = firstRow + i;
       const line = lines[i];
       const text = line.split('#')[0];
@@ -482,7 +479,6 @@ class MagikLinter {
 
       if (search) {
         const testString = magikUtils.removeStrings(text);
-        const testStringLength = testString.length;
 
         this._findAssignedVariables(text, row, assignedVars);
 
@@ -490,21 +486,18 @@ class MagikLinter {
         if (testString.includes('_for ') && testString.includes(' _over ')) {
           const overSplit = testString.split(' _over ');
           const iterTestString = overSplit[0].split('_for ').slice(-1)[0];
-          const iterTestStringLength = iterTestString.length;
           startIndex = text.indexOf(iterTestString);
 
           while (match = magikUtils.VAR_TEST.exec(iterTestString)) { // eslint-disable-line
             const varName = match[0];
             const varIndex = text.indexOf(varName, startIndex);
-            startIndex = varIndex;
+            startIndex = varIndex + 1;
 
             assignedVars[varName] = {
               row,
               index: varIndex,
               count: 1,
             };
-
-            if (match.index + varName.length === iterTestStringLength) break;
           }
         }
 
@@ -569,7 +562,6 @@ class MagikLinter {
             }
           }
 
-          if (match.index + varLength === testStringLength) break;
           startIndex = varIndex + varLength;
         }
       } else if (

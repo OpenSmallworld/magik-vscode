@@ -414,10 +414,9 @@ function _findParams(lines, startLine, startRow, startRowIndex, params) {
     let endIndex = text.indexOf(')', startIndex);
     if (endIndex === -1) endIndex = text.length;
     const testString = text.substring(startIndex, endIndex);
-    const testStringLength = testString.length;
     let match;
 
-    while (match = /[a-zA-Z0-9_\\?\\!]+/g.exec(testString)) { // eslint-disable-line
+    while (match = VAR_TEST.exec(testString)) { // eslint-disable-line
       const varName = match[0];
       const varIndex = text.indexOf(varName, startIndex);
 
@@ -430,7 +429,6 @@ function _findParams(lines, startLine, startRow, startRowIndex, params) {
         };
       }
 
-      if (match.index + varName.length === testStringLength) break;
       startIndex = varIndex + 1;
     }
 
