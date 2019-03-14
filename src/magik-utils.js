@@ -418,6 +418,25 @@ function getClassAndMethodName(text) {
   }
 }
 
+function getMethodName(text, name, startIndex) {
+  const end = startIndex + name.length;
+  const next = text.slice(end).search(/\S/);
+  let methodName = name;
+
+  if (next !== -1) {
+    const nextChar = text[end + next];
+    if (nextChar === '(') {
+      methodName += '()';
+    } else if (text.substr(end + next, 2) === '<<') {
+      methodName += '<<';
+    } else if (text.substr(end + next, 3) === '^<<') {
+      methodName += '<<';
+    }
+  }
+
+  return methodName;
+}
+
 function _findParams(lines, startLine, startRow, startRowIndex, params) {
   const end = lines.length;
   const ignore = ['_optional', '_gather'];
@@ -495,6 +514,23 @@ function removeStrings(text) {
   return noStrings.join('');
 }
 
+function removeSymbolsWithPipes(text) {
+  let start = text.indexOf(':|');
+  let end;
+
+  while (start !== -1) {
+    end = text.indexOf('|', start + 2);
+    if (end === -1) {
+      start = -1;
+    } else {
+      text = text.substr(0, start) + text.substr(end + 1);
+      start = text.indexOf(':|');
+    }
+  }
+
+  return text;
+}
+
 module.exports = {
   MAGIK_KEYWORDS,
   MAGIK_OBJECT_KEYWORDS,
@@ -515,6 +551,8 @@ module.exports = {
   currentRegion,
   getPackageName,
   getClassAndMethodName,
+  getMethodName,
   getMethodParams,
   removeStrings,
+  removeSymbolsWithPipes,
 };

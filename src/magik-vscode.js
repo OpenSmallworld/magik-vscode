@@ -11,6 +11,10 @@ const DEFAULT_GLOBALS = [
   'newline_char',
   'tab_char',
   'space_char',
+  'system_messages',
+  '!output!',
+  '!error_output!',
+  '!terminal!',
   '!print_length!',
 ];
 
@@ -20,6 +24,7 @@ class MagikVSCode {
     this.classNames = [];
     this.globals = [...DEFAULT_GLOBALS];
     this.openFiles = [];
+    this.currentSymbols = [];
     this.resolveSymbols = true;
 
     this._initialise(context);
@@ -56,6 +61,7 @@ class MagikVSCode {
       ['gotoPreviousDefinition', this._gotoPreviousDefinition],
       ['gotoNextDefinition', this._gotoNextDefinition],
       ['runTest', this._runTest],
+      ['compileExtensionMagik', this._compileExtensionMagik],
     ];
 
     for (const [name, func] of commandConfig) {
@@ -192,6 +198,17 @@ class MagikVSCode {
     this._compileText(lines);
   }
 
+  _compileExtensionMagik() {
+    const ext = vscode.extensions.getExtension('GE-Smallworld.magik-vscode');
+    if (ext) {
+      const fileName = path.join(ext.extensionPath, 'vscode_dev.magik');
+      const command = `load_file("${fileName}")\u000D`;
+      vscode.commands.executeCommand('workbench.action.terminal.sendSequence', {
+        text: command,
+      });
+    }
+  }
+
   // TODO - handle definitions across multiple lines
   _findDefinition(fileName, word) {
     const lines = fs
@@ -246,6 +263,9 @@ class MagikVSCode {
   _getDefinitionSymbol(doc, row, text, defTest) {
     let index = text.search(defTest.test);
     if (index === -1) return;
+
+    const quoteIndex = text.indexOf('"');
+    if (quoteIndex > -1 && quoteIndex < index) return;
 
     let className;
     let methodName;
@@ -355,6 +375,8 @@ class MagikVSCode {
         }
       }
     }
+
+    this.currentSymbols = symbols;
 
     return symbols;
   }
@@ -619,16 +641,7 @@ class MagikVSCode {
     if (start === end) return {};
 
     let currentText = text.slice(start, end).trim();
-
-    const next = text.slice(end).search(/\S/);
-    if (next !== -1) {
-      const nextChar = text[end + next];
-      if (nextChar === '(') {
-        currentText += '()';
-      } else if (nextChar === '<' && text[end + next + 1] === '<') {
-        currentText += '<<';
-      }
-    }
+    currentText = magikUtils.getMethodName(text, currentText, start);
 
     const previousText = magikUtils.previousWord(doc, pos, true);
     let classText = previousText;

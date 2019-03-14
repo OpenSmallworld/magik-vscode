@@ -22,11 +22,17 @@ Adds the following features to VS Code:
     * Command `Magik Indent Region` (**Ctrl+I**)
     * Command `Magik Indent File` (**Ctrl+Shift+I**)
 * Linting:
-    * Highlights undefined variables and method.
-    * Highlights unused variables.
-    * Highlights long or complex methods.
-    * Highlights incorrect method classification.
     * Command `Magik Check File`
+
+    The following errors/warnings are highlighted in the code:
+    * Undefined variables
+    * Unused variables
+    * Undefined method usage
+    * Use of a class name as a local variable
+    * Private methods that are classified as Basic
+    * Missing comment from a Basic method
+    * (Hint) Complex methods with a cyclomatic complexity over 10
+    * (Hint) Long methods with more than 40 lines of code
 * Symbols:
     * Search Magik methods in the current session (**Ctrl+T**)
     * Magik definitions in the current file to support Outline view
@@ -35,24 +41,15 @@ Adds the following features to VS Code:
 
 (Use Ctrl+Shift+P to list available commands and type Magik)
 
-### Method Search
+### **Method Search**
 
 You can search for Magik methods using **Ctrl+T** and typing `<method name>` or `<class name>`.`<method name>`.
 Use **Alt+T** to refresh symbols.
 
-### Magik Linting
+### **Magik Linting**
 
 Magik files are scanned when they are opened and saved or by using the command `Magik Check File`.
 Warning: This does not confirm the code is without issues!
-
-The following errors/warnings are highlighted in the code:
-* Undefined variables
-* Unused variables
-* Undefined method usage
-* Private methods that are classified as Basic
-* Missing comment from a Basic method
-* (Hint) Complex methods with a cyclomatic complexity over 10
-* (Hint) Long methods with more than 40 lines of code
 
 The linting can be enable/diabled using the setting `magik-vscode.enableLinting`.
 
@@ -106,6 +103,7 @@ I would recommend using these other extensions:
 
 * Magik symbols are not loaded automatically after compiling code - use **Alt+T** to refresh symbols.
 * No highlighting or formatting at the Magik prompt - I suggest creating a temp magik file for writing Magik.
+* Linting only available inside methods.
 
 Please add issues here:
 https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues

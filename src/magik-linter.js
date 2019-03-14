@@ -4,6 +4,10 @@ const vscode = require('vscode'); // eslint-disable-line
 const magikUtils = require('./magik-utils');
 
 const VAR_IGNORE_PREV_CHARS = ['.', ':', '"', '%', '|', '@'];
+const ASSIGN_IGNORE_NEXT_CHARS = ['(', '.'];
+const METHOD_IGNORE_PREV_CHARS = [' ', '\t', '(', '[', '{'];
+const METHOD_IGNORE_WORDS = ['0e', 'exemplar'];
+
 const STATEMENT_PAIRS = [
   [
     '_if',
@@ -66,7 +70,12 @@ const STATEMENT_PAIRS = [
     /(;|\s+)_endloop/,
   ],
 ];
-const DEFINE_KEYWORDS = ['_local ', '_dynamic ', ' _with ', '_global '];
+const DEFINE_KEYWORD_TESTS = [
+  /(_local|_with|_global)\s+([a-zA-Z0-9_?!]+\s*,\s*)*$/,
+  /(_dynamic)\s+([a-zA-Z0-9_?!]+\s*,\s*)*$/,
+];
+const IMPORT_TEST = /_import\s+([a-zA-Z0-9_?!]+\s*,\s*)*$/;
+
 const INDENT_INC_STATEMENT_WORDS = [
   '_proc',
   '_try',
@@ -244,7 +253,7 @@ class MagikLinter {
   }
 
   _methodStartTest(testString) {
-    return /(^|\s+)_method\s+/.test(testString);
+    return !testString.includes('"') && /(^|\s+)_method\s+/.test(testString);
   }
 
   _statementAssignTest(testString) {
@@ -283,7 +292,7 @@ class MagikLinter {
 
       if (start === -1) start = textLength;
 
-      if (testString !== '#') {
+      if (testString[0] !== '#') {
         const decWordsLength = magikUtils.INDENT_DEC_WORDS.length;
         for (let i = 0; i < decWordsLength; i++) {
           if (testString.startsWith(magikUtils.INDENT_DEC_WORDS[i])) {
@@ -355,7 +364,9 @@ class MagikLinter {
             indent--;
             assignIndentKeywords.pop();
           }
-        } else if (tempIndent) {
+        }
+
+        if (tempIndent) {
           indent--;
           tempIndent = false;
         }
@@ -413,6 +424,7 @@ class MagikLinter {
           indent -= matches.length;
           decCount = matches.length;
         }
+
         if (tempIndent && incCount > decCount) {
           indent--;
         }
@@ -477,6 +489,11 @@ class MagikLinter {
     }
   }
 
+  _nextChar(text, index) {
+    const match = /\S/.exec(text.slice(index));
+    if (match) return match[0];
+  }
+
   // TODO - handle assigned across multiple lines
   _findAssignedVariables(text, row, assignedVars) {
     const assignSplit = text.split('<<');
@@ -485,41 +502,53 @@ class MagikLinter {
 
     let match;
 
+    // TODO - identify vars followed by << class_name.new()
+
     for (let i = 0; i < assignSplitLength - 1; i++) {
       let testString = assignSplit[i].split('(').slice(-1)[0];
       let startIndex = text.indexOf(testString);
       testString = magikUtils.removeStrings(testString);
 
-      while (match = magikUtils.VAR_TEST.exec(testString)) { // eslint-disable-line
-        const varName = match[0];
-        const varIndex = match.index;
+      if (!/]\s*$/.test(testString)) {
+        while (match = magikUtils.VAR_TEST.exec(testString)) { // eslint-disable-line
+          const varName = match[0];
+          const varIndex = match.index;
 
-        if (
-          !assignedVars[varName] &&
-          Number.isNaN(Number(varName)) &&
-          testString[varIndex] !== '_' &&
-          testString[varIndex + varName.length] !== '(' &&
-          !VAR_IGNORE_PREV_CHARS.includes(testString[varIndex - 1])
-        ) {
-          const index = text.indexOf(varName, startIndex);
-          startIndex = index + 1;
-          const dynamic = text.substring(index - 9, index) === '_dynamic ';
+          if (
+            Number.isNaN(Number(varName)) &&
+            testString[varIndex] !== '_' &&
+            !ASSIGN_IGNORE_NEXT_CHARS.includes(
+              this._nextChar(testString, varIndex + varName.length)
+            ) &&
+            !VAR_IGNORE_PREV_CHARS.includes(testString[varIndex - 1])
+          ) {
+            const varData = assignedVars[varName];
+            const index = text.indexOf(varName, startIndex);
+            startIndex = index + 1;
 
-          assignedVars[varName] = {
-            row,
-            index,
-            count: 1,
-            dynamic,
-          };
+            if (varData) {
+              varData.row = row;
+              varData.index = index;
+            } else {
+              const dynamic = text.substring(index - 9, index) === '_dynamic ';
+
+              assignedVars[varName] = {
+                row,
+                index,
+                count: 1,
+                dynamic,
+              };
+            }
+          }
         }
       }
     }
   }
 
-  _checkVariables(diagnostics, lines, firstRow) {
+  _checkVariables(lines, firstRow, diagnostics) {
     const assignedVars = magikUtils.getMethodParams(lines, firstRow);
-    const defLength = DEFINE_KEYWORDS.length;
     const showUndefined = this.magikVSCode.classNames.length > 0; // Need class name and globals
+    const defLength = DEFINE_KEYWORD_TESTS.length;
     const end = lines.length - 1;
     let search = false;
 
@@ -531,7 +560,8 @@ class MagikLinter {
       let match;
 
       if (search) {
-        const testString = magikUtils.removeStrings(text);
+        let testString = magikUtils.removeStrings(text);
+        testString = magikUtils.removeSymbolsWithPipes(testString);
 
         this._findAssignedVariables(text, row, assignedVars);
 
@@ -560,41 +590,38 @@ class MagikLinter {
           const varName = match[0];
           const varLength = varName.length;
           let varIndex = match.index;
+          const defTestString = text.substr(0, varIndex);
 
           if (
             Number.isNaN(Number(varName)) &&
             testString[varIndex] !== '_' &&
-            testString[varIndex + varLength] !== '(' &&
+            this._nextChar(testString, varIndex + varLength) !== '(' &&
             !VAR_IGNORE_PREV_CHARS.includes(testString[varIndex - 1])
           ) {
-            const data = assignedVars[varName];
+            const varData = assignedVars[varName];
             varIndex = text.indexOf(varName, startIndex);
 
-            if (
-              showUndefined &&
-              !data &&
-              !this.magikVSCode.classData[varName] &&
-              !this.magikVSCode.globals.includes(varName)
-            ) {
+            if (showUndefined && !varData) {
               let def = false;
 
               for (let defIndex = 0; defIndex < defLength; defIndex++) {
-                const defKeyword = DEFINE_KEYWORDS[defIndex];
-                if (
-                  text.substring(varIndex - defKeyword.length, varIndex) ===
-                  defKeyword
-                ) {
+                if (DEFINE_KEYWORD_TESTS[defIndex].test(defTestString)) {
                   assignedVars[varName] = {
                     row,
                     index: varIndex,
                     count: 1,
-                    dynamic: defKeyword === '_dynamic ',
+                    dynamic: defIndex > 0,
                   };
                   def = true;
+                  break;
                 }
               }
 
-              if (!def) {
+              if (
+                !def &&
+                !this.magikVSCode.classData[varName] &&
+                !this.magikVSCode.globals.includes(varName)
+              ) {
                 const range = new vscode.Range(
                   row,
                   varIndex,
@@ -610,8 +637,12 @@ class MagikLinter {
               }
             }
 
-            if (data && (data.row !== row || data.index !== varIndex)) {
-              data.count++;
+            if (
+              varData &&
+              (varData.row !== row || varData.index !== varIndex) &&
+              !IMPORT_TEST.test(text.substr(0, varIndex))
+            ) {
+              varData.count++;
             }
           }
 
@@ -637,9 +668,39 @@ class MagikLinter {
           data.row,
           data.index + varName.length
         );
+        let d;
+        if (data.param) {
+          d = new vscode.Diagnostic(
+            range,
+            `"${varName}" is never used.`,
+            vscode.DiagnosticSeverity.Warning
+          );
+        } else {
+          d = new vscode.Diagnostic(
+            range,
+            `"${varName}" is defined but never used.`,
+            vscode.DiagnosticSeverity.Error
+          );
+        }
+        diagnostics.push(d);
+      }
+    }
+  }
+
+  _checkClassNameVariables(assignedVars, diagnostics) {
+    if (this.magikVSCode.classNames.length === 0) return;
+
+    for (const [varName, data] of Object.entries(assignedVars)) {
+      if (this.magikVSCode.classData[varName]) {
+        const range = new vscode.Range(
+          data.row,
+          data.index,
+          data.row,
+          data.index + varName.length
+        );
         const msg = data.param
-          ? `"${varName}" is never used.`
-          : `"${varName}" is defined but never used.`;
+          ? `Class name "${varName}" is used as a parameter.`
+          : `Class name "${varName}" is used as a local variable.`;
         const d = new vscode.Diagnostic(
           range,
           msg,
@@ -652,39 +713,44 @@ class MagikLinter {
 
   async _methodExists(name) {
     this.magikVSCode.resolveSymbols = false;
-    const symbols = await this.magikVSCode.provideWorkspaceSymbols(`^${name}`);
+    const symbols = await this.magikVSCode.provideWorkspaceSymbols(`^${name}$`);
     this.magikVSCode.resolveSymbols = true;
     return symbols.length > 0;
   }
 
   // Simple check for method call typos
-  async _checkMethodCalls(doc, diagnostics, lines, firstRow, methodNames) {
+  async _checkMethodCalls(lines, firstRow, methodNames, diagnostics) {
     if (this.magikVSCode.classNames.length === 0) return;
 
-    const end = lines.length - 1;
-    const ignoreWords = ['0e'];
-    const ignorePrevChars = [' ', '\t', '(', '{'];
+    const lineLength = lines.length - 1;
 
-    for (let i = 1; i < end; i++) {
+    for (let i = 1; i < lineLength; i++) {
       const row = firstRow + i;
       const line = lines[i];
-      const testString = line.split('#')[0];
+      const text = line.split('#')[0];
+      const testString = magikUtils.removeStrings(text);
+      let startIndex = 0;
       let match;
 
       while (match = magikUtils.VAR_TEST.exec(testString)) { // eslint-disable-line
         const name = match[0];
-        const index = match.index;
+        let index = match.index;
 
         if (
           Number.isNaN(Number(name)) &&
           testString[index - 1] === '.' &&
-          !ignorePrevChars.includes(testString[index - 2]) &&
-          !ignoreWords.includes(name)
+          !METHOD_IGNORE_PREV_CHARS.includes(testString[index - 2]) &&
+          !METHOD_IGNORE_WORDS.includes(name)
         ) {
-          let exists = methodNames[name];
+          const methodName = magikUtils.getMethodName(testString, name, index);
+          index = text.indexOf(name, startIndex);
+
+          // TODO look for _self, _super, _clone
+
+          let exists = methodNames[methodName];
           if (exists === undefined) {
-            exists = this._methodExists(name);
-            methodNames[name] = exists;
+            exists = await this._methodExists(methodName); // eslint-disable-line
+            methodNames[methodName] = exists;
           }
 
           if (!exists) {
@@ -696,17 +762,19 @@ class MagikLinter {
             );
             const d = new vscode.Diagnostic(
               range,
-              `Method '${name}' is not defined.`,
+              `Method '${methodName}' is not defined.`,
               vscode.DiagnosticSeverity.Error
             );
             diagnostics.push(d);
           }
         }
+
+        startIndex = index + name.length;
       }
     }
   }
 
-  _checkPublicComment(doc, diagnostics, lines, firstRow) {
+  _checkPublicComment(doc, lines, firstRow, diagnostics) {
     if (firstRow === 0) return;
 
     const prevLine = doc.lineAt(firstRow - 1).text;
@@ -768,7 +836,7 @@ class MagikLinter {
     }
   }
 
-  _checkMethodComplexity(diagnostics, lines, firstRow) {
+  _checkMethodComplexity(lines, firstRow, diagnostics) {
     // Rough calculation of complexity
     const end = lines.length - 1;
     const decisionPoints = [
@@ -831,7 +899,7 @@ class MagikLinter {
     }
   }
 
-  _checkMethodLength(diagnostics, lines, firstRow) {
+  _checkMethodLength(lines, firstRow, diagnostics) {
     const end = lines.length - 1;
     let count = 0;
 
@@ -863,6 +931,8 @@ class MagikLinter {
     }
   }
 
+  // TODO - add annotation to ignore line
+
   async _checkMagik(doc) {
     if (!vscode.workspace.getConfiguration('magik-vscode').enableLinting)
       return;
@@ -871,7 +941,7 @@ class MagikLinter {
 
     const diagnostics = [];
     const methodNames = {};
-    const symbols = this.magikVSCode.provideDocumentSymbols(doc);
+    const symbols = this.magikVSCode.currentSymbols;
     const symbolsLength = symbols.length;
 
     for (let i = 0; i < symbolsLength; i++) {
@@ -885,22 +955,22 @@ class MagikLinter {
         if (lines) {
           const {firstRow} = region;
           const assignedVars = this._checkVariables(
-            diagnostics,
-            lines,
-            firstRow
-          );
-          this._checkUnusedVariables(assignedVars, diagnostics);
-          this._checkPublicComment(doc, diagnostics, lines, firstRow);
-          // eslint-disable-next-line
-          await this._checkMethodCalls(
-            doc,
-            diagnostics,
             lines,
             firstRow,
-            methodNames
+            diagnostics
           );
-          this._checkMethodComplexity(diagnostics, lines, firstRow);
-          this._checkMethodLength(diagnostics, lines, firstRow);
+          this._checkUnusedVariables(assignedVars, diagnostics);
+          this._checkClassNameVariables(assignedVars, diagnostics);
+          this._checkPublicComment(doc, lines, firstRow, diagnostics);
+          // eslint-disable-next-line
+          await this._checkMethodCalls(
+            lines,
+            firstRow,
+            methodNames,
+            diagnostics
+          );
+          this._checkMethodComplexity(lines, firstRow, diagnostics);
+          this._checkMethodLength(lines, firstRow, diagnostics);
         }
       }
     }

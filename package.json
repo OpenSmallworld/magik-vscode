@@ -3,7 +3,7 @@
     "displayName": "Magik VS Code",
     "description": "Magik language support for VS Code",
     "version": "0.0.2",
-    "publisher": "GE Smallworld",
+    "publisher": "GE-Smallworld",
     "engines": {
         "vscode": "^1.23.0"
     },
@@ -124,6 +124,10 @@
             {
                 "command": "magik.runTest",
                 "title": "Magik Run Test"
+            },
+            {
+                "command": "magik.compileExtensionMagik",
+                "title": "Magik Compile Extension Code"
             }
         ],
         "keybindings": [
