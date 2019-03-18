@@ -152,9 +152,12 @@ const END_ASSIGN_WORDS = [
   '_endlock',
 ];
 
-const VALID_CHAR = /[a-zA-Z0-9_\\?\\!]/;
-const INVALID_CHAR = /[^a-zA-Z0-9_\\?\\!]/;
-const VAR_TEST = /[a-zA-Z0-9_\\?\\!]+/g;
+const VALID_CHAR = /[a-zA-Z0-9_?!]/;
+const INVALID_CHAR = /[^a-zA-Z0-9_?!]/;
+const VAR_TEST = /[a-zA-Z0-9_?!]+/g;
+
+const ASSIGN_IGNORE_NEXT = /^\s*(\(|\.|\)\.|(\s*,\s*[a-zA-Z0-9_?!]+)+\s*$)/;
+const VAR_IGNORE_PREV_CHARS = ['.', ':', '"', '%', '|', '@'];
 
 const DEFINITION_TESTS = [
   {
@@ -181,111 +184,68 @@ const DEFINITION_TESTS = [
   },
 ];
 
-function currentWord(doc, pos) {
-  const col = pos.character;
-  const text = doc.lineAt(pos.line).text;
-  let revText;
-  let start;
-  let end;
-
-  revText = text.slice(0, col);
-  revText = revText
-    .split('')
-    .reverse()
-    .join('');
-  start = revText.search(INVALID_CHAR);
-  if (start === -1) return;
-
-  start = col - start;
-
-  end = text.slice(col).search(INVALID_CHAR);
-  if (end === -1) {
-    end = text.length;
-  } else {
-    end = col + end;
-  }
-
-  if (start !== end) {
-    return text.slice(start, end).trim();
+function previousWordInString(text, index) {
+  const match = /[a-zA-Z0-9_?!]+[^a-zA-Z0-9_?!]*[a-zA-Z0-9_?!]*$/.exec(
+    text.substr(0, index)
+  );
+  if (match) {
+    const word = match[0];
+    const invalidIndex = word.search(INVALID_CHAR);
+    if (invalidIndex === -1) return word;
+    return word.substr(0, invalidIndex);
   }
 }
 
-function previousWord(doc, pos, varOnly) {
-  const line = doc.lineAt(pos.line);
-  let text = line.text.slice(0, pos.character);
-  let index;
+function previousWord(doc, pos) {
+  return previousWordInString(doc.lineAt(pos.line).text, pos.character);
+}
 
-  text = text
-    .split('')
-    .reverse()
-    .join('')
-    .trim();
-
-  index = text.search(INVALID_CHAR);
-  if (index === -1) {
-    // Try previous row - ignore comments
-    for (let row = pos.line - 1; row > -1; row--) {
-      let newText = doc.lineAt(row).text;
-      if (newText.trim()[0] !== '#') {
-        newText = newText
-          .split('')
-          .reverse()
-          .join('')
-          .trim();
-        index = newText.search(INVALID_CHAR);
-        text = newText;
-        break;
-      }
-    }
+function previousVarInString(text, index) {
+  const match = /[a-zA-Z0-9_?!]+\s*\.\s*[a-zA-Z0-9_?!]*$/.exec(
+    text.substr(0, index)
+  );
+  if (match && text[match.index - 1] !== '.') {
+    return match[0].split('.')[0].trim();
   }
-  if (index === -1) return;
+}
 
-  text = text.slice(index).trim();
-  if (varOnly) {
-    if (text[0] !== '.') return;
-    text = text.slice(1).trim();
-  } else {
-    index = text.search(VALID_CHAR);
-    if (index === -1) return;
-    text = text.slice(index);
+function currentWordInString(text, index) {
+  const invalidIndex = text.slice(index).search(INVALID_CHAR);
+  if (invalidIndex !== -1) {
+    return previousWordInString(text, index + invalidIndex + 1);
   }
 
-  index = text.search(INVALID_CHAR);
-  if (index === -1) index = text.length;
+  const match = /[a-zA-Z0-9_?!]+$/.exec(text);
+  if (match) return match[0];
+}
 
-  text = text.slice(0, index);
-  return text
-    .split('')
-    .reverse()
-    .join('');
+function currentWord(doc, pos) {
+  return currentWordInString(doc.lineAt(pos.line).text, pos.character);
+}
+
+function nextWordInString(text, index) {
+  const invalidIndex = text.slice(index).search(INVALID_CHAR);
+  if (invalidIndex !== -1) {
+    const match = /[a-zA-Z0-9_?!]+/.exec(text.slice(index + invalidIndex));
+    if (match) return match[0];
+  }
 }
 
 function nextWord(doc, pos, searchNextLine) {
-  const line = doc.lineAt(pos.line);
-  let text = line.text.slice(pos.character);
-  let index = text.search(INVALID_CHAR);
-  if (index === -1) return;
+  const startRow = pos.line;
+  let word = nextWordInString(doc.lineAt(startRow).text, pos.character);
+  if (word || searchNextLine === false) return word;
 
-  text = text.slice(index);
-  index = text.search(VALID_CHAR);
-  if (searchNextLine !== false && index === -1) {
-    // Try next row - ignore comments
-    for (let row = pos.line + 1; row < doc.lineCount; row++) {
-      const newText = doc.lineAt(row).text.trim();
-      if (newText[0] !== '#') {
-        index = newText.search(VALID_CHAR);
-        text = newText;
-        break;
-      }
+  const endRow = doc.lineCount;
+
+  for (let row = startRow + 1; row < endRow; row++) {
+    const text = doc.lineAt(row).text;
+
+    if (text.trim()[0] !== '#') {
+      word = nextWordInString(text, 0);
+      if (word) return word;
     }
   }
-  if (index === -1) return;
-
-  text = text.slice(index);
-  index = text.search(INVALID_CHAR);
-  if (index === -1) return text;
-
-  return text.slice(0, index);
 }
 
 function currentClassName(doc, pos) {
@@ -293,15 +253,15 @@ function currentClassName(doc, pos) {
 
   for (let row = pos.line; row > -1; row--) {
     const text = doc.lineAt(row).text;
-    const trim = text.trim();
-    if (methodReg.test(trim)) {
+    const testString = text.trim();
+    if (methodReg.test(testString)) {
       const className = text
         .split('_method ')
-        .splice(-1)[0]
+        .slice(-1)[0]
         .split('.')[0];
       return className.trim();
     }
-    if (trim.startsWith('def_slotted_exemplar')) {
+    if (testString.startsWith('def_slotted_exemplar')) {
       const col = text.indexOf('def_slotted_exemplar') + 20;
       const newPos = new vscode.Position(row, col);
       return nextWord(doc, newPos);
@@ -394,7 +354,7 @@ function getPackageName(doc) {
     const text = doc.lineAt(row).text.trim();
 
     if (text.startsWith('_package ')) {
-      return text.split(' ')[1];
+      return text.split(/\s/)[1];
     }
   }
 
@@ -404,8 +364,8 @@ function getPackageName(doc) {
 function getClassAndMethodName(text) {
   const parts = text.split('.');
   const className = parts[0]
-    .split(' ')
-    .splice(-1)[0]
+    .split(/\s/)
+    .slice(-1)[0]
     .trim();
   let methodName;
 
@@ -424,8 +384,8 @@ function getMethodName(text, name, startIndex) {
   let methodName = name;
 
   if (next !== -1) {
-    const nextChar = text[end + next];
-    if (nextChar === '(') {
+    const nextC = text[end + next];
+    if (nextC === '(') {
       methodName += '()';
     } else if (text.substr(end + next, 2) === '<<') {
       methodName += '<<';
@@ -531,6 +491,16 @@ function removeSymbolsWithPipes(text) {
   return text;
 }
 
+function previousCharacter(text, index) {
+  const match = /\S$/.exec(text.substr(0, index));
+  if (match) return match[0];
+}
+
+function nextChar(text, index) {
+  const match = /\S/.exec(text.slice(index));
+  if (match) return match[0];
+}
+
 module.exports = {
   MAGIK_KEYWORDS,
   MAGIK_OBJECT_KEYWORDS,
@@ -543,9 +513,15 @@ module.exports = {
   VALID_CHAR,
   INVALID_CHAR,
   VAR_TEST,
+  ASSIGN_IGNORE_NEXT,
+  VAR_IGNORE_PREV_CHARS,
   DEFINITION_TESTS,
+  currentWordInString,
   currentWord,
+  previousWordInString,
+  previousVarInString,
   previousWord,
+  nextWordInString,
   nextWord,
   currentClassName,
   currentRegion,
@@ -555,4 +531,6 @@ module.exports = {
   getMethodParams,
   removeStrings,
   removeSymbolsWithPipes,
+  previousCharacter,
+  nextChar,
 };
