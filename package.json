@@ -2,7 +2,7 @@
     "name": "magik-vscode",
     "displayName": "Magik VS Code",
     "description": "Magik language support for VS Code",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "publisher": "GE-Smallworld",
     "engines": {
         "vscode": "^1.23.0"
@@ -75,11 +75,11 @@
             }
         ],
         "snippets": [
-			{
-				"language": "magik",
-				"path": "./snippets/magik.snippets.json"
-			}
-		],
+            {
+                "language": "magik",
+                "path": "./snippets/magik.snippets.json"
+            }
+        ],
         "commands": [
             {
                 "command": "magik.goto",
