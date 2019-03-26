@@ -218,9 +218,11 @@ class MagikVSCode {
       .split('\n'); // TODO replace this
     const lineCount = lines.length;
 
-    const methodTest = new RegExp(`(^_method | _method ).+\\.\\s*(${word})`);
+    const methodTest = new RegExp(
+      `(^|\\s+)_method\\s+.+\\.\\s*${word}\\s*($|\\(|\\[|<<)`
+    );
     const defineTest = new RegExp(
-      `\\.\\s*(define_slot_access|define_shared_constant|def_property|define_property|define_shared_variable)\\s*\\(\\s*:(${word})`
+      `\\.\\s*(define_slot_access|define_shared_constant|def_property|define_property|define_shared_variable)\\s*\\(\\s*:${word}`
     );
 
     for (let row = 0; row < lineCount; row++) {

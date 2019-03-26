@@ -8,17 +8,13 @@
         "vscode": "^1.23.0"
     },
     "categories": [
-        "Programming Languages",
-        "Themes"
+        "Programming Languages"
     ],
+    "icon": "./icons/target_128x128.png",
     "activationEvents": [
         "onLanguage:magik",
-        "onCommand:magik.goto",
-        "onCommand:magik.compileMethod",
-        "onCommand:magik.compileFile",
-        "onCommand:magik.compileSelection",
-        "onCommand:magik.indentMethod",
-        "onCommand:magik.refreshSymbols"
+        "onCommand:magik.refreshSymbols",
+        "onCommand:magik.compileExtensionMagik"
     ],
     "main": "./src/magik",
     "contributes": {
@@ -162,6 +158,11 @@
                 "when": "editorTextFocus"
             },
             {
+                "command": "magik.checkFile",
+                "key": "ctrl+shift+f7",
+                "when": "editorTextFocus"
+            },
+            {
                 "command": "magik.refreshSymbols",
                 "key": "alt+t"
             },
@@ -174,6 +175,15 @@
                 "command": "magik.gotoNextDefinition",
                 "key": "alt+pagedown",
                 "when": "editorTextFocus"
+            },
+            {
+                "command": "magik.runTest",
+                "key": "alt+f7",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "magik.compileExtensionMagik",
+                "key": "alt+m"
             }
         ],
         "configuration": {

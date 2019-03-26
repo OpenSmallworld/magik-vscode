@@ -22,7 +22,7 @@ Adds the following features to VS Code:
     * Command `Magik Indent Region` (**Ctrl+I**)
     * Command `Magik Indent File` (**Ctrl+Shift+I**)
 * Linting:
-    * Command `Magik Check File`
+    * Command `Magik Check File` (**Ctrl+Shift+F7**)
 
     The following errors/warnings are highlighted in the code:
     * Undefined variables
@@ -37,7 +37,7 @@ Adds the following features to VS Code:
     * Search Magik methods in the current session (**Ctrl+T**)
     * Magik definitions in the current file to support Outline view
 * Testing:
-    * Command `Magik Run Test` to run the current test method.
+    * Command `Magik Run Test` to run the current test method (**Alt+F7**)
 
 (Use Ctrl+Shift+P to list available commands and type Magik)
 
@@ -74,7 +74,7 @@ I would recommend using these other extensions:
 
     e.g. S:\SW519\2018-11-30\core\bin\x86\runalias -a S:\SW519\2018-11-30\cambridge_db\config\gis_aliases cambridge_db_open
 
-3. Load the file vscode_dev.magik at the Magik prompt.
+3. Load the file vscode_dev.magik at the Magik prompt (**Alt+M**).
 
     This will load a set of utility procs to support navigating and compiling Magik in VS Code.
     (vscode_dev.magik is supplied in this extension - I would recommend copying this to a convenient location to load after a session starts or load in .magik)
