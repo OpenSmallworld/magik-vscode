@@ -20,7 +20,7 @@ _block
 
 
 	_global default_trunk_branch_name
-	default_trunk_branch_name << "SW520"
+	default_trunk_branch_name << "SW521"
 
 
 	# Reinitialise products to get source from local repositories

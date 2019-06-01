@@ -68,12 +68,6 @@ const STATEMENT_PAIRS = [
     /(;|\s+)_endloop/,
   ],
 ];
-const DEFINE_KEYWORD_TESTS = [
-  /(_local|_with)\s+([a-zA-Z0-9_?!]+\s*,\s*)*$/,
-  /_global\s+([a-zA-Z0-9_?!]+\s*,\s*)*$/,
-  /_dynamic\s+([a-zA-Z0-9_?!]+\s*,\s*)*$/,
-];
-const IMPORT_TEST = /_import\s+([a-zA-Z0-9_?!]+\s*,\s*)*$/;
 
 const INDENT_INC_STATEMENT_WORDS = [
   '_proc',
@@ -122,6 +116,18 @@ class MagikLinter {
     context.subscriptions.push(
       vscode.commands.registerCommand('magik.indentFile', () =>
         this._indentFile()
+      )
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand('magik.formatRegion', () =>
+        this._formatRegion()
+      )
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand('magik.formatFile', () =>
+        this._formatFile()
       )
     );
 
@@ -435,8 +441,76 @@ class MagikLinter {
     return lineIndents;
   }
 
-  // TODO - ensure space after ,
-  // TODO - remove spaces inside of parentheses
+  async _addSpaceAfterComma(firstRow, lastRow) {
+    const editor = vscode.window.activeTextEditor;
+    const doc = editor.document;
+
+    for (let row = firstRow; row < lastRow + 1; row++) {
+      const lineText = doc.lineAt(row).text;
+      const lastIndex = lineText.length - 1;
+      let text = lineText.split('#')[0];
+      const reg = /,/g;
+      let match;
+
+      while (match = reg.exec(text)) { // eslint-disable-line
+        const index = match.index;
+
+        if (
+          index !== lastIndex &&
+          text[index + 1] !== ' ' &&
+          text[index - 1] !== '%' &&
+          !magikUtils.withinString(text, index)
+        ) {
+          const edit = new vscode.WorkspaceEdit();
+          const insertPos = new vscode.Position(row, index + 1);
+          edit.insert(doc.uri, insertPos, ' ');
+          await vscode.workspace.applyEdit(edit); // eslint-disable-line
+          text = `${text.substring(0, index + 1)} ${text.substring(index + 1)}`;
+        }
+      }
+    }
+  }
+
+  async _removeSpacesBetweenBrackets(firstRow, lastRow) {
+    const editor = vscode.window.activeTextEditor;
+    const doc = editor.document;
+
+    for (let row = firstRow; row < lastRow + 1; row++) {
+      let text = doc.lineAt(row).text.split('#')[0];
+      let reg = /[([{]/g;
+      let match;
+
+      while (match = reg.exec(text)) { // eslint-disable-line
+        const index = match.index;
+
+        if (
+          text[index + 1] === ' ' &&
+          text[index - 1] !== '%' &&
+          !magikUtils.withinString(text, index)
+        ) {
+          const edit = new vscode.WorkspaceEdit();
+          const range = new vscode.Range(row, index + 1, row, index + 2);
+          edit.replace(doc.uri, range, '');
+          await vscode.workspace.applyEdit(edit); // eslint-disable-line
+          text = text.substring(0, index + 1) + text.substring(index + 2);
+        }
+      }
+
+      reg = /[)\]}]/g;
+
+      while (match = reg.exec(text)) { // eslint-disable-line
+        const index = match.index;
+
+        if (text[index - 1] === ' ' && !magikUtils.withinString(text, index)) {
+          const edit = new vscode.WorkspaceEdit();
+          const range = new vscode.Range(row, index - 1, row, index);
+          edit.replace(doc.uri, range, '');
+          await vscode.workspace.applyEdit(edit); // eslint-disable-line
+          text = text.substring(0, index - 1) + text.substring(index);
+        }
+      }
+    }
+  }
 
   async _indentRegion(currentRow) {
     const {lines, firstRow} = magikUtils.currentRegion();
@@ -445,17 +519,48 @@ class MagikLinter {
     }
   }
 
-  async _indentFile() {
+  async _formatRegion() {
+    const {lines, firstRow} = magikUtils.currentRegion();
+    if (lines) {
+      const lastRow = firstRow + lines.length - 1;
+      await this._indentMagikLines(lines, firstRow);
+      await this._removeSpacesBetweenBrackets(firstRow, lastRow);
+      await this._addSpaceAfterComma(firstRow, lastRow);
+    }
+  }
+
+  _docLines() {
+    const lines = [];
     const editor = vscode.window.activeTextEditor;
-    if (!editor) return;
+    if (!editor) return lines;
 
     const doc = editor.document;
-    const lines = [];
     const linesLength = doc.lineCount;
     for (let i = 0; i < linesLength; i++) {
       lines.push(doc.lineAt(i).text);
     }
+
+    return lines;
+  }
+
+  async _indentFile() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) return;
+
+    const lines = this._docLines();
     await this._indentMagikLines(lines, 0);
+  }
+
+  async _formatFile() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) return;
+
+    const lines = this._docLines();
+    const lastRow = lines.length - 1;
+
+    await this._indentMagikLines(lines, 0);
+    await this._removeSpacesBetweenBrackets(0, lastRow);
+    await this._addSpaceAfterComma(0, lastRow);
   }
 
   async _getLineIndents(lines, firstRow) {
@@ -490,8 +595,6 @@ class MagikLinter {
 
   _checkVariables(lines, firstRow, diagnostics) {
     const assignedVars = magikUtils.getMethodParams(lines, firstRow);
-    const showUndefined = this.magikVSCode.classNames.length > 0; // Need class name and globals
-    const defLength = DEFINE_KEYWORD_TESTS.length;
     const end = lines.length - 1;
     let search = false;
 
@@ -499,102 +602,15 @@ class MagikLinter {
       const row = firstRow + i;
       const line = lines[i];
       const text = line.split('#')[0];
-      let startIndex;
-      let match;
 
       if (search) {
-        let testString = magikUtils.removeStrings(text);
-        testString = magikUtils.removeSymbolsWithPipes(testString);
-
-        this.magikVSCode.findAssignedVariables(text, row, assignedVars);
-
-        // TODO - loop scopes
-        if (testString.includes('_for ') && testString.includes(' _over ')) {
-          const overSplit = testString.split(' _over ');
-          const iterTestString = overSplit[0].split('_for ').slice(-1)[0];
-          startIndex = text.indexOf(iterTestString);
-
-          while (match = magikUtils.VAR_TEST.exec(iterTestString)) { // eslint-disable-line
-            const varName = match[0];
-            const varIndex = text.indexOf(varName, startIndex);
-            startIndex = varIndex + 1;
-
-            assignedVars[varName] = {
-              row,
-              index: varIndex,
-              count: 1,
-            };
-          }
-        }
-
-        startIndex = 0;
-
-        while (match = magikUtils.VAR_TEST.exec(testString)) { // eslint-disable-line
-          const varName = match[0];
-          const varLength = varName.length;
-          let varIndex = match.index;
-          const defTestString = text.substr(0, varIndex);
-
-          if (
-            Number.isNaN(Number(varName)) &&
-            testString[varIndex] !== '_' &&
-            !magikUtils.VAR_IGNORE_PREV_CHARS.includes(testString[varIndex - 1])
-          ) {
-            const varData = assignedVars[varName];
-            varIndex = text.indexOf(varName, startIndex);
-
-            if (
-              showUndefined &&
-              !varData &&
-              magikUtils.nextChar(testString, varIndex + varLength) !== '('
-            ) {
-              let def = false;
-
-              for (let defIndex = 0; defIndex < defLength; defIndex++) {
-                if (DEFINE_KEYWORD_TESTS[defIndex].test(defTestString)) {
-                  assignedVars[varName] = {
-                    row,
-                    index: varIndex,
-                    count: 1,
-                    global: defIndex === 1,
-                    dynamic: defIndex === 2,
-                  };
-                  def = true;
-                  break;
-                }
-              }
-
-              if (
-                !def &&
-                !this.magikVSCode.classData[varName] &&
-                !this.magikVSCode.globals.includes(varName)
-              ) {
-                const range = new vscode.Range(
-                  row,
-                  varIndex,
-                  row,
-                  varIndex + varLength
-                );
-                const d = new vscode.Diagnostic(
-                  range,
-                  `'${varName}' is not defined.`,
-                  vscode.DiagnosticSeverity.Error
-                );
-                diagnostics.push(d);
-              }
-            }
-
-            if (
-              varData &&
-              (varData.row !== row || varData.index !== varIndex) &&
-              !IMPORT_TEST.test(text.substr(0, varIndex))
-            ) {
-              varData.count++;
-            }
-          }
-
-          startIndex = varIndex + varLength;
-        }
+        this.magikVSCode.findAssignedVariables(line, row, assignedVars);
+        this.magikVSCode.findLocalVariables(
+          line,
+          row,
+          assignedVars,
+          diagnostics
+        );
       } else if (
         /(\)|<<|\])/.test(text) ||
         /(^|\s+)_method\s+.*[a-zA-Z0-9_?!]$/.test(text)
@@ -719,7 +735,7 @@ class MagikLinter {
             className = prevWord;
           } else {
             const superMatch = /_super\s*\(\s*[a-zA-Z0-9_?!]+\s*\)\s*\.\s*[a-zA-Z0-9_?!]*$/.exec(
-              text.substr(0, index)
+              text.substring(0, index)
             );
             if (superMatch) {
               className = superMatch[0]

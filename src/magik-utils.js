@@ -183,6 +183,12 @@ const DEFINITION_TESTS = [
     type: vscode.SymbolKind.Class,
   },
 ];
+const DEFINE_KEYWORD_TESTS = [
+  /(_local|_with)\s+([a-zA-Z0-9_?!]+\s*,\s*)*$/,
+  /_global\s+([a-zA-Z0-9_?!]+\s*,\s*)*$/,
+  /_dynamic\s+([a-zA-Z0-9_?!]+\s*,\s*)*$/,
+];
+const IMPORT_TEST = /_import\s+([a-zA-Z0-9_?!]+\s*,\s*)*$/;
 
 function previousWordInString(text, index) {
   const match = /[a-zA-Z0-9_?!]+[^a-zA-Z0-9_?!]*[a-zA-Z0-9_?!]*$/.exec(
@@ -278,6 +284,7 @@ function currentRegion(methodOnly, startLine) {
 
   if (!startLine) {
     startLine = editor.selection.active.line;
+    if (!startLine) startLine = 0;
   }
 
   const lines = [];
@@ -474,6 +481,45 @@ function removeStrings(text) {
   return noStrings.join('');
 }
 
+function stringRanges(text) {
+  const textLength = text.length;
+  const ranges = [];
+  let count = 0;
+  let startIndex;
+
+  for (let i = 0; i < textLength; i++) {
+    const c = text[i];
+    if (c === '"' && text[i - 1] !== '%') {
+      if (startIndex === undefined) {
+        startIndex = i;
+      }
+      count++;
+    } else if (!(count % 2) && startIndex !== undefined) {
+      ranges.push([startIndex, i - 1]);
+      startIndex = undefined;
+    }
+  }
+
+  if (startIndex !== undefined) {
+    ranges.push([startIndex, textLength - 1]);
+  }
+
+  return ranges;
+}
+
+function withinString(text, index) {
+  const ranges = stringRanges(text);
+  const rangesLength = ranges.length;
+
+  for (let i = 0; i < rangesLength; i++) {
+    if (index > ranges[i][0] && index < ranges[i][1]) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function removeSymbolsWithPipes(text) {
   let start = text.indexOf(':|');
   let end;
@@ -516,6 +562,8 @@ module.exports = {
   ASSIGN_IGNORE_NEXT,
   VAR_IGNORE_PREV_CHARS,
   DEFINITION_TESTS,
+  DEFINE_KEYWORD_TESTS,
+  IMPORT_TEST,
   currentWordInString,
   currentWord,
   previousWordInString,
@@ -530,6 +578,7 @@ module.exports = {
   getMethodName,
   getMethodParams,
   removeStrings,
+  withinString,
   removeSymbolsWithPipes,
   previousCharacter,
   nextChar,

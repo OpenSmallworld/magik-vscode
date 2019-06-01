@@ -102,6 +102,14 @@
                 "title": "Magik Indent File"
             },
             {
+                "command": "magik.formatRegion",
+                "title": "Magik Format Region"
+            },
+            {
+                "command": "magik.formatFile",
+                "title": "Magik Format File"
+            },
+            {
                 "command": "magik.checkFile",
                 "title": "Magik Check File"
             },
@@ -124,6 +132,10 @@
             {
                 "command": "magik.compileExtensionMagik",
                 "title": "Magik Compile Extension Code"
+            },
+            {
+                "command": "magik.newBuffer",
+                "title": "Magik New Buffer"
             }
         ],
         "keybindings": [
@@ -158,6 +170,16 @@
                 "when": "editorTextFocus"
             },
             {
+                "command": "magik.formatRegion",
+                "key": "alt+f",
+                "when": "editorTextFocus && editorLangId == magik"
+            },
+            {
+                "command": "magik.formatFile",
+                "key": "shift+alt+f",
+                "when": "editorTextFocus && editorLangId == magik"
+            },
+            {
                 "command": "magik.checkFile",
                 "key": "ctrl+shift+f7",
                 "when": "editorTextFocus"
@@ -184,6 +206,10 @@
             {
                 "command": "magik.compileExtensionMagik",
                 "key": "alt+m"
+            },
+            {
+                "command": "magik.newBuffer",
+                "key": "alt+n"
             }
         ],
         "configuration": {

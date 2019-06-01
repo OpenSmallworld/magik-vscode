@@ -17,6 +17,7 @@ const DEFAULT_GLOBALS = [
   '!terminal!',
   '!window_system!',
   '!print_length!',
+  'thread',
 ];
 
 class MagikVSCode {
@@ -63,6 +64,7 @@ class MagikVSCode {
       ['gotoNextDefinition', this._gotoNextDefinition],
       ['runTest', this._runTest],
       ['compileExtensionMagik', this._compileExtensionMagik],
+      ['newBuffer', this._newMagikBuffer],
     ];
 
     for (const [name, func] of commandConfig) {
@@ -90,6 +92,17 @@ class MagikVSCode {
 
     context.subscriptions.push(
       vscode.languages.registerCompletionItemProvider(magikFile, this)
+    );
+
+    context.subscriptions.push(
+      vscode.languages.registerSignatureHelpProvider(
+        magikFile,
+        this,
+        '(',
+        '<',
+        ' ',
+        ','
+      )
     );
 
     this._registerFiles(context);
@@ -208,6 +221,24 @@ class MagikVSCode {
         text: command,
       });
     }
+  }
+
+  async _newMagikBuffer() {
+    const tempDir = os.tmpdir();
+    let tempFile = path.join(tempDir, 'buffer1.magik');
+    let count = 2;
+
+    while (fs.existsSync(tempFile)) {
+      tempFile = path.join(tempDir, `buffer${count}.magik`);
+      count++;
+    }
+
+    fs.writeFileSync(tempFile, '');
+
+    await vscode.commands.executeCommand(
+      'vscode.open',
+      vscode.Uri.file(tempFile)
+    );
   }
 
   // TODO - handle definitions across multiple lines
@@ -667,9 +698,10 @@ class MagikVSCode {
 
         for (let i = 0; i < end; i++) {
           const row = firstRow + i;
-          const text = lines[i].split('#')[0];
+          const lineText = lines[i];
 
-          this.findAssignedVariables(text, row, assignedVars);
+          this.findAssignedVariables(lineText, row, assignedVars);
+          this.findLocalVariables(lineText, row, assignedVars, []);
         }
 
         const varData = assignedVars[previousWord];
@@ -694,7 +726,7 @@ class MagikVSCode {
 
     currentWord = magikUtils.getMethodName(text, currentWord, start);
 
-    const previousWord = magikUtils.previousWord(doc, pos, true);
+    const previousWord = magikUtils.previousWord(doc, pos);
     let className = previousWord;
     let symbol;
 
@@ -902,11 +934,23 @@ class MagikVSCode {
   }
 
   // TODO - handle assigned across multiple lines
-  findAssignedVariables(text, row, assignedVars) {
+  findAssignedVariables(lineText, row, assignedVars) {
+    const text = lineText.split('#')[0];
     const assignSplit = text.split('<<');
     const assignSplitLength = assignSplit.length;
     if (assignSplitLength < 2) return;
 
+    let annoClasses = [];
+    let annoSplit = lineText.split('# @class');
+    if (annoSplit.length < 2) {
+      annoSplit = lineText.split('#@class');
+    }
+    if (annoSplit.length > 1) {
+      annoClasses = annoSplit[1].split(',').map((type) => type.trim());
+    }
+    const annoLength = annoClasses.length;
+
+    let varCount = 0;
     let match;
 
     for (let i = 0; i < assignSplitLength - 1; i++) {
@@ -940,7 +984,9 @@ class MagikVSCode {
               const dynamic = /_dynamic\s+$/.test(text.substr(0, index));
               let className;
 
-              if (
+              if (varCount < annoLength) {
+                className = annoClasses[varCount];
+              } else if (
                 /^\s*<<\s*[a-zA-Z0-9_?!]+.new\s*\(/.test(
                   text.slice(index + varName.length)
                 )
@@ -955,10 +1001,128 @@ class MagikVSCode {
                 dynamic,
                 className,
               };
+
+              varCount++;
             }
           }
         }
       }
+    }
+  }
+
+  findLocalVariables(lineText, row, assignedVars, diagnostics) {
+    const text = lineText.split('#')[0];
+    let testString = magikUtils.removeStrings(text);
+    testString = magikUtils.removeSymbolsWithPipes(testString);
+
+    const showUndefined = this.classNames.length > 0; // Need class name and globals
+    const defLength = magikUtils.DEFINE_KEYWORD_TESTS.length;
+
+    let annoClasses = [];
+    let annoSplit = lineText.split('# @class');
+    if (annoSplit.length < 2) {
+      annoSplit = lineText.split('#@class');
+    }
+    if (annoSplit.length > 1) {
+      annoClasses = annoSplit[1].split(',').map((type) => type.trim());
+    }
+    const annoLength = annoClasses.length;
+
+    let varCount = 0;
+    let startIndex;
+    let match;
+
+    // TODO - loop scopes
+    if (testString.includes('_for ') && testString.includes(' _over ')) {
+      const overSplit = testString.split(' _over ');
+      const iterTestString = overSplit[0].split('_for ').slice(-1)[0];
+      startIndex = text.indexOf(iterTestString);
+
+      while (match = magikUtils.VAR_TEST.exec(iterTestString)) { // eslint-disable-line
+        const varName = match[0];
+        const varIndex = text.indexOf(varName, startIndex);
+        startIndex = varIndex + 1;
+
+        assignedVars[varName] = {
+          row,
+          index: varIndex,
+          count: 1,
+        };
+      }
+    }
+
+    startIndex = 0;
+
+    while (match = magikUtils.VAR_TEST.exec(testString)) { // eslint-disable-line
+      const varName = match[0];
+      const varLength = varName.length;
+      let varIndex = match.index;
+      const defTestString = text.substr(0, varIndex);
+
+      if (
+        Number.isNaN(Number(varName)) &&
+        testString[varIndex] !== '_' &&
+        !magikUtils.VAR_IGNORE_PREV_CHARS.includes(testString[varIndex - 1])
+      ) {
+        const varData = assignedVars[varName];
+        varIndex = text.indexOf(varName, startIndex);
+
+        if (
+          showUndefined &&
+          !varData &&
+          magikUtils.nextChar(testString, varIndex + varLength) !== '('
+        ) {
+          let def = false;
+
+          for (let defIndex = 0; defIndex < defLength; defIndex++) {
+            if (magikUtils.DEFINE_KEYWORD_TESTS[defIndex].test(defTestString)) {
+              assignedVars[varName] = {
+                row,
+                index: varIndex,
+                count: 1,
+                global: defIndex === 1,
+                dynamic: defIndex === 2,
+              };
+              if (varCount < annoLength) {
+                assignedVars[varName].className = annoClasses[varCount];
+              }
+              def = true;
+              break;
+            }
+          }
+
+          if (
+            !def &&
+            !this.classData[varName] &&
+            !this.globals.includes(varName)
+          ) {
+            const range = new vscode.Range(
+              row,
+              varIndex,
+              row,
+              varIndex + varLength
+            );
+            const d = new vscode.Diagnostic(
+              range,
+              `'${varName}' is not defined.`,
+              vscode.DiagnosticSeverity.Error
+            );
+            diagnostics.push(d);
+          }
+        }
+
+        if (
+          varData &&
+          (varData.row !== row || varData.index !== varIndex) &&
+          !magikUtils.IMPORT_TEST.test(text.substr(0, varIndex))
+        ) {
+          varData.count++;
+        }
+
+        varCount++;
+      }
+
+      startIndex = varIndex + varLength;
     }
   }
 
@@ -983,9 +1147,10 @@ class MagikVSCode {
 
       if (className || !methodNames.includes(name)) {
         const item = new vscode.CompletionItem(
-          sym._completionName,
+          name,
           vscode.CompletionItemKind.Method
         );
+        item.insertText = sym._completionName;
         if (className) {
           item.detail = sym.name;
         } else {
@@ -1031,12 +1196,15 @@ class MagikVSCode {
       length = magikUtils.MAGIK_KEYWORDS.length;
       for (let i = 0; i < length; i++) {
         const key = magikUtils.MAGIK_KEYWORDS[i];
-        if (key.startsWith(currentWord)) {
+        const label = `_${key}`;
+        if (key.startsWith(currentWord) || label.startsWith(currentWord)) {
           const item = new vscode.CompletionItem(
-            `_${key}`,
+            label,
             vscode.CompletionItemKind.Keyword
           );
           item.detail = 'Magik Keyword';
+          item.sortText = `1${key}`;
+          item.filterText = key;
           items.push(item);
         }
       }
@@ -1047,9 +1215,11 @@ class MagikVSCode {
         if (this._matchString(className, currentWord, 0)) {
           const item = new vscode.CompletionItem(
             className,
-            vscode.CompletionItemKind.Keyword
+            vscode.CompletionItemKind.Class
           );
           item.detail = 'Magik Class';
+          item.sortText = `2${className}`;
+          item.filterText = className;
           items.push(item);
         }
       }
@@ -1060,14 +1230,145 @@ class MagikVSCode {
         if (this._matchString(global, currentWord, 0)) {
           const item = new vscode.CompletionItem(
             global,
-            vscode.CompletionItemKind.Keyword
+            vscode.CompletionItemKind.Variable
           );
           item.detail = 'Magik Global';
+          item.sortText = `3${global}`;
+          item.filterText = global;
           items.push(item);
         }
       }
 
       return items;
+    }
+  }
+
+  _getMethodComment(fileLines, startLine) {
+    const methodReg = /(^|\s+)_method\s+/;
+    const lines = [];
+    const lineCount = fileLines.length;
+    let firstRow;
+    let lastRow;
+
+    for (let row = startLine; row > -1; row--) {
+      const lineText = fileLines[row];
+      const lineTextTrimmed = lineText.trim();
+
+      if (
+        lineTextTrimmed === '$' ||
+        lineTextTrimmed.startsWith('_pragma') ||
+        lineTextTrimmed.startsWith('_endmethod') ||
+        lineTextTrimmed.startsWith('_endproc') ||
+        lineTextTrimmed.startsWith('_endblock')
+      ) {
+        break;
+      }
+
+      if (lineTextTrimmed.startsWith('##')) {
+        lines.unshift(lineText.split('##')[1].trim());
+      }
+
+      firstRow = row;
+    }
+
+    for (let row = startLine; row < lineCount; row++) {
+      const lineText = fileLines[row];
+      const lineTextTrimmed = lineText.trim();
+
+      if (
+        lineTextTrimmed === '$' ||
+        lineTextTrimmed.startsWith('_endmethod') ||
+        lineTextTrimmed.startsWith('_pragma') ||
+        (row !== startLine && methodReg.test(lineTextTrimmed))
+      ) {
+        break;
+      }
+
+      if (lineTextTrimmed.startsWith('##')) {
+        lines.push(lineText.split('##')[1].trim());
+      }
+
+      lastRow = row;
+    }
+
+    return {
+      comment: lines.join('\n'),
+      firstRow,
+      lastRow,
+    };
+  }
+
+  _getMethodHelp(sym, paramIndex) {
+    let help = sym._help;
+
+    if (!help) {
+      const fileLines = fs
+        .readFileSync(sym.location.uri.fsPath)
+        .toString()
+        .split('\n'); // TODO replace this
+
+      const startLine = sym.location.range.start.line;
+      const commentData = this._getMethodComment(fileLines, startLine);
+      const lines = [];
+
+      for (let row = startLine; row < commentData.lastRow + 1; row++) {
+        lines.push(fileLines[row]);
+      }
+
+      const params = [];
+      const varNames = [];
+      const vars = magikUtils.getMethodParams(lines, 0);
+      for (const [varName, data] of Object.entries(vars)) {
+        if (data.param) {
+          params.push(new vscode.ParameterInformation(varName));
+          varNames.push(varName);
+        }
+      }
+
+      const symName = sym.name;
+      let name = symName;
+      if (symName.endsWith(')')) {
+        name = `${symName.substring(0, symName.length - 1)}${varNames.join(
+          ', '
+        )})`;
+      } else if (symName.endsWith('<')) {
+        name = `${symName.substring(0, symName.length - 2)} << ${varNames[0]}`;
+      }
+
+      const info = new vscode.SignatureInformation(name, commentData.comment);
+
+      info.parameters = params;
+
+      help = new vscode.SignatureHelp();
+      help.signatures = [info];
+      help.activeSignature = 0;
+
+      sym._help = help;
+    }
+
+    help.activeParameter = paramIndex;
+
+    return help;
+  }
+
+  async provideSignatureHelp(doc, pos) {
+    let lineText = doc.lineAt(pos.line).text;
+    lineText = lineText.substr(0, pos.character);
+
+    const match = /[a-zA-Z0-9_?!]+\.[a-zA-Z0-9_?!]+\s*(\(|<<)\s*([a-zA-Z0-9_?!]+\s*,*\s*)*$/.exec(
+      lineText
+    );
+    if (match) {
+      const text = match[0];
+      const newCol = match.index + text.indexOf('.') + 1;
+      const newPos = new vscode.Position(pos.line, newCol);
+
+      const def = await this._getCurrentDefinitionSymbol(doc, newPos);
+
+      if (def.symbol) {
+        const paramIndex = (text.match(/,/g) || []).length;
+        return this._getMethodHelp(def.symbol, paramIndex);
+      }
     }
   }
 

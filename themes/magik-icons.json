@@ -1,11 +1,78 @@
 {
   "iconDefinitions": {
-    "magik_file": {
-      "fontCharacter": "M",
-      "fontColor": "#569cd6"
+    "_file": {
+      "iconPath": "../icons/default_file.svg"
+    },
+    "_folder": {
+      "iconPath": "../icons/default_folder.svg"
+    },
+    "_folder_open": {
+      "iconPath": "../icons/default_folder_opened.svg"
+    },
+    "_root_folder": {
+      "iconPath": "../icons/default_root_folder.svg"
+    },
+    "_root_folder_open": {
+      "iconPath": "../icons/default_root_folder_opened.svg"
+    },
+    "_fd_src": {
+      "iconPath": "../icons/folder_type_src.svg"
+    },
+    "_fd_src_open": {
+      "iconPath": "../icons/folder_type_src_opened.svg"
+    },
+    "_fd_images": {
+      "iconPath": "../icons/folder_type_images.svg"
+    },
+    "_fd_images_open": {
+      "iconPath": "../icons/folder_type_images_opened.svg"
+    },
+    "_f_outlook": {
+      "iconPath": "../icons/file_type_outlook.svg"
+    },
+    "_f_image": {
+      "iconPath": "../icons/file_type_image.svg"
+    },
+    "_f_xml": {
+      "iconPath": "../icons/file_type_xml.svg"
+    },
+    "_f_config": {
+      "iconPath": "../icons/file_type_config.svg"
+    },
+    "_f_text": {
+      "iconPath": "../icons/file_type_text.svg"
+    },
+    "_f_magik": {
+      "iconPath": "../icons/file_type_magik.png"
     }
   },
+  "file": "_file",
+  "folder": "_folder",
+  "folderExpanded": "_folder_open",
+  "rootFolder": "_root_folder",
+  "rootFolderExpanded": "_root_folder_open",
+  "folderNames": {
+    "source": "_fd_src",
+    "bitmaps": "_fd_images",
+    "icons": "_fd_images"
+  },
+  "folderNamesExpanded": {
+    "source": "_fd_src_open",
+    "bitmaps": "_fd_images_open",
+    "icons": "_fd_images_open"
+  },
   "fileExtensions": {
-    "magik": "magik_file"
+    "msg": "_f_outlook",
+    "jpeg": "_f_image",
+    "jpg": "_f_image",
+    "png": "_f_image",
+    "bmp": "_f_image",
+    "ico": "_f_image",
+    "xml": "_f_xml",
+    "def": "_f_config",
+    "magik": "_f_magik"
+  },
+  "languageIds": {
+    "plaintext": "_f_text"
   }
 }
