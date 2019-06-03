@@ -1154,7 +1154,7 @@ class MagikVSCode {
         if (className) {
           item.detail = sym.name;
         } else {
-          item.detail = 'Magik Method';
+          item.detail = 'Method';
           methodNames.push(name);
         }
         items.push(item);
@@ -1193,6 +1193,18 @@ class MagikVSCode {
       const items = [];
       let length;
 
+      if ('class'.startsWith(currentWord)) {
+        const item = new vscode.CompletionItem(
+          '@class',
+          vscode.CompletionItemKind.Keyword
+        );
+        item.detail = 'Keyword';
+        item.insertText = '# @class ';
+        item.sortText = '0class';
+        item.filterText = 'class';
+        items.push(item);
+      }
+
       length = magikUtils.MAGIK_KEYWORDS.length;
       for (let i = 0; i < length; i++) {
         const key = magikUtils.MAGIK_KEYWORDS[i];
@@ -1202,7 +1214,7 @@ class MagikVSCode {
             label,
             vscode.CompletionItemKind.Keyword
           );
-          item.detail = 'Magik Keyword';
+          item.detail = 'Keyword';
           item.sortText = `1${key}`;
           item.filterText = key;
           items.push(item);
@@ -1217,7 +1229,7 @@ class MagikVSCode {
             className,
             vscode.CompletionItemKind.Class
           );
-          item.detail = 'Magik Class';
+          item.detail = 'Class';
           item.sortText = `2${className}`;
           item.filterText = className;
           items.push(item);
@@ -1232,7 +1244,7 @@ class MagikVSCode {
             global,
             vscode.CompletionItemKind.Variable
           );
-          item.detail = 'Magik Global';
+          item.detail = 'Global';
           item.sortText = `3${global}`;
           item.filterText = global;
           items.push(item);
