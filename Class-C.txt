@@ -1,0 +1,4 @@
+This product is Class C software. 
+
+The Class C Software category for GE indicates that Software is provided “AS IS” without warranty. 
+Software Support Services are not available.
