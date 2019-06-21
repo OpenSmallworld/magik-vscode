@@ -183,7 +183,7 @@ class MagikLinter {
         keywords = magikUtils.MAGIK_VARIABLE_KEYWORDS;
         break;
       case '(':
-        keywords = ['proc', 'loopbody'];
+        keywords = ['super', 'proc', 'loopbody'];
         break;
       default:
         // space, return and empty string
