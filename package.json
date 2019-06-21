@@ -2,7 +2,7 @@
     "name": "magik-vscode",
     "displayName": "Magik VS Code",
     "description": "Magik language support for VS Code",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "publisher": "GE-Smallworld",
     "engines": {
         "vscode": "^1.23.0"
