@@ -148,6 +148,7 @@ class MagikLinter {
         ' ',
         '.',
         '(',
+        ')',
         '\n',
         ','
       )
@@ -185,12 +186,15 @@ class MagikLinter {
       case '(':
         keywords = ['super', 'proc', 'loopbody'];
         break;
+      case ')':
+        keywords = magikUtils.MAGIK_VARIABLE_KEYWORDS;
+        break;
       default:
         // space, return and empty string
         keywords = magikUtils.MAGIK_KEYWORDS;
     }
     const keywordsLength = keywords.length;
-    const separators = ['.', '(', ','];
+    const separators = ['.', '(', ',', ')'];
 
     for (let index = 0; index < keywordsLength; index++) {
       const keyword = keywords[index];
@@ -593,35 +597,6 @@ class MagikLinter {
     }
   }
 
-  _checkVariables(lines, firstRow, diagnostics) {
-    const assignedVars = magikUtils.getMethodParams(lines, firstRow);
-    const end = lines.length - 1;
-    let search = false;
-
-    for (let i = 0; i < end; i++) {
-      const row = firstRow + i;
-      const line = lines[i];
-      const text = line.split('#')[0];
-
-      if (search) {
-        this.magikVSCode.findAssignedVariables(line, row, assignedVars);
-        this.magikVSCode.findLocalVariables(
-          line,
-          row,
-          assignedVars,
-          diagnostics
-        );
-      } else if (
-        /(\)|<<|\])/.test(text) ||
-        /(^|\s+)_method\s+.*[a-zA-Z0-9_?!]$/.test(text)
-      ) {
-        search = true;
-      }
-    }
-
-    return assignedVars;
-  }
-
   _checkUnusedVariables(assignedVars, diagnostics) {
     for (const [varName, data] of Object.entries(assignedVars)) {
       if (data.count === 1 && !data.dynamic) {
@@ -961,7 +936,7 @@ class MagikLinter {
 
         if (lines) {
           const {firstRow} = region;
-          const assignedVars = this._checkVariables(
+          const assignedVars = this.magikVSCode.getVariables(
             lines,
             firstRow,
             diagnostics

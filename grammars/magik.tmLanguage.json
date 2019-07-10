@@ -46,8 +46,24 @@
 		"keywords": {
 			"patterns": [
 				{
+					"name": "variable.language.this.magik",
+					"match": "\\b(_self)\\b"
+				},
+				{
+					"name": "constant.language.undefined.magik",
+					"match": "\\b(_unset)\\b"
+				},
+				{
+					"name": "constant.language.boolean.magik",
+					"match": "\\b(_true|_false|_maybe)\\b"
+				},
+				{
 					"name": "keyword.control.conditional.magik",
 					"match": "\\b(_if|_then|_else|_elif|_endif)\\b"
+				},
+				{
+					"name": "keyword.operator.logical.magik",
+					"match": "\\b(_is|_isnt|_not|_and|_andif|_or|_orif|_xor)\\b"
 				},
 				{
 					"name": "keyword.control.loop.magik",
@@ -58,44 +74,32 @@
 					"match": "\\b(_return|_loopbody|_leave|_continue)\\b"
 				},
 				{
-					"name": "keyword.operator.logical.magik",
-					"match": "\\b(_is|_isnt|_not|_and|_andif|_or|_orif|_xor)\\b"
+					"name": "variable.language.magik",
+					"match": "\\b(_super|_clone|_thisthread)\\b"
 				},
 				{
 					"name": "keyword.control.trycatch.magik",
 					"match": "\\b(_try|_with|_when|_endtry|_throw|_catch|_handling|_endcatch|_default|_protect|_protection|_endprotect)\\b"
 				},
 				{
-					"name": "variable.language.magik",
-					"match": "\\b(def_slotted_exemplar|remex|_package)\\b"
-				},
-				{
-					"name": "storage.type.class.magik",
-					"match": "\\b(_private|_iter|_abstract)\\b"
-				},
-				{
 					"name": "storage.type.magik",
 					"match": "\\b(_local|_global|_dynamic|_constant|_import|_proc|_endproc|_block|_endblock|_lock|_endlock)\\b"
-				},
-				{
-					"name": "variable.language.magik",
-					"match": "\\b(_super|_clone|_thisthread)\\b"
-				},
-				{
-					"name": "variable.language.this.magik",
-					"match": "\\b(_self)\\b"
 				},
 				{
 					"name": "storage.modifier.magik",
 					"match": "\\b(_optional|_scatter|_gather|_allresults)\\b"
 				},
 				{
-					"name": "constant.language.boolean.magik",
-					"match": "\\b(_true|_false|_maybe)\\b"
+					"name": "storage.type.class.magik",
+					"match": "\\b(_private|_iter|_abstract)\\b"
 				},
 				{
-					"name": "constant.language.undefined.magik",
-					"match": "\\b(_unset)\\b"
+					"name": "keyword.operator.arithmetic.magik",
+					"match": "\\b(_div|_mod|_divmod)\\b"
+				},
+				{
+					"name": "variable.language.magik",
+					"match": "\\b(def_slotted_exemplar|remex|_package)\\b"
 				}
 			]
 		},

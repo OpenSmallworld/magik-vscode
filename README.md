@@ -114,6 +114,10 @@ https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 
 ## Release Notes
 
+### 0.0.4
+
+Initial release to OpenSmallworld public GitHub
+
 ### 0.0.3
 
 * Added linting for Magik files.

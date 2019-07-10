@@ -1126,6 +1126,43 @@ class MagikVSCode {
     }
   }
 
+  getVariables(lines, firstRow, diagnostics) {
+    const assignedVars = magikUtils.getMethodParams(lines, firstRow);
+    const end = lines.length - 1;
+    let search = false;
+
+    for (let i = 0; i < end; i++) {
+      const row = firstRow + i;
+      const line = lines[i];
+      const text = line.split('#')[0];
+
+      if (search) {
+        this.findAssignedVariables(line, row, assignedVars);
+        this.findLocalVariables(line, row, assignedVars, diagnostics);
+      } else if (
+        /(\)|<<|\])/.test(text) ||
+        /(^|\s+)_method\s+.*[a-zA-Z0-9_?!]$/.test(text)
+      ) {
+        search = true;
+      }
+    }
+
+    return assignedVars;
+  }
+
+  _getMethodVariables(pos) {
+    const region = magikUtils.currentRegion(false, pos.line);
+    const {lines} = region;
+    let vars = {};
+
+    if (lines) {
+      const {firstRow} = region;
+      vars = this.getVariables(lines, firstRow, []);
+    }
+
+    return Object.keys(vars);
+  }
+
   async _getMethodCompletionItems(doc, pos, currentWord, previousWord) {
     const items = [];
     const className = this._getCurrentReceiver(doc, pos, previousWord);
@@ -1236,6 +1273,22 @@ class MagikVSCode {
         }
       }
 
+      const vars = this._getMethodVariables(pos);
+      length = vars.length;
+      for (let i = 0; i < length; i++) {
+        const varName = vars[i];
+        if (this._matchString(varName, currentWord, 0)) {
+          const item = new vscode.CompletionItem(
+            varName,
+            vscode.CompletionItemKind.Variable
+          );
+          item.detail = 'Variable';
+          item.sortText = `3${varName}`;
+          item.filterText = varName;
+          items.push(item);
+        }
+      }
+
       length = this.globals.length;
       for (let i = 0; i < length; i++) {
         const global = this.globals[i];
@@ -1245,7 +1298,7 @@ class MagikVSCode {
             vscode.CompletionItemKind.Variable
           );
           item.detail = 'Global';
-          item.sortText = `3${global}`;
+          item.sortText = `4${global}`;
           item.filterText = global;
           items.push(item);
         }

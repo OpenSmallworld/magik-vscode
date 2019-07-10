@@ -259,6 +259,7 @@ _proc @vs_save_symbols()
 
 	_try
 		system.unlink(output_name)
+		system.unlink(temp_output_name)
 	_when error
 	_endtry
 
@@ -778,7 +779,7 @@ $
 
 _pragma(classify_level=debug)
 ##
-## Opens the source file in Emacs for CLASS_OR_NAME which can
+## Opens the source file in VS Code for CLASS_OR_NAME which can
 ## be a class or a class name string.
 ##
 ## A prompt to choose a class is displayed if multiple classes
@@ -814,7 +815,7 @@ $
 
 _pragma(classify_level=debug)
 ##
-## Opens the source file in Emacs for CLASS_OR_NAME which can
+## Opens the source file in VS Code for CLASS_OR_NAME which can
 ## be a class or a class name string.
 ## Abbreviation of open_class()
 ##
@@ -939,7 +940,7 @@ $
 
 _pragma(classify_level=debug)
 ##
-## Send a method in the mfind results to Emacs.
+## Send a method in the mfind results to VS Code.
 ##
 ## Update global user_repository_paths to define repository paths.
 ##
@@ -1026,7 +1027,7 @@ _pragma(classify_level=debug)
 ##
 ## Displays methods matching the method and class name string.
 ##
-## mjump( <index> ) can be used to send the method to Emacs.
+## mjump( <index> ) can be used to send the method to VS Code.
 ##
 ## MODE - can be one of
 ##  :local (or :loc),
