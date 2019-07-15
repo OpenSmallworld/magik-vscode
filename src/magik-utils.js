@@ -283,14 +283,20 @@ function currentRegion(methodOnly, startLine) {
   if (!editor) return {};
 
   const doc = editor.document;
-  const methodReg = /(^|\s+)_method\s+/;
+  const startMethodReg = /^\s*(_abstract\s+)*(_private\s+)*(_iter\s+)*_method\s+/;
+  const endMethodReg = /^\s*_endmethod/;
+  const previousReg = /^(\s*\$|\s*_endmethod|_endblock)/;
+  const nextReg = /^(\s*\$|\s*_pragma|\s*(_abstract\s+)*(_private\s+)*(_iter\s+)*_method\s+|_block)/;
+  const startReg = /^_block/;
+  const endReg = /^_endblock/;
 
   if (!startLine) {
     startLine = editor.selection.active.line;
     if (!startLine) startLine = 0;
+  } else if (startLine < 0) {
+    startLine = 0;
   }
 
-  const lines = [];
   const lineCount = doc.lineCount;
   let firstRow;
   let lastRow;
@@ -300,28 +306,28 @@ function currentRegion(methodOnly, startLine) {
     lastRow = lineCount - 1;
   }
 
+  const startText = doc.lineAt(startLine).text;
+  if (/^\s*_pragma/.test(startText)) {
+    startLine = Math.min(startLine + 1, lineCount - 1);
+  } else if (/^\s*\$/.test(startText)) {
+    startLine = Math.max(startLine - 1, 0);
+  }
+
   for (let row = startLine; row > -1; row--) {
     const lineText = doc.lineAt(row).text;
-    const lineTextTrimmed = lineText.trim();
 
-    lines.unshift(lineText);
-
-    if (
-      methodReg.test(lineTextTrimmed) ||
-      (!methodOnly &&
-        lineTextTrimmed.length > 0 &&
-        lineText.match(/^\s*/)[0].length === 0)
-    ) {
+    if (methodOnly) {
+      if (startMethodReg.test(lineText)) {
+        firstRow = row;
+        break;
+      } else if (row < startLine && previousReg.test(lineText)) {
+        break;
+      }
+    } else if (startReg.test(lineText)) {
       firstRow = row;
       break;
-    } else if (
-      row < startLine - 1 &&
-      (lineTextTrimmed.startsWith('_endmethod') || lineTextTrimmed === '$')
-    ) {
-      if (!methodOnly) {
-        lines.shift();
-        firstRow = row + 1;
-      }
+    } else if (row < startLine && previousReg.test(lineText)) {
+      firstRow = row + 1;
       break;
     }
   }
@@ -330,29 +336,52 @@ function currentRegion(methodOnly, startLine) {
 
   for (let row = startLine; row < lineCount; row++) {
     const lineText = doc.lineAt(row).text;
-    const lineTextTrimmed = lineText.trim();
 
-    if (row !== startLine) {
-      lines.push(lineText);
-    }
-
-    if (lineTextTrimmed.startsWith('_endmethod')) {
+    if (methodOnly) {
+      if (endMethodReg.test(lineText)) {
+        lastRow = row;
+        break;
+      } else if (row > startLine && nextReg.test(lineText)) {
+        break;
+      }
+    } else if (endReg.test(lineText)) {
       lastRow = row;
       break;
-    } else if (
-      lineTextTrimmed.startsWith('_pragma') ||
-      (row !== startLine && methodReg.test(lineTextTrimmed)) ||
-      lineTextTrimmed === '$'
-    ) {
-      if (!methodOnly) {
-        lines.pop();
-        lastRow = row - 1;
-      }
+    } else if (row > startLine && nextReg.test(lineText)) {
+      lastRow = row - 1;
       break;
     }
   }
 
   if (lastRow === undefined) return {};
+
+  const lines = [];
+  let found = false;
+
+  for (let row = firstRow; row < lastRow + 1; row++) {
+    const lineText = doc.lineAt(row).text;
+    if (found) {
+      lines.push(lineText);
+    } else if (lineText[0] !== '$' && lineText.trim().length > 0) {
+      found = true;
+      firstRow = row;
+      lines.push(lineText);
+    }
+  }
+
+  for (let row = lines.length - 1; row > -1; row--) {
+    const lineText = lines[row];
+    if (lineText[0] === '$' || lineText.trim().length === 0) {
+      lines.pop();
+      lastRow--;
+    } else {
+      break;
+    }
+  }
+
+  const linesLength = lines.length;
+  if (linesLength === 0) return {};
+  if (linesLength === 1 && lines[0].startsWith('_pragma')) return {};
 
   return {lines, firstRow, lastRow};
 }

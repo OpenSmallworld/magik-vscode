@@ -213,14 +213,13 @@ _proc ()
 	orig_output << !output!
 	_protect
 		!output! << internal_text_output_stream.new()
-		orig_output.write(msg)
+		orig_output.write(msg, %newline)
 		_try _with cond
 			load_file( source_file )
 			lines << !output!.string.split_by(%newline);
 			n_lines << lines.size
 			_if (n_lines > 1)
 			_then
-				orig_output.write(%newline)
 				_for i _over range(2, n_lines)
 				_loop
 					orig_output.write(lines[i])
@@ -231,7 +230,6 @@ _proc ()
 				_endloop
 			_endif
 		_when error
-			orig_output.write(%newline)
 			cond.report_on( orig_output )
 		_endtry
 	_protection

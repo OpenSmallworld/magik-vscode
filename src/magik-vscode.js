@@ -127,7 +127,7 @@ class MagikVSCode {
     const {fileName} = doc;
 
     if (doc.isDirty) {
-      const lines = [`# Output:Loading file '${fileName}' ...`];
+      const lines = [`# Output:Loading file '${fileName}'...`];
       const linesLength = doc.lineCount;
       for (let i = 0; i < linesLength; i++) {
         lines.push(doc.lineAt(i).text);
@@ -156,7 +156,7 @@ class MagikVSCode {
         '#% text_encoding = iso8859_1',
         `_package ${packageName}`,
         '$',
-        '# Output:Loading selection ...',
+        '# Output:Loading selection...',
       ];
       lines.push(text);
       this._compileText(lines);
@@ -165,7 +165,9 @@ class MagikVSCode {
 
   _compileMethod() {
     const lines = magikUtils.currentRegion(true).lines;
-    if (!lines) return;
+    if (!lines) {
+      return this._compileRegion();
+    }
 
     const editor = vscode.window.activeTextEditor;
     const doc = editor.document;
@@ -190,7 +192,7 @@ class MagikVSCode {
       }
     }
 
-    lines.unshift(`# Output:Loading ${className}.${methodName} ...`);
+    lines.unshift(`# Output:Loading ${className}.${methodName}...`);
     lines.unshift('$');
     lines.unshift(`_package ${packageName}`);
     lines.unshift('#% text_encoding = iso8859_1');
@@ -208,6 +210,28 @@ class MagikVSCode {
       lines.push('_endblock');
       lines.push('$');
     }
+
+    this._compileText(lines);
+  }
+
+  _compileRegion() {
+    const region = magikUtils.currentRegion(false);
+    const lines = region.lines;
+    if (!lines) return;
+
+    const editor = vscode.window.activeTextEditor;
+    const doc = editor.document;
+    const fileName = path.basename(doc.fileName);
+    const packageName = magikUtils.getPackageName(doc);
+
+    lines.unshift(
+      `# Output:Loading ${fileName}:${region.firstRow + 1}-${region.lastRow +
+        1}...`
+    );
+    lines.unshift('$');
+    lines.unshift(`_package ${packageName}`);
+    lines.unshift('#% text_encoding = iso8859_1');
+    lines.push('$');
 
     this._compileText(lines);
   }
