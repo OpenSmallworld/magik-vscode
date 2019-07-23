@@ -76,6 +76,8 @@ const INDENT_INC_STATEMENT_WORDS = [
   '_block',
   '_lock',
 ];
+const INC_BRACKETS = /[({]/g;
+const DEC_BRACKETS = /[)}]/g;
 
 class MagikLinter {
   constructor(magikVSCode, context) {
@@ -279,14 +281,28 @@ class MagikLinter {
     return testString.slice(-2) === '<<';
   }
 
+  _incompleteInvocationTest(testString) {
+    if (/<<$/.test(testString)) {
+      return false;
+    }
+    if (/[({,]$/.test(testString)) {
+      return true;
+    }
+    const endWordsLength = magikUtils.END_WORDS.length;
+    for (let i = 0; i < endWordsLength; i++) {
+      if (testString.endsWith(magikUtils.END_WORDS[i])) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   async _indentMagikLines(lines, firstRow, currentRow, checkOnly) {
     const lineIndents = [];
 
     const editor = vscode.window.activeTextEditor;
     const doc = editor.document;
 
-    const incBrackets = /[({]/g;
-    const decBrackets = /[)}]/g;
     const assignIndentKeywords = [];
     const arrowAssignRows = [];
     let indent = 0;
@@ -348,8 +364,13 @@ class MagikLinter {
               }
             }
             if (!assignIndentKeyword) {
-              indent--;
-              arrowAssignRows.pop();
+              if (this._incompleteInvocationTest(testString)) {
+                // Defer checking for a statement as the line is incomplete
+                arrowAssignRows[arrowAssignRows.length - 1]++;
+              } else {
+                indent--;
+                arrowAssignRows.pop();
+              }
             }
           }
           if (
@@ -423,12 +444,12 @@ class MagikLinter {
         let incCount = 0;
         let decCount = 0;
 
-        matches = noStrings.match(incBrackets);
+        matches = noStrings.match(INC_BRACKETS);
         if (matches) {
           indent += matches.length;
           incCount = matches.length;
         }
-        matches = noStrings.match(decBrackets);
+        matches = noStrings.match(DEC_BRACKETS);
         if (matches) {
           indent -= matches.length;
           decCount = matches.length;
@@ -438,6 +459,7 @@ class MagikLinter {
           indent--;
         }
       } else if (arrowAssignRows.length > 0) {
+        // Line is a comment - defer checking for a statement
         arrowAssignRows[arrowAssignRows.length - 1]++;
       }
     }
@@ -517,14 +539,14 @@ class MagikLinter {
   }
 
   async _indentRegion(currentRow) {
-    const {lines, firstRow} = magikUtils.currentRegion();
+    const {lines, firstRow} = magikUtils.indentRegion();
     if (lines) {
       await this._indentMagikLines(lines, firstRow, currentRow);
     }
   }
 
   async _formatRegion() {
-    const {lines, firstRow} = magikUtils.currentRegion();
+    const {lines, firstRow} = magikUtils.indentRegion();
     if (lines) {
       const lastRow = firstRow + lines.length - 1;
       await this._indentMagikLines(lines, firstRow);

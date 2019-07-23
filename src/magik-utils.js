@@ -386,6 +386,55 @@ function currentRegion(methodOnly, startLine) {
   return {lines, firstRow, lastRow};
 }
 
+function indentRegion() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) return {};
+
+  const doc = editor.document;
+  const previousReg = /^(\s*\$|\s*_endmethod|_endblock)/;
+  const nextReg = /^(\s*\$|\s*_pragma|\s*(_abstract\s+)*(_private\s+)*(_iter\s+)*_method\s+|_block)/;
+
+  let startLine = editor.selection.active.line;
+  if (!startLine) startLine = 0;
+
+  const lines = [];
+  const lineCount = doc.lineCount;
+  let firstRow = 0;
+  let lastRow = lineCount - 1;
+
+  for (let row = startLine; row > -1; row--) {
+    const lineText = doc.lineAt(row).text;
+    const lineTextTrimmed = lineText.trim();
+
+    lines.unshift(lineText);
+
+    if (row < startLine - 1 && previousReg.test(lineText)) {
+      lines.shift();
+      firstRow = row + 1;
+      break;
+    } else if (
+      lineTextTrimmed.length > 0 &&
+      lineText.match(/^\s*/)[0].length === 0
+    ) {
+      firstRow = row;
+      break;
+    }
+  }
+
+  for (let row = startLine + 1; row < lineCount; row++) {
+    const lineText = doc.lineAt(row).text;
+
+    if (nextReg.test(lineText)) {
+      lastRow = row - 1;
+      break;
+    }
+
+    lines.push(lineText);
+  }
+
+  return {lines, firstRow, lastRow};
+}
+
 function getPackageName(doc) {
   const lineCount = doc.lineCount;
 
@@ -605,6 +654,7 @@ module.exports = {
   nextWord,
   currentClassName,
   currentRegion,
+  indentRegion,
   getPackageName,
   getClassAndMethodName,
   getMethodName,

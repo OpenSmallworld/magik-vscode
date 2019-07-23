@@ -210,6 +210,20 @@
             {
                 "command": "magik.newBuffer",
                 "key": "alt+n"
+            },
+            {
+                "key": "ctrl+`",
+                "command": "workbench.action.terminal.focus",
+                "when": "editorTextFocus"
+            },
+            {
+                "key": "ctrl+`",
+                "command": "workbench.action.focusActiveEditorGroup",
+                "when": "terminalFocus"
+            },
+            {
+                "key": "alt+`",
+                "command": "workbench.action.terminal.toggleTerminal"
             }
         ],
         "configuration": {
