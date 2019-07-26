@@ -83,7 +83,11 @@
 				},
 				{
 					"name": "storage.type.magik",
-					"match": "\\b(_local|_global|_dynamic|_constant|_import|_proc|_endproc|_block|_endblock|_lock|_endlock)\\b"
+					"match": "\\b(_local|_global|_dynamic|_constant|_import)\\b"
+				},
+				{
+					"name": "storage.type.function.magik",
+					"match": "\\b(_proc|_endproc|_block|_endblock|_lock|_endlock)\\b"
 				},
 				{
 					"name": "storage.modifier.magik",

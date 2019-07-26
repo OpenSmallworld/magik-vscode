@@ -411,7 +411,11 @@ class MagikLinter {
             if (INDENT_INC_STATEMENT_WORDS.includes(statementAssignKeyword)) {
               indent++;
             }
+          } else if (/^[)}]/.test(testString)) {
+            indent++;
           } else if (/^_proc\s*[@a-zA-Z0-9_?!]*\s*\(/.test(testString)) {
+            indent++;
+          } else if (/\s+_then$/.test(testString)) {
             indent++;
           } else {
             const incWordsLength = magikUtils.INDENT_INC_WORDS.length;
@@ -441,22 +445,14 @@ class MagikLinter {
 
         // Remove strings before counting brackets
         const noStrings = magikUtils.removeStrings(testString);
-        let incCount = 0;
-        let decCount = 0;
 
         matches = noStrings.match(INC_BRACKETS);
         if (matches) {
           indent += matches.length;
-          incCount = matches.length;
         }
         matches = noStrings.match(DEC_BRACKETS);
         if (matches) {
           indent -= matches.length;
-          decCount = matches.length;
-        }
-
-        if (tempIndent && incCount > decCount) {
-          indent--;
         }
       } else if (arrowAssignRows.length > 0) {
         // Line is a comment - defer checking for a statement
@@ -538,6 +534,33 @@ class MagikLinter {
     }
   }
 
+  async _addNewlineAfterDollar(firstRow, lastRow) {
+    const editor = vscode.window.activeTextEditor;
+    const doc = editor.document;
+    let last = lastRow;
+    let row = firstRow;
+
+    while (row < last) {
+      const lineText = doc.lineAt(row).text;
+
+      if (lineText[0] === '$') {
+        const nextLineText = doc.lineAt(row + 1).text;
+
+        if (nextLineText.trim() !== '') {
+          const edit = new vscode.WorkspaceEdit();
+          const insertPos = new vscode.Position(row + 1, 0);
+          edit.insert(doc.uri, insertPos, '\n');
+          await vscode.workspace.applyEdit(edit); // eslint-disable-line
+          last++;
+        }
+
+        row += 2;
+      } else {
+        row++;
+      }
+    }
+  }
+
   async _indentRegion(currentRow) {
     const {lines, firstRow} = magikUtils.indentRegion();
     if (lines) {
@@ -587,6 +610,7 @@ class MagikLinter {
     await this._indentMagikLines(lines, 0);
     await this._removeSpacesBetweenBrackets(0, lastRow);
     await this._addSpaceAfterComma(0, lastRow);
+    await this._addNewlineAfterDollar(0, lastRow);
   }
 
   async _getLineIndents(lines, firstRow) {

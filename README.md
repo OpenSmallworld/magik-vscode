@@ -6,7 +6,7 @@ Magik language extension for VS Code.
 
 Adds the following features to VS Code:
 * Compile Code Commands:
-    * `Magik Compile Method` (**F7**) compile the current method or region.
+    * `Magik Compile Method` (**F7**) compile the current method or region (e.g. block or proc).
     * `Magik Compile File` (**Ctrl+F7**)
     * `Magik Compile Selection` (**F8**)
 * Code Navigation Commands:
@@ -21,7 +21,7 @@ Adds the following features to VS Code:
     * Snippets for common Magik definitions
     * Command `Magik Indent Region` (**Ctrl+I**)
     * Command `Magik Indent File` (**Ctrl+Shift+I**)
-    * Command `Magik Format Region` (**Alt+F**)
+    * Command `Magik Format Region` (**Alt+F**) - format and indent current region
     * Command `Magik Format File` (**Shift+Alt+F**)
 * Linting:
     * Command `Magik Check File` (**Ctrl+Shift+F7**)

@@ -113,6 +113,8 @@ const INDENT_DEC_WORDS = [
   '_endblock',
   '_finally',
   '_endlock',
+  ')',
+  '}',
 ];
 
 const END_WORDS = [
