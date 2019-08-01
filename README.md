@@ -8,6 +8,7 @@ Adds the following features to VS Code:
 * Compile Code Commands:
     * `Magik Compile Method` (**F7**) compile the current method or region (e.g. block or proc).
     * `Magik Compile File` (**Ctrl+F7**)
+    * `Magik Load Module` (**Ctrl+Shift+F7**)
     * `Magik Compile Selection` (**F8**)
 * Code Navigation Commands:
     * `Magik Goto` (**F3**) to jump to source. Click on a method name and invoke the command to jump to source or display method candidates at the Magik prompt.
@@ -16,7 +17,7 @@ Adds the following features to VS Code:
 * Code Formating:
     * Magik Syntax highlighting
     * Auto indenting of Magik code
-    * Auto completion for Magik keywords, classes, globals and methods.
+    * Auto completion for Magik keywords, classes, variables, globals and methods.
     * Adds _ before Magik keywords
     * Snippets for common Magik definitions
     * Command `Magik Indent Region` (**Ctrl+I**)
@@ -24,7 +25,7 @@ Adds the following features to VS Code:
     * Command `Magik Format Region` (**Alt+F**) - format and indent current region
     * Command `Magik Format File` (**Shift+Alt+F**)
 * Linting:
-    * Command `Magik Check File` (**Ctrl+Shift+F7**)
+    * Command `Magik Check File` (**Ctrl+Shift+C**)
 
     The following errors/warnings are highlighted in the code:
     * Undefined variables
@@ -43,13 +44,16 @@ Adds the following features to VS Code:
 * Other:
     * Displays method help for indentified method calls.
     * Command `Magik New Buffer` to create a new Magik file in the temp directory (**Alt+N**)
+    * Command `Magik Go To Previous Definition` (**Alt+PageUp**)
+    * Command `Magik Go To Next Definition` (**Alt+PageDown**)
+    * Command `Magik Select Region` (**Alt+R**)
 
-(Use Ctrl+Shift+P to list available commands and type Magik)
+(Use Ctrl+Shift+P to list available commands and type 'Magik')
 
 ### **Method Search**
 
 You can search for Magik methods using **Ctrl+T** and typing `<method name>` or `<class name>`.`<method name>`.
-Use **Alt+T** to refresh symbols.
+Use **Alt+T** to refresh symbols after compiling code.
 
 ### **Magik Linting**
 
@@ -78,11 +82,37 @@ I would recommend using these other extensions:
 
     e.g. S:\SW519\2018-11-30\core\bin\x86\runalias -a S:\SW519\2018-11-30\cambridge_db\config\gis_aliases cambridge_db_open
 
-3. Load the file vscode_dev.magik at the Magik prompt (**Alt+M**).
+3. Load the file vscode_dev.magik at the Magik prompt (Use shortcut **Alt+M** (when the terminal doesn't have focus)).
 
     This will load a set of utility procs to support navigating and compiling Magik in VS Code.
-    (vscode_dev.magik is supplied in this extension - I would recommend copying this to a convenient location to load after a session starts or load in .magik)
-    The dev procs mfind() (aka mf()) and open_class() (aka oc()) will then be available at the Magik prompt.
+    (vscode_dev.magik is supplied in this extension)
+
+
+## Tips
+
+* Increase the default terminal buffer size by adding the following to VS Code settings:
+    ```json
+    "terminal.integrated.scrollback": 20000
+    ```
+* Load vscode_dev.magik in the .magik file in your home directory.
+* Load the dev_tools_application module in a development session.
+    ```
+    Magik> smallworld_product.add_product("C:\projects\hg\corerepo\sw_core\modules\sw_dev_tools")
+	Magik> sw_module_manager.load_module(:dev_tools_application)
+    ```
+    **Note:** vscode_dev.magik should be loaded after loading the dev tools as it overrides some helper procs.
+* Use relocate_products() (from the dev procs in magik_tools) to point the known products to local repositories.
+
+    Jumping to source using F3 will then open code from the local repo.
+    ```
+    Magik> relocate_products()
+    ```
+    **Note:** Symbols should be refreshed using shortcut **Alt+T** (or vs_save_symbols()) after relocating products to update paths to source files.
+* You can toggle between the editor and terminal using **Ctrl+'**
+* The module for the current Magik file can be loaded using the shortcut **Ctrl+Shift+F7**.
+
+    This will load (or reload) the module containing the file and adds products and loads prerequisite modules as necessary.
+    For example, this is useful for loading a test file or new module into the session.
 
 ## Requirements
 
@@ -94,14 +124,19 @@ I would recommend using these other extensions:
 ## Extension Settings
 
 * Enable auto indentation of Magik code (`true` by default)
-```json
+    ```json
     "magik-vscode.enableAutoIndentation": true
-```
+    ```
 
 * Enable linting of Magik code (`true` by default)
-```json
+    ```json
     "magik-vscode.enableLinting": true
-```
+    ```
+
+* Maximum amount of characters per comment line (0 = disable) (80 by default).
+    ```json
+    "magik-vscode.wrapCommentLineLength": 100
+    ```
 
 ## Known Issues
 

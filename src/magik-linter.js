@@ -298,11 +298,10 @@ class MagikLinter {
   }
 
   async _indentMagikLines(lines, firstRow, currentRow, checkOnly) {
-    const lineIndents = [];
-
     const editor = vscode.window.activeTextEditor;
     const doc = editor.document;
 
+    const lineIndents = [];
     const assignIndentKeywords = [];
     const arrowAssignRows = [];
     let indent = 0;
@@ -493,6 +492,38 @@ class MagikLinter {
     }
   }
 
+  async _removeSpacesAfterMethodName(firstRow, lastRow) {
+    const editor = vscode.window.activeTextEditor;
+    const doc = editor.document;
+
+    for (let row = firstRow; row < lastRow + 1; row++) {
+      const lineText = doc.lineAt(row).text;
+      let text = lineText.split('#')[0];
+      const reg = /[a-zA-Z0-9_?!]+\.[a-zA-Z0-9_?!]+\s+\(/g;
+      let match;
+
+      while (match = reg.exec(text)) { // eslint-disable-line
+        const spaceMatch = /\s+/.exec(match[0]);
+        const index = match.index + spaceMatch.index;
+
+        if (!magikUtils.withinString(text, index)) {
+          const edit = new vscode.WorkspaceEdit();
+          const range = new vscode.Range(
+            row,
+            index,
+            row,
+            index + spaceMatch[0].length
+          );
+          edit.delete(doc.uri, range);
+          await vscode.workspace.applyEdit(edit); // eslint-disable-line
+          text = `${text.substring(0, index)}${text.substring(
+            index + spaceMatch[0].length
+          )}`;
+        }
+      }
+    }
+  }
+
   async _removeSpacesBetweenBrackets(firstRow, lastRow) {
     const editor = vscode.window.activeTextEditor;
     const doc = editor.document;
@@ -512,7 +543,7 @@ class MagikLinter {
         ) {
           const edit = new vscode.WorkspaceEdit();
           const range = new vscode.Range(row, index + 1, row, index + 2);
-          edit.replace(doc.uri, range, '');
+          edit.delete(doc.uri, range);
           await vscode.workspace.applyEdit(edit); // eslint-disable-line
           text = text.substring(0, index + 1) + text.substring(index + 2);
         }
@@ -526,7 +557,7 @@ class MagikLinter {
         if (text[index - 1] === ' ' && !magikUtils.withinString(text, index)) {
           const edit = new vscode.WorkspaceEdit();
           const range = new vscode.Range(row, index - 1, row, index);
-          edit.replace(doc.uri, range, '');
+          edit.delete(doc.uri, range);
           await vscode.workspace.applyEdit(edit); // eslint-disable-line
           text = text.substring(0, index - 1) + text.substring(index);
         }
@@ -561,6 +592,60 @@ class MagikLinter {
     }
   }
 
+  // TODO add space around << and operators
+
+  // TODO format comment blocks
+
+  async _wrapComment(currentRow, ch) {
+    const wrapLength = vscode.workspace.getConfiguration('magik-vscode')
+      .wrapCommentLineLength;
+    if (wrapLength < 1) return;
+
+    const editor = vscode.window.activeTextEditor;
+    const doc = editor.document;
+    const lineText = doc.lineAt(currentRow).text;
+
+    if (lineText.length > wrapLength && /^\s*#/.test(lineText)) {
+      const match = /^\s*##?\S*\s/.exec(lineText);
+      if (match) {
+        const start = match.length;
+
+        for (let i = wrapLength; i > start; i--) {
+          if (/\s/.test(lineText[i])) {
+            const edit = new vscode.WorkspaceEdit();
+
+            if (ch === '\n') {
+              const startString = /##?/.exec(lineText)[0];
+              const newText = `${startString} ${lineText.slice(i + 1)}`;
+              const range = new vscode.Range(
+                currentRow,
+                i,
+                currentRow,
+                lineText.length
+              );
+              edit.delete(doc.uri, range);
+              const insertPos = new vscode.Position(currentRow + 1, 1);
+              edit.insert(doc.uri, insertPos, newText);
+            } else {
+              const startString = /^\s*##?/.exec(lineText)[0];
+              const newText = `\n${startString} ${lineText.slice(i + 1)}`;
+              const range = new vscode.Range(
+                currentRow,
+                i,
+                currentRow,
+                lineText.length
+              );
+              edit.replace(doc.uri, range, newText);
+            }
+
+            await vscode.workspace.applyEdit(edit); // eslint-disable-line
+            break;
+          }
+        }
+      }
+    }
+  }
+
   async _indentRegion(currentRow) {
     const {lines, firstRow} = magikUtils.indentRegion();
     if (lines) {
@@ -574,6 +659,7 @@ class MagikLinter {
       const lastRow = firstRow + lines.length - 1;
       await this._indentMagikLines(lines, firstRow);
       await this._removeSpacesBetweenBrackets(firstRow, lastRow);
+      await this._removeSpacesAfterMethodName(firstRow, lastRow);
       await this._addSpaceAfterComma(firstRow, lastRow);
     }
   }
@@ -609,6 +695,7 @@ class MagikLinter {
 
     await this._indentMagikLines(lines, 0);
     await this._removeSpacesBetweenBrackets(0, lastRow);
+    await this._removeSpacesAfterMethodName(0, lastRow);
     await this._addSpaceAfterComma(0, lastRow);
     await this._addNewlineAfterDollar(0, lastRow);
   }
@@ -625,6 +712,7 @@ class MagikLinter {
 
   async provideOnTypeFormattingEdits(doc, pos, ch) {
     if (ch === '\n') {
+      await this._wrapComment(pos.line - 1, ch);
       if (
         vscode.workspace.getConfiguration('magik-vscode').enableAutoIndentation
       ) {
@@ -636,6 +724,9 @@ class MagikLinter {
         await this._indentRegion(row);
       }
     } else {
+      if (ch === ' ') {
+        await this._wrapComment(pos.line, ch);
+      }
       const edit = await this._addUnderscore(doc, pos, ch);
       if (edit) {
         return [edit];

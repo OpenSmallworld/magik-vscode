@@ -90,6 +90,10 @@
                 "title": "Magik Compile File"
             },
             {
+                "command": "magik.loadModule",
+                "title": "Magik Load Current Module"
+            },
+            {
                 "command": "magik.compileSelection",
                 "title": "Magik Compile Selection"
             },
@@ -126,6 +130,10 @@
                 "title": "Magik Go To Next Definition"
             },
             {
+                "command": "magik.selectRegion",
+                "title": "Magik Select Region"
+            },
+            {
                 "command": "magik.runTest",
                 "title": "Magik Run Test"
             },
@@ -155,6 +163,11 @@
                 "when": "editorTextFocus"
             },
             {
+                "command": "magik.loadModule",
+                "key": "ctrl+shift+f7",
+                "when": "editorTextFocus && editorLangId == magik"
+            },
+            {
                 "command": "magik.compileSelection",
                 "key": "f8",
                 "when": "editorTextFocus"
@@ -181,7 +194,7 @@
             },
             {
                 "command": "magik.checkFile",
-                "key": "ctrl+shift+f7",
+                "key": "ctrl+shift+c",
                 "when": "editorTextFocus"
             },
             {
@@ -196,6 +209,11 @@
             {
                 "command": "magik.gotoNextDefinition",
                 "key": "alt+pagedown",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "magik.selectRegion",
+                "key": "alt+r",
                 "when": "editorTextFocus"
             },
             {
@@ -239,6 +257,11 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Enable Magik code linting."
+                },
+                "magik-vscode.wrapCommentLineLength": {
+                    "type": "integer",
+                    "default": 80,
+                    "description": "Maximum amount of characters per comment line (0 = disable)."
                 }
             }
         },

@@ -823,6 +823,273 @@ $
 
 _pragma(classify_level=debug)
 ##
+## Loads the specified module.
+## Searches for the module if not defined and adds the product.
+##
+_global _constant load_module <<
+_proc ( module_name, _optional force_reload? )
+
+	_global user_repository_paths
+
+	load_prerequisites? << _false
+
+	_if _not sw_module_manager.module_is_defined?( module_name )
+	_then
+		module_dir << _unset
+
+		sep << system.pathname_separator
+
+		write( "Searching for module..." )
+
+		_for a_path _over user_repository_paths.fast_elements()
+		_loop
+			_if _not system.file_exists?( a_path )
+			_then
+				_continue
+			_endif
+
+			a_command << write_string( "cmd /c dir ", a_path, sep, "*", module_name, " /s/b" )
+
+			(pid, in, out, err) << system.start_command_with_io( a_command, _false, _true,
+									     :output, a_path )
+			_protect
+				result << out.get_line()
+			_protection
+				out.close()
+			_endprotect
+
+			_if result <> "File Not Found"
+			_then
+				module_dir << result
+				_leave
+			_endif
+		_endloop
+
+		# TODO - should check module.def file
+
+		_if module_dir _is _unset
+		_then
+			write( "Cannot load ", module_name, " - cannot locate module." )
+			_return
+		_endif
+
+		product_dir << system.locate_file( module_dir, "product.def" )
+		_if product_dir _is _unset
+		_then
+			write( "Cannot load ", module_name, " - cannot find product." )
+			_return
+		_endif
+
+		smallworld_product.add_product( product_dir )
+
+		_if _not sw_module_manager.module_is_defined?( module_name )
+		_then
+			write( "Cannot load ", module_name, " - module not defined." )
+			_return
+		_endif
+
+		load_prerequisites? << _true
+		force_reload? << _true
+	_endif
+
+	_if _not sw_module_manager.module_is_loaded?( module_name ) _orif
+	    force_reload? _isnt _unset
+	_then
+		_if load_prerequisites?
+		_then
+			a_module << sw_module_manager.module( module_name )
+			_for data _over a_module.prerequisites.fast_elements()
+			_loop
+				load_module( data.an_element(), force_reload? )
+			_endloop
+		_endif
+
+		_try _with cond
+			sw_module_manager.load_module( module_name, _unset,
+						       :force_reload?, force_reload? )
+
+		_when sw_module_required_module_not_defined
+			write( "Cannot load ", module_name, " - required module not defined." )
+		_endtry
+	_else
+		write( module_name, " - already loaded." )
+	_endif
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Load the module containing the specified file.
+## Finds the file and adds products and loads prerequisite
+## modules as necessary.
+##
+## Useful for loading a test after starting a session e.g.
+## load_file_name( "sw_container_test", "corerepo" )
+##
+## SEARCH_PATH is the directory or repo name (e.g. "corerepo")
+## to search. Defaults to the paths defined by
+## user_repository_paths.
+##
+_global _constant load_file_name <<
+_proc ( file_name, _optional search_path, force_reload? )
+
+	_global user_repository_paths
+	_global load_module
+
+	paths << _unset
+	_if search_path _isnt _unset
+	_then
+		_if search_path.index_of( system.pathname_separator ) _is _unset
+		_then
+			paths << _for pathname _over user_repository_paths.fast_elements()
+		                 _loop
+					 name << system.pathname_components( pathname )
+					 _if name = search_path
+					 _then
+						 _leave _with {pathname}
+					 _endif
+				 _endloop
+		_else
+			paths << {search_path}
+		_endif
+	_endif
+	_if paths _is _unset
+	_then
+		paths << user_repository_paths
+	_endif
+
+	_if _not file_name.includes?( %. )
+	_then
+		file_name << write_string( file_name, ".magik" )
+	_endif
+
+	sep << system.pathname_separator
+
+	matches << rope.new()
+
+	start_time << system.elapsed_seconds()
+
+	write( "Searching for file..." )
+
+	_for a_path _over paths.fast_elements()
+	_loop
+		_if _not system.file_exists?( a_path )
+		_then
+			_continue
+		_endif
+
+		a_command << write_string( "cmd /c dir ", a_path, sep, "*", file_name, " /s/b" )
+
+		(pid, in, out, err) << system.start_command_with_io( a_command, _false, _true,
+								     :output, a_path )
+
+		_protect
+			_loop
+				_if ( a_line << out.get_line() ) _is _unset
+				_then
+					_leave
+				_endif
+				_if a_line <> "File Not Found" _andif
+				    a_line.last _isnt %# _andif
+				    a_line.includes?( %. ) _andif
+				    a_line.index_of_seq( "\.hg\" ) _is _unset
+				_then
+					matches.add_last( a_line )
+				_endif
+			_endloop
+		_protection
+			out.close()
+		_endprotect
+	_endloop
+
+	_if matches.empty?
+	_then
+		write( "File Not Found" )
+		_return
+
+	_elif matches.size > 1
+	_then
+		f << float_format.new_with_properties( :float_decimal_places, 0 )
+		search_time << (system.elapsed_seconds() - start_time) * 1000
+		write( matches.size, " results found        (Search time: ", f.format(search_time), " ms)" )
+		write()
+
+		_for i, p _over matches.fast_keys_and_elements()
+		_loop
+			(f, d) << system.pathname_components( p )
+			write( "[", i, "]  ", f, "    ", d )
+			_if i _is 25
+			_then
+				write("...")
+				_leave
+			_endif
+		_endloop
+		write()
+
+		!terminal!.write( "Load file (index)> " )
+		reply << !terminal!.get_line().trim_spaces()
+		_if ( index << reply.as_number() ) _is _unset _orif
+		    index < 1 _orif
+		    index > matches.size
+		_then
+			_return
+		_endif
+
+		file_path << matches[ index ]
+	_else
+		file_path << matches.an_element()
+	_endif
+
+	module_name << _unset
+
+	(filename, dir) << system.pathname_components( file_path )
+	module_dir << system.locate_file( dir, "module.def" )
+	_if module_dir _isnt _unset
+	_then
+		res << sw_module_manager.module_roots( module_dir, _false )
+		_if _not res.empty?
+		_then
+			module_name << res.a_key()[1]
+		_endif
+	_endif
+
+	_if module_name _is _unset
+	_then
+		write( "Cannot find module for ", file_path )
+		_return
+	_endif
+
+	_if force_reload? _isnt _true _andif
+		sw_module_manager.module_is_loaded?( module_name ) _andif
+	    file_path.index_of_seq( ".magik" ) _isnt _unset
+	_then
+		load_file( file_path )
+		_return
+	_endif
+
+	_if _not sw_module_manager.module_is_defined?( module_name )
+	_then
+		# Add the product here since we already know the module directory
+		product_dir << system.locate_file( module_dir, "product.def" )
+		_if product_dir _is _unset
+		_then
+			write( "Cannot load ", module_name, " - cannot find product." )
+			_return
+		_endif
+
+		smallworld_product.add_product( product_dir )
+	_endif
+
+	load_module( module_name, force_reload? )
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
 ## Last results from mfind() used by mjump()
 ##
 _global mfind_results << {}

@@ -20,6 +20,11 @@ const DEFAULT_GLOBALS = [
   'thread',
 ];
 
+const VAR_MULTI_START_REG = /^\s*\((\s*[a-zA-Z0-9_?!]+\s*,)*\s*([a-zA-Z0-9_?!]+)*\s*$/;
+const VAR_MULTI_MID_REG = /^(\s*[a-zA-Z0-9_?!]+\s*,)*\s*([a-zA-Z0-9_?!]+)*\s*$/;
+const VAR_MULTI_END_REG = /^(\s*[a-zA-Z0-9_?!]+\s*,)*\s*([a-zA-Z0-9_?!]+)*\s*\)\s*<</;
+const COMMENT_REG = /^\s*#/;
+
 class MagikVSCode {
   constructor(context) {
     this.classData = {};
@@ -58,10 +63,12 @@ class MagikVSCode {
       ['goto', this._goto],
       ['compileMethod', this._compileMethod],
       ['compileFile', this._compileFile],
+      ['loadModule', this._loadModule],
       ['compileSelection', this._compileSelection],
       ['refreshSymbols', this._refreshSymbols],
       ['gotoPreviousDefinition', this._gotoPreviousDefinition],
       ['gotoNextDefinition', this._gotoNextDefinition],
+      ['selectRegion', this._selectRegion],
       ['runTest', this._runTest],
       ['compileExtensionMagik', this._compileExtensionMagik],
       ['newBuffer', this._newMagikBuffer],
@@ -133,8 +140,24 @@ class MagikVSCode {
         lines.push(doc.lineAt(i).text);
       }
       this._compileText(lines);
-    } else if (fileName.split('.').slice(-1)[0] === 'magik') {
+    } else if (path.extname(fileName) === '.magik') {
       const command = `load_file("${fileName}")\u000D`;
+      vscode.commands.executeCommand('workbench.action.terminal.sendSequence', {
+        text: command,
+      });
+    }
+  }
+
+  _loadModule() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) return;
+    const doc = editor.document;
+    const {fileName} = doc;
+
+    if (path.extname(fileName) === '.magik') {
+      const name = path.basename(fileName, '.magik');
+      const searchPath = path.dirname(fileName);
+      const command = `load_file_name("${name}", "${searchPath}", _true)\u000D`;
       vscode.commands.executeCommand('workbench.action.terminal.sendSequence', {
         text: command,
       });
@@ -411,6 +434,52 @@ class MagikVSCode {
         }
       }
     }
+  }
+
+  _selectRegion() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) return;
+
+    const region = magikUtils.currentRegion();
+    if (!region.lines) return;
+
+    const doc = editor.document;
+    let firstRow = region.firstRow;
+    let lastRow = region.lastRow;
+    let lastCol;
+
+    for (let row = firstRow - 1; row > -1; row--) {
+      const lineText = doc.lineAt(row).text;
+
+      if (lineText.startsWith('_pragma')) {
+        firstRow = row;
+        break;
+      }
+      if (lineText.startsWith('$')) {
+        break;
+      }
+
+      const lineTextTrimmed = lineText.trim();
+      if (lineTextTrimmed.length > 0 && !lineTextTrimmed.startsWith('#')) {
+        break;
+      }
+    }
+
+    if (lastRow !== doc.lineCount - 1) {
+      const nextLine = doc.lineAt(lastRow + 1).text;
+      if (nextLine.startsWith('$')) {
+        lastRow++;
+        lastCol = nextLine.length;
+      }
+    }
+
+    if (lastCol === undefined) {
+      lastCol = doc.lineAt(lastRow).text.length;
+    }
+
+    const range = new vscode.Range(firstRow, 0, lastRow, lastCol);
+    editor.selection = new vscode.Selection(range.start, range.end);
+    editor.revealRange(range);
   }
 
   // TODO - currently only looking for definitions on one line
@@ -724,7 +793,7 @@ class MagikVSCode {
           const row = firstRow + i;
           const lineText = lines[i];
 
-          this.findAssignedVariables(lineText, row, assignedVars);
+          this.findAssignedVariables(lines, firstRow, i, assignedVars);
           this.findLocalVariables(lineText, row, assignedVars, []);
         }
 
@@ -957,17 +1026,40 @@ class MagikVSCode {
     return magikFiles;
   }
 
-  // TODO - handle assigned across multiple lines
-  findAssignedVariables(lineText, row, assignedVars) {
+  // TODO - refactor find variable functions
+
+  findAssignedVariables(lines, firstRow, lineCount, assignedVars) {
+    if (
+      this.findMultiAssignedVariables(lines, firstRow, lineCount, assignedVars)
+    ) {
+      return;
+    }
+
+    const lineText = lines[lineCount];
     const text = lineText.split('#')[0];
     const assignSplit = text.split('<<');
     const assignSplitLength = assignSplit.length;
     if (assignSplitLength < 2) return;
 
+    const row = lineCount + firstRow;
+    const multiLine = /<<\s*$/.test(text);
+    let lastText = text;
+    if (multiLine) {
+      const ignoreReg = /^\s*(#|$|([a-zA-Z0-9_?!]+\s*<<\s*)+$)/;
+      const max = lines.length;
+      for (let i = lineCount + 1; i < max; i++) {
+        const nextText = lines[i];
+        if (!ignoreReg.test(nextText)) {
+          lastText = nextText;
+          break;
+        }
+      }
+    }
+
     let annoClasses = [];
-    let annoSplit = lineText.split('# @class');
+    let annoSplit = lastText.split('# @class');
     if (annoSplit.length < 2) {
-      annoSplit = lineText.split('#@class');
+      annoSplit = lastText.split('#@class');
     }
     if (annoSplit.length > 1) {
       annoClasses = annoSplit[1].split(',').map((type) => type.trim());
@@ -1001,6 +1093,8 @@ class MagikVSCode {
             const index = text.indexOf(varName, startIndex);
             startIndex = index + 1;
 
+            // TODO variable class could be redefined
+
             if (varData) {
               varData.row = row;
               varData.index = index;
@@ -1010,6 +1104,11 @@ class MagikVSCode {
 
               if (varCount < annoLength) {
                 className = annoClasses[varCount];
+              } else if (
+                multiLine &&
+                /^\s*[a-zA-Z0-9_?!]+.new\s*\(/.test(lastText)
+              ) {
+                className = lastText.split('.')[0].trimStart();
               } else if (
                 /^\s*<<\s*[a-zA-Z0-9_?!]+.new\s*\(/.test(
                   text.slice(index + varName.length)
@@ -1025,13 +1124,85 @@ class MagikVSCode {
                 dynamic,
                 className,
               };
-
-              varCount++;
             }
+
+            varCount++;
           }
         }
       }
     }
+  }
+
+  findMultiAssignedVariables(lines, firstRow, lineCount, assignedVars) {
+    const firstText = lines[lineCount].split('#')[0];
+    if (!VAR_MULTI_START_REG.test(firstText)) return false;
+
+    const max = lines.length;
+    let endCount;
+
+    for (let i = lineCount + 1; i < max; i++) {
+      const lineText = lines[i];
+      const text = lineText.split('#')[0];
+
+      if (VAR_MULTI_END_REG.test(text)) {
+        endCount = i;
+        break;
+      }
+      if (!COMMENT_REG.test(text) && !VAR_MULTI_MID_REG.test(text)) {
+        break;
+      }
+    }
+
+    if (endCount === undefined) return false;
+
+    const lastText = lines[endCount];
+    let annoClasses = [];
+    let annoSplit = lastText.split('# @class');
+    if (annoSplit.length < 2) {
+      annoSplit = lastText.split('#@class');
+    }
+    if (annoSplit.length > 1) {
+      annoClasses = annoSplit[1].split(',').map((type) => type.trim());
+    }
+    const annoLength = annoClasses.length;
+
+    let varCount = 0;
+    let match;
+
+    // Find all variables
+    for (let i = lineCount; i < endCount + 1; i++) {
+      const row = i + firstRow;
+      const text = lines[i].split('#')[0];
+      const testString = text.split('<<')[0];
+
+      while (match = magikUtils.VAR_TEST.exec(testString)) { // eslint-disable-line
+        const varName = match[0];
+        const varIndex = match.index;
+        const varData = assignedVars[varName];
+
+        if (varData) {
+          varData.row = row;
+          varData.index = varIndex;
+        } else {
+          let className;
+          if (varCount < annoLength) {
+            className = annoClasses[varCount];
+          }
+
+          assignedVars[varName] = {
+            row,
+            index: varIndex,
+            count: 1,
+            dynamic: false,
+            className,
+          };
+        }
+
+        varCount++;
+      }
+    }
+
+    return true;
   }
 
   findLocalVariables(lineText, row, assignedVars, diagnostics) {
@@ -1161,7 +1332,7 @@ class MagikVSCode {
       const text = line.split('#')[0];
 
       if (search) {
-        this.findAssignedVariables(line, row, assignedVars);
+        this.findAssignedVariables(lines, firstRow, i, assignedVars);
         this.findLocalVariables(line, row, assignedVars, diagnostics);
       } else if (
         /(\)|<<|\])/.test(text) ||
