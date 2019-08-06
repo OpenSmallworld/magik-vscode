@@ -154,6 +154,15 @@ https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 
 ## Release Notes
 
+### 0.0.5
+
+* Added auto completion for local variables.
+* Allow compile region (method, proc or block) using F7.
+* Fixed indenting for brackets.
+* Added select region shortcut.
+* Wrapping of comment lines
+* Added command to load the current module.
+
 ### 0.0.4
 
 Initial release to OpenSmallworld public GitHub
@@ -167,7 +176,7 @@ Initial release to OpenSmallworld public GitHub
 
 ### 0.0.2
 
-Added snippets and symbol support for Magik methods.
+Added snippets and symbol support for searching Magik methods.
 
 ### 0.0.1
 
