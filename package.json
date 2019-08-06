@@ -262,6 +262,11 @@
                     "type": "integer",
                     "default": 80,
                     "description": "Maximum amount of characters per comment line (0 = disable)."
+                },
+                "magik-vscode.enableAutoScrollToPrompt": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable auto scroll to the Magik prompt when sending commands to the terminal."
                 }
             }
         },

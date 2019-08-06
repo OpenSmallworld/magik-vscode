@@ -6,6 +6,7 @@ const os = require('os');
 const path = require('path');
 const readline = require('readline');
 const magikUtils = require('./magik-utils');
+const magikVar = require('./magik-variables');
 
 const DEFAULT_GLOBALS = [
   'newline_char',
@@ -19,11 +20,6 @@ const DEFAULT_GLOBALS = [
   '!print_length!',
   'thread',
 ];
-
-const VAR_MULTI_START_REG = /^\s*\((\s*[a-zA-Z0-9_?!]+\s*,)*\s*([a-zA-Z0-9_?!]+)*\s*$/;
-const VAR_MULTI_MID_REG = /^(\s*[a-zA-Z0-9_?!]+\s*,)*\s*([a-zA-Z0-9_?!]+)*\s*$/;
-const VAR_MULTI_END_REG = /^(\s*[a-zA-Z0-9_?!]+\s*,)*\s*([a-zA-Z0-9_?!]+)*\s*\)\s*<</;
-const COMMENT_REG = /^\s*#/;
 
 class MagikVSCode {
   constructor(context) {
@@ -115,58 +111,74 @@ class MagikVSCode {
     this._registerFiles(context);
   }
 
-  _compileText(lines) {
-    const tempFile = path.join(os.tmpdir(), 'vscode_temp.magik');
-    const command = 'vs_load()\u000D';
-    const output = lines.join('\r\n');
+  _sendToTerminal(textToSend) {
+    const command = `${textToSend}\u000D`;
 
-    fs.writeFileSync(tempFile, output);
+    if (
+      vscode.workspace.getConfiguration('magik-vscode').enableAutoScrollToPrompt
+    ) {
+      vscode.commands.executeCommand(
+        'workbench.action.terminal.scrollToBottom',
+        {}
+      );
+    }
 
     vscode.commands.executeCommand('workbench.action.terminal.sendSequence', {
       text: command,
     });
   }
 
+  _compileText(lines) {
+    const tempFile = path.join(os.tmpdir(), 'vscode_temp.magik');
+    const output = lines.join('\r\n');
+
+    fs.writeFileSync(tempFile, output);
+
+    this._sendToTerminal('vs_load()');
+  }
+
   _compileFile() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
+
     const doc = editor.document;
     const {fileName} = doc;
 
     if (doc.isDirty) {
       const lines = [`# Output:Loading file '${fileName}'...`];
       const linesLength = doc.lineCount;
+
       for (let i = 0; i < linesLength; i++) {
         lines.push(doc.lineAt(i).text);
       }
       this._compileText(lines);
     } else if (path.extname(fileName) === '.magik') {
-      const command = `load_file("${fileName}")\u000D`;
-      vscode.commands.executeCommand('workbench.action.terminal.sendSequence', {
-        text: command,
-      });
+      const command = `load_file("${fileName}")`;
+
+      this._sendToTerminal(command);
     }
   }
 
   _loadModule() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
+
     const doc = editor.document;
     const {fileName} = doc;
 
     if (path.extname(fileName) === '.magik') {
       const name = path.basename(fileName, '.magik');
       const searchPath = path.dirname(fileName);
-      const command = `load_file_name("${name}", "${searchPath}", _true)\u000D`;
-      vscode.commands.executeCommand('workbench.action.terminal.sendSequence', {
-        text: command,
-      });
+      const command = `load_file_name("${name}", "${searchPath}", _true)`;
+
+      this._sendToTerminal(command);
     }
   }
 
   _compileSelection() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
+
     const doc = editor.document;
     const selection = editor.selection;
 
@@ -263,10 +275,9 @@ class MagikVSCode {
     const ext = vscode.extensions.getExtension('GE-Smallworld.magik-vscode');
     if (ext) {
       const fileName = path.join(ext.extensionPath, 'vscode_dev.magik');
-      const command = `load_file("${fileName}")\u000D`;
-      vscode.commands.executeCommand('workbench.action.terminal.sendSequence', {
-        text: command,
-      });
+      const command = `load_file("${fileName}")`;
+
+      this._sendToTerminal(command);
     }
   }
 
@@ -793,8 +804,16 @@ class MagikVSCode {
           const row = firstRow + i;
           const lineText = lines[i];
 
-          this.findAssignedVariables(lines, firstRow, i, assignedVars);
-          this.findLocalVariables(lineText, row, assignedVars, []);
+          magikVar.findAssignedVariables(lines, firstRow, i, assignedVars);
+          magikVar.findLocalVariables(
+            lineText,
+            row,
+            assignedVars,
+            this.classNames,
+            this.classData,
+            this.globals,
+            []
+          );
         }
 
         const varData = assignedVars[previousWord];
@@ -881,21 +900,17 @@ class MagikVSCode {
     // TODO - recognise _super()
 
     const inherit = def.previousWord === '_super';
-
     const command = `vs_goto("^${def.currentWord}$", "${
       def.className
-    }", ${inherit})\u000D`;
+    }", ${inherit})`;
+
     vscode.commands.executeCommand('workbench.action.terminal.focus', {});
-    vscode.commands.executeCommand('workbench.action.terminal.sendSequence', {
-      text: command,
-    });
+
+    this._sendToTerminal(command);
   }
 
   _refreshSymbols() {
-    const command = 'vs_save_symbols()\u000D';
-    vscode.commands.executeCommand('workbench.action.terminal.sendSequence', {
-      text: command,
-    });
+    this._sendToTerminal('vs_save_symbols()');
   }
 
   async _wait(ms) {
@@ -1026,338 +1041,6 @@ class MagikVSCode {
     return magikFiles;
   }
 
-  // TODO - refactor find variable functions
-
-  findAssignedVariables(lines, firstRow, lineCount, assignedVars) {
-    if (
-      this.findMultiAssignedVariables(lines, firstRow, lineCount, assignedVars)
-    ) {
-      return;
-    }
-
-    const lineText = lines[lineCount];
-    const text = lineText.split('#')[0];
-    const assignSplit = text.split('<<');
-    const assignSplitLength = assignSplit.length;
-    if (assignSplitLength < 2) return;
-
-    const row = lineCount + firstRow;
-    const multiLine = /<<\s*$/.test(text);
-    let lastText = text;
-    if (multiLine) {
-      const ignoreReg = /^\s*(#|$|([a-zA-Z0-9_?!]+\s*<<\s*)+$)/;
-      const max = lines.length;
-      for (let i = lineCount + 1; i < max; i++) {
-        const nextText = lines[i];
-        if (!ignoreReg.test(nextText)) {
-          lastText = nextText;
-          break;
-        }
-      }
-    }
-
-    let annoClasses = [];
-    let annoSplit = lastText.split('# @class');
-    if (annoSplit.length < 2) {
-      annoSplit = lastText.split('#@class');
-    }
-    if (annoSplit.length > 1) {
-      annoClasses = annoSplit[1].split(',').map((type) => type.trim());
-    }
-    const annoLength = annoClasses.length;
-
-    let varCount = 0;
-    let match;
-
-    for (let i = 0; i < assignSplitLength - 1; i++) {
-      let testString = assignSplit[i].split('(').slice(-1)[0];
-      let startIndex = text.indexOf(testString);
-      testString = magikUtils.removeStrings(testString);
-
-      if (!/]\s*$/.test(testString)) {
-        while (match = magikUtils.VAR_TEST.exec(testString)) { // eslint-disable-line
-          const varName = match[0];
-          const varIndex = match.index;
-
-          if (
-            Number.isNaN(Number(varName)) &&
-            testString[varIndex] !== '_' &&
-            !magikUtils.VAR_IGNORE_PREV_CHARS.includes(
-              testString[varIndex - 1]
-            ) &&
-            !magikUtils.ASSIGN_IGNORE_NEXT.test(
-              testString.slice(varIndex + varName.length)
-            )
-          ) {
-            const varData = assignedVars[varName];
-            const index = text.indexOf(varName, startIndex);
-            startIndex = index + 1;
-
-            // TODO variable class could be redefined
-
-            if (varData) {
-              varData.row = row;
-              varData.index = index;
-            } else {
-              const dynamic = /_dynamic\s+$/.test(text.substr(0, index));
-              let className;
-
-              if (varCount < annoLength) {
-                className = annoClasses[varCount];
-              } else if (
-                multiLine &&
-                /^\s*[a-zA-Z0-9_?!]+.new\s*\(/.test(lastText)
-              ) {
-                className = lastText.split('.')[0].trimStart();
-              } else if (
-                /^\s*<<\s*[a-zA-Z0-9_?!]+.new\s*\(/.test(
-                  text.slice(index + varName.length)
-                )
-              ) {
-                className = magikUtils.nextWordInString(text, index);
-              }
-
-              assignedVars[varName] = {
-                row,
-                index,
-                count: 1,
-                dynamic,
-                className,
-              };
-            }
-
-            varCount++;
-          }
-        }
-      }
-    }
-  }
-
-  findMultiAssignedVariables(lines, firstRow, lineCount, assignedVars) {
-    const firstText = lines[lineCount].split('#')[0];
-    if (!VAR_MULTI_START_REG.test(firstText)) return false;
-
-    const max = lines.length;
-    let endCount;
-
-    for (let i = lineCount + 1; i < max; i++) {
-      const lineText = lines[i];
-      const text = lineText.split('#')[0];
-
-      if (VAR_MULTI_END_REG.test(text)) {
-        endCount = i;
-        break;
-      }
-      if (!COMMENT_REG.test(text) && !VAR_MULTI_MID_REG.test(text)) {
-        break;
-      }
-    }
-
-    if (endCount === undefined) return false;
-
-    const lastText = lines[endCount];
-    let annoClasses = [];
-    let annoSplit = lastText.split('# @class');
-    if (annoSplit.length < 2) {
-      annoSplit = lastText.split('#@class');
-    }
-    if (annoSplit.length > 1) {
-      annoClasses = annoSplit[1].split(',').map((type) => type.trim());
-    }
-    const annoLength = annoClasses.length;
-
-    let varCount = 0;
-    let match;
-
-    // Find all variables
-    for (let i = lineCount; i < endCount + 1; i++) {
-      const row = i + firstRow;
-      const text = lines[i].split('#')[0];
-      const testString = text.split('<<')[0];
-
-      while (match = magikUtils.VAR_TEST.exec(testString)) { // eslint-disable-line
-        const varName = match[0];
-        const varIndex = match.index;
-        const varData = assignedVars[varName];
-
-        if (varData) {
-          varData.row = row;
-          varData.index = varIndex;
-        } else {
-          let className;
-          if (varCount < annoLength) {
-            className = annoClasses[varCount];
-          }
-
-          assignedVars[varName] = {
-            row,
-            index: varIndex,
-            count: 1,
-            dynamic: false,
-            className,
-          };
-        }
-
-        varCount++;
-      }
-    }
-
-    return true;
-  }
-
-  findLocalVariables(lineText, row, assignedVars, diagnostics) {
-    const text = lineText.split('#')[0];
-    let testString = magikUtils.removeStrings(text);
-    testString = magikUtils.removeSymbolsWithPipes(testString);
-
-    const showUndefined = this.classNames.length > 0; // Need class name and globals
-    const defLength = magikUtils.DEFINE_KEYWORD_TESTS.length;
-
-    let annoClasses = [];
-    let annoSplit = lineText.split('# @class');
-    if (annoSplit.length < 2) {
-      annoSplit = lineText.split('#@class');
-    }
-    if (annoSplit.length > 1) {
-      annoClasses = annoSplit[1].split(',').map((type) => type.trim());
-    }
-    const annoLength = annoClasses.length;
-
-    let varCount = 0;
-    let startIndex;
-    let match;
-
-    // TODO - loop scopes
-    if (testString.includes('_for ') && testString.includes(' _over ')) {
-      const overSplit = testString.split(' _over ');
-      const iterTestString = overSplit[0].split('_for ').slice(-1)[0];
-      startIndex = text.indexOf(iterTestString);
-
-      while (match = magikUtils.VAR_TEST.exec(iterTestString)) { // eslint-disable-line
-        const varName = match[0];
-        const varIndex = text.indexOf(varName, startIndex);
-        startIndex = varIndex + 1;
-
-        assignedVars[varName] = {
-          row,
-          index: varIndex,
-          count: 1,
-        };
-      }
-    }
-
-    startIndex = 0;
-
-    while (match = magikUtils.VAR_TEST.exec(testString)) { // eslint-disable-line
-      const varName = match[0];
-      const varLength = varName.length;
-      let varIndex = match.index;
-      const defTestString = text.substr(0, varIndex);
-
-      if (
-        Number.isNaN(Number(varName)) &&
-        testString[varIndex] !== '_' &&
-        !magikUtils.VAR_IGNORE_PREV_CHARS.includes(testString[varIndex - 1])
-      ) {
-        const varData = assignedVars[varName];
-        varIndex = text.indexOf(varName, startIndex);
-
-        if (
-          showUndefined &&
-          !varData &&
-          magikUtils.nextChar(testString, varIndex + varLength) !== '('
-        ) {
-          let def = false;
-
-          for (let defIndex = 0; defIndex < defLength; defIndex++) {
-            if (magikUtils.DEFINE_KEYWORD_TESTS[defIndex].test(defTestString)) {
-              assignedVars[varName] = {
-                row,
-                index: varIndex,
-                count: 1,
-                global: defIndex === 1,
-                dynamic: defIndex === 2,
-              };
-              if (varCount < annoLength) {
-                assignedVars[varName].className = annoClasses[varCount];
-              }
-              def = true;
-              break;
-            }
-          }
-
-          if (
-            !def &&
-            !this.classData[varName] &&
-            !this.globals.includes(varName)
-          ) {
-            const range = new vscode.Range(
-              row,
-              varIndex,
-              row,
-              varIndex + varLength
-            );
-            const d = new vscode.Diagnostic(
-              range,
-              `'${varName}' is not defined.`,
-              vscode.DiagnosticSeverity.Error
-            );
-            diagnostics.push(d);
-          }
-        }
-
-        if (
-          varData &&
-          (varData.row !== row || varData.index !== varIndex) &&
-          !magikUtils.IMPORT_TEST.test(text.substr(0, varIndex))
-        ) {
-          varData.count++;
-        }
-
-        varCount++;
-      }
-
-      startIndex = varIndex + varLength;
-    }
-  }
-
-  getVariables(lines, firstRow, diagnostics) {
-    const assignedVars = magikUtils.getMethodParams(lines, firstRow);
-    const end = lines.length - 1;
-    let search = false;
-
-    for (let i = 0; i < end; i++) {
-      const row = firstRow + i;
-      const line = lines[i];
-      const text = line.split('#')[0];
-
-      if (search) {
-        this.findAssignedVariables(lines, firstRow, i, assignedVars);
-        this.findLocalVariables(line, row, assignedVars, diagnostics);
-      } else if (
-        /(\)|<<|\])/.test(text) ||
-        /(^|\s+)_method\s+.*[a-zA-Z0-9_?!]$/.test(text)
-      ) {
-        search = true;
-      }
-    }
-
-    return assignedVars;
-  }
-
-  _getMethodVariables(pos) {
-    const region = magikUtils.currentRegion(false, pos.line);
-    const {lines} = region;
-    let vars = {};
-
-    if (lines) {
-      const {firstRow} = region;
-      vars = this.getVariables(lines, firstRow, []);
-    }
-
-    return Object.keys(vars);
-  }
-
   async _getMethodCompletionItems(doc, pos, currentWord, previousWord) {
     const items = [];
     const className = this._getCurrentReceiver(doc, pos, previousWord);
@@ -1468,7 +1151,12 @@ class MagikVSCode {
         }
       }
 
-      const vars = this._getMethodVariables(pos);
+      const vars = magikVar.getMethodVariables(
+        pos,
+        this.classNames,
+        this.classData,
+        this.globals
+      );
       length = vars.length;
       for (let i = 0; i < length; i++) {
         const varName = vars[i];
@@ -1654,16 +1342,11 @@ class MagikVSCode {
       this._parentClasses(res.className, parents);
 
       if (res.methodName.startsWith('test_') && parents.includes('test_case')) {
-        const command = `vs_run_test("${res.className}", "${
-          res.methodName
-        }")\u000D`;
+        const command = `vs_run_test("${res.className}", "${res.methodName}")`;
+
         vscode.commands.executeCommand('workbench.action.terminal.focus', {});
-        vscode.commands.executeCommand(
-          'workbench.action.terminal.sendSequence',
-          {
-            text: command,
-          }
-        );
+
+        this._sendToTerminal(command);
       }
     }
   }

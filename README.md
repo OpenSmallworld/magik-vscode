@@ -133,9 +133,14 @@ I would recommend using these other extensions:
     "magik-vscode.enableLinting": true
     ```
 
-* Maximum amount of characters per comment line (0 = disable) (80 by default).
+* Maximum amount of characters per comment line (0 = disable) (80 by default)
     ```json
     "magik-vscode.wrapCommentLineLength": 100
+    ```
+
+* Enable auto scroll to the Magik prompt when sending commands to the terminal (`true` by default)
+    ```json
+    "magik-vscode.enableAutoScrollToPrompt": true
     ```
 
 ## Known Issues
