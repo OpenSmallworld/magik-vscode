@@ -80,6 +80,10 @@ const INDENT_INC_STATEMENT_WORDS = [
 ];
 const INC_BRACKETS = /(?<!%)[({]/g;
 const DEC_BRACKETS = /(?<!%)[)}]/g;
+const NO_CODE = /^\s*(#|$)/;
+const START_PROC = /(?<=(^|[^a-zA-Z0-9_?!]))_proc\s*[@a-zA-Z0-9_?!]*\s*\(/;
+const DEC_LINE = /(?<=\S(\s+|\s*;))(_endproc|_endif$)/;
+
 
 class MagikLinter {
   constructor(magikVSCode, context) {
@@ -299,6 +303,17 @@ class MagikLinter {
     return false;
   }
 
+  _startProcTest(testString) {
+    const match = testString.match(START_PROC);
+    return match && !magikUtils.withinString(testString, match.index);
+  }
+
+  _endLineTest(testString) {
+    // Contains _endproc but not at start of line or endif at end
+    const match = testString.match(DEC_LINE);
+    return match && !magikUtils.withinString(testString, match.index);
+  }
+
   async _indentMagikLines(lines, firstRow, currentRow, checkOnly) {
     const editor = vscode.window.activeTextEditor;
     const doc = editor.document;
@@ -350,7 +365,12 @@ class MagikLinter {
 
       if (firstRow + row === currentRow) return;
 
-      if (testString[0] !== '#') {
+      if (NO_CODE.test(testString)) {
+        if (arrowAssignRows.length > 0) {
+          // Defer checking for a statement as the line is empty
+          arrowAssignRows[arrowAssignRows.length - 1]++;
+        }
+      } else {
         testString = testString.split('#')[0].trim();
 
         if (arrowAssignRows.length > 0) {
@@ -397,7 +417,7 @@ class MagikLinter {
           }
         }
 
-        if (tempIndent) {
+        if (tempIndent && !testString.endsWith(',')) {
           indent--;
           tempIndent = false;
         }
@@ -413,10 +433,9 @@ class MagikLinter {
               indent++;
             }
           } else if (/^[)}]/.test(testString)) {
+            // Starts with bracket - explicitly handled here as not included in INDENT_INC_WORDS test below
             indent++;
-          } else if (/^_proc\s*[@a-zA-Z0-9_?!]*\s*\(/.test(testString)) {
-            indent++;
-          } else if (/\s+_then$/.test(testString)) {
+          } else if (/\s+_then(\s+|$)/.test(testString)) {
             indent++;
           } else {
             const incWordsLength = magikUtils.INDENT_INC_WORDS.length;
@@ -426,6 +445,12 @@ class MagikLinter {
                 indent++;
                 break;
               }
+            }
+            if (this._startProcTest(testString)) {
+              indent++;
+            }
+            if (this._endLineTest(testString)) {
+              indent--;
             }
           }
         }
@@ -455,9 +480,6 @@ class MagikLinter {
         if (matches) {
           indent -= matches.length;
         }
-      } else if (arrowAssignRows.length > 0) {
-        // Line is a comment - defer checking for a statement
-        arrowAssignRows[arrowAssignRows.length - 1]++;
       }
     }
 
