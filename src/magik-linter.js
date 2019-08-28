@@ -82,8 +82,7 @@ const INC_BRACKETS = /(?<!%)[({]/g;
 const DEC_BRACKETS = /(?<!%)[)}]/g;
 const NO_CODE = /^\s*(#|$)/;
 const START_PROC = /(?<=(^|[^a-zA-Z0-9_?!]))_proc\s*[@a-zA-Z0-9_?!]*\s*\(/;
-const DEC_LINE = /(?<=\S(\s+|\s*;))(_endproc|_endif$)/;
-
+const DEC_STATEMENT = /(?<=\S(\s+|\s*;))(_endproc|_endif$)/;
 
 class MagikLinter {
   constructor(magikVSCode, context) {
@@ -308,9 +307,9 @@ class MagikLinter {
     return match && !magikUtils.withinString(testString, match.index);
   }
 
-  _endLineTest(testString) {
-    // Contains _endproc but not at start of line or endif at end
-    const match = testString.match(DEC_LINE);
+  _endStatementTest(testString) {
+    // Contains _endproc but not at start of line or _endif at end
+    const match = testString.match(DEC_STATEMENT);
     return match && !magikUtils.withinString(testString, match.index);
   }
 
@@ -437,6 +436,9 @@ class MagikLinter {
             indent++;
           } else if (/\s+_then(\s+|$)/.test(testString)) {
             indent++;
+            if (/(\s+|;)_endif$/.test(testString)) {
+              indent--;
+            }
           } else {
             const incWordsLength = magikUtils.INDENT_INC_WORDS.length;
             for (let i = 0; i < incWordsLength; i++) {
@@ -449,7 +451,7 @@ class MagikLinter {
             if (this._startProcTest(testString)) {
               indent++;
             }
-            if (this._endLineTest(testString)) {
+            if (this._endStatementTest(testString)) {
               indent--;
             }
           }
