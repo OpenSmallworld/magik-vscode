@@ -68,6 +68,7 @@ class MagikVSCode {
       ['runTest', this._runTest],
       ['compileExtensionMagik', this._compileExtensionMagik],
       ['newBuffer', this._newMagikBuffer],
+      ['gotoClipboardText', this._gotoClipboardText],
     ];
 
     for (const [name, func] of commandConfig) {
@@ -299,6 +300,70 @@ class MagikVSCode {
     );
   }
 
+  async _gotoClipboardText() {
+    // To search for selection from the terminal ensure copyOnSelection is set to true:
+    // "terminal.integrated.copyOnSelection": true
+
+    const clipboardText = await vscode.env.clipboard.readText();
+    if (clipboardText.length === 0) return;
+
+    const text = clipboardText.trim();
+
+    // TODO - can't pass text as arg!
+    // await vscode.commands.executeCommand(
+    //   'workbench.action.showAllSymbols',
+    //   text
+    // );
+
+    let query;
+    let command;
+
+    const match = text.match(/\s\.{2,}\s/);
+    if (match) {
+      const textSplit = text.split(match[0]);
+      query = `^${textSplit[1]}$.^${textSplit[0]}$`;
+      command = `vs_goto("^${textSplit[0]}$", "${textSplit[1]}")`;
+    } else {
+      // const data = this.classData[text];
+      // if (data) {
+      //   await vscode.commands.executeCommand(
+      //     'vscode.open',
+      //     vscode.Uri.file(data.sourceFile)
+      //   );
+      //   return;
+      // }
+
+      const textSplit = text.split('.');
+      if (textSplit.length === 2) {
+        query = `^${textSplit[0]}$.^${textSplit[1]}`;
+        command = `vs_goto("^${textSplit[1]}", "${textSplit[0]}")`;
+      } else {
+        query = `^${text}`;
+        command = `vs_goto("^${text}")`;
+      }
+    }
+
+    const symbols = await this._getSymbols(query);
+
+    if (symbols.length === 1) {
+      const resSymbol = this.resolveWorkspaceSymbol(symbols[0]);
+      if (resSymbol) {
+        const range = resSymbol.location.range;
+        await vscode.commands.executeCommand(
+          'vscode.open',
+          resSymbol.location.uri
+        );
+        const editor = vscode.window.activeTextEditor;
+        editor.selection = new vscode.Selection(range.start, range.end);
+        editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+        return;
+      }
+    }
+
+    vscode.commands.executeCommand('workbench.action.terminal.focus', {});
+    this._sendToTerminal(command);
+  }
+
   // TODO - handle definitions across multiple lines
   _findDefinition(fileName, word) {
     const lines = fs
@@ -311,7 +376,7 @@ class MagikVSCode {
       `(^|\\s+)_method\\s+.+\\.\\s*${word}\\s*($|\\(|\\[|<<)`
     );
     const defineTest = new RegExp(
-      `\\.\\s*(define_slot_access|define_shared_constant|def_property|define_property|define_shared_variable)\\s*\\(\\s*:${word}`
+      `\\.\\s*(define_slot_access|define_shared_constant|def_property|define_property|define_shared_variable)\\s*\\(\\s*:${word}($|[^a-zA-Z0-9_?!])`
     );
 
     for (let row = 0; row < lineCount; row++) {
@@ -831,10 +896,7 @@ class MagikVSCode {
     if (!currentWord) return {};
 
     const text = doc.lineAt(pos.line).text;
-    const start = text.indexOf(
-      currentWord,
-      pos.character - currentWord.length + 1
-    );
+    const start = text.indexOf(currentWord, pos.character - currentWord.length);
 
     currentWord = magikUtils.getMethodName(text, currentWord, start);
 

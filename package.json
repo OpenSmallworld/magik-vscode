@@ -79,7 +79,7 @@
         "commands": [
             {
                 "command": "magik.goto",
-                "title": "Magik Goto"
+                "title": "Magik Go To"
             },
             {
                 "command": "magik.compileMethod",
@@ -144,6 +144,10 @@
             {
                 "command": "magik.newBuffer",
                 "title": "Magik New Buffer"
+            },
+            {
+                "command": "magik.gotoClipboardText",
+                "title": "Magik Go To Clipboard"
             }
         ],
         "keybindings": [
@@ -242,6 +246,11 @@
             {
                 "key": "alt+`",
                 "command": "workbench.action.terminal.toggleTerminal"
+            },
+            {
+                "key": "f3",
+                "command": "magik.gotoClipboardText",
+                "when": "terminalFocus"
             }
         ],
         "configuration": {

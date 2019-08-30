@@ -65,7 +65,10 @@ The linting can be enable/diabled using the setting `magik-vscode.enableLinting`
 ## Installation
 
 1. Add the extension to VS Code by cloning the repo to %USERPROFILE%\\.vscode\extensions
-2. Enable `Editor: Format on Type` in the VS Code settings to allow adding _ and auto indentation.
+2. VS Code Settings
+    * Enable `Editor: Format on Type` in the VS Code settings to allow adding _ and auto indentation.
+    * Add the command `magik.gotoClipboardText` to `Terminal > Integrated: Commands To Skip Shell`.
+    * Enable `Terminal > Integrated: Copy On Selection` to allow jump to source from the terminal using **F3**.
 
 I would recommend using these other extensions:
 * Bracket Pair Colorizer 2
@@ -113,6 +116,7 @@ I would recommend using these other extensions:
 
     This will load (or reload) the module containing the file and adds products and loads prerequisite modules as necessary.
     For example, this is useful for loading a test file or new module into the session.
+* You can jump to source from the terminal by selecting a method name (or class.method) and pressing **F3**. Requires the steps in 2. in the Installtion notes above.
 
 ## Requirements
 
