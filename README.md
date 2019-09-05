@@ -53,19 +53,22 @@ Adds the following features to VS Code:
 ### **Method Search**
 
 You can search for Magik methods using **Ctrl+T** and typing `<method name>` or `<class name>`.`<method name>`.
+
+The search supports ^ and $.
+
 Use **Alt+T** to refresh symbols after compiling code.
 
 ### **Magik Linting**
 
-Magik files are scanned when they are opened and saved or by using the command `Magik Check File`.
+Magik files are scanned when they are opened and saved or by using the command `Magik Check File` (**Ctrl+Shift+T**).
 Warning: This does not confirm the code is without issues!
 
-The linting can be enable/diabled using the setting `magik-vscode.enableLinting`.
+The linting can be enabled/diabled using the setting `magik-vscode.enableLinting`.
 
 ## Installation
 
 1. Add the extension to VS Code by cloning the repo to %USERPROFILE%\\.vscode\extensions
-2. VS Code Settings
+2. VS Code Settings:
     * Enable `Editor: Format on Type` in the VS Code settings to allow adding _ and auto indentation.
     * Add the command `magik.gotoClipboardText` to `Terminal > Integrated: Commands To Skip Shell`.
     * Enable `Terminal > Integrated: Copy On Selection` to allow jump to source from the terminal using **F3**.
@@ -93,30 +96,47 @@ I would recommend using these other extensions:
 
 ## Tips
 
-* Increase the default terminal buffer size by adding the following to VS Code settings:
-    ```json
-    "terminal.integrated.scrollback": 20000
-    ```
-* Load vscode_dev.magik in the .magik file in your home directory.
-* Load the dev_tools_application module in a development session.
-    ```
-    Magik> smallworld_product.add_product("C:\projects\hg\corerepo\sw_core\modules\sw_dev_tools")
-	Magik> sw_module_manager.load_module(:dev_tools_application)
-    ```
-    **Note:** vscode_dev.magik should be loaded after loading the dev tools as it overrides some helper procs.
-* Use relocate_products() (from the dev procs in magik_tools) to point the known products to local repositories.
+* VS Code Settings:
+    * Increase the default terminal buffer size by adding the following:
+        ```json
+        "terminal.integrated.scrollback": 20000
+        ```
+    * Set the text encoding to iso88591:
+        ```json
+        "files.encoding": "iso88591"
+        ```
+    * Add the following commands to `Terminal > Integrated: Commands To Skip Shell`:
+        * `workbench.action.showAllSymbols`
+        * `workbench.action.quickOpen`
+        * `magik.gotoClipboardText`
+        * `magik.refreshSymbols`
+        * `magik.compileExtensionMagik`
 
-    Jumping to source using F3 will then open code from the local repo.
-    ```
-    Magik> relocate_products()
-    ```
-    **Note:** Symbols should be refreshed using shortcut **Alt+T** (or vs_save_symbols()) after relocating products to update paths to source files.
-* You can toggle between the editor and terminal using **Ctrl+'**
-* The module for the current Magik file can be loaded using the shortcut **Ctrl+Shift+F7**.
+* Dev Tools:
+    * Load the dev_tools_application module in a development session:
+        ```
+        Magik> smallworld_product.add_product("C:\projects\hg\corerepo\sw_core\modules\sw_dev_tools")
+	    Magik> sw_module_manager.load_module(:dev_tools_application)
+        ```
+        **Note:** vscode_dev.magik should be loaded after loading the dev tools as it overrides some helper procs.
+    * Use relocate_products() (from the dev procs in magik_tools) to point the known products to local repositories.
 
-    This will load (or reload) the module containing the file and adds products and loads prerequisite modules as necessary.
-    For example, this is useful for loading a test file or new module into the session.
-* You can jump to source from the terminal by selecting a method name (or class.method) and pressing **F3**. Requires the steps in 2. in the Installtion notes above.
+        Jumping to source using F3 will then open code from the local repo.
+        ```
+        Magik> relocate_products()
+        ```
+        **Note:** Symbols should be refreshed using shortcut **Alt+T** (or vs_save_symbols()) after relocating products to update paths to source files.
+* Other:
+    * Load vscode_dev.magik in the .magik file in your home directory.
+    * You can toggle between the editor and terminal using **Ctrl+'**
+    * The module for the current Magik file can be loaded using the shortcut **Ctrl+Shift+F7**.
+
+        This will load (or reload) the module containing the file and adds products and loads prerequisite modules as necessary.
+
+        For example, this is useful for loading a test file or new module into the session.
+    * You can jump to source from the terminal by selecting a method name (or class.method) and pressing **F3**. Requires the steps in 2. in the Installtion notes above.
+    * Use Alt+Click to move the cursor in the terminal.
+
 
 ## Requirements
 
@@ -139,7 +159,7 @@ I would recommend using these other extensions:
 
 * Maximum amount of characters per comment line (0 = disable) (80 by default)
     ```json
-    "magik-vscode.wrapCommentLineLength": 100
+    "magik-vscode.wrapCommentLineLength": 80
     ```
 
 * Enable auto scroll to the Magik prompt when sending commands to the terminal (`true` by default)

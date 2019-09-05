@@ -305,9 +305,13 @@ class MagikVSCode {
     // "terminal.integrated.copyOnSelection": true
 
     const clipboardText = await vscode.env.clipboard.readText();
-    if (clipboardText.length === 0) return;
+    await this._gotoText(clipboardText);
+  }
 
-    const text = clipboardText.trim();
+  async _gotoText(selectedText) {
+    if (selectedText.length === 0) return;
+
+    const text = selectedText.trim();
 
     // TODO - can't pass text as arg!
     // await vscode.commands.executeCommand(
@@ -942,7 +946,18 @@ class MagikVSCode {
     if (!editor) return;
 
     const doc = editor.document;
-    const pos = editor.selection.active;
+    const selection = editor.selection;
+
+    if (!selection.empty) {
+      const selectedText = doc.getText(
+        new vscode.Range(selection.start, selection.end)
+      );
+      if (/\s\.{2,}\s/.test(selectedText)) {
+        return this._gotoText(selectedText);
+      }
+    }
+
+    const pos = selection.active;
     const def = await this._getCurrentDefinitionSymbol(doc, pos);
 
     if (!def.currentWord) return;
@@ -959,12 +974,37 @@ class MagikVSCode {
       return;
     }
 
-    // TODO - recognise _super()
+    const text = doc.lineAt(pos.line).text;
+    const start = text.indexOf(
+      def.currentWord,
+      pos.character - def.currentWord.length
+    );
 
-    const inherit = def.previousWord === '_super';
-    const command = `vs_goto("^${def.currentWord}$", "${
-      def.className
-    }", ${inherit})`;
+    let command;
+    // Test for _super(classname)
+    const match = text
+      .substr(0, start)
+      .match(/_super\s*\(\s*[a-zA-Z0-9_?!]+\s*\)\s*\.\s*$/);
+    if (match) {
+      let className = '';
+      if (match[0].indexOf('_super(') !== -1) {
+        className = match[0]
+          .split('_super(')[1]
+          .split(')')[0]
+          .trim();
+      } else if (match[0].indexOf('_super (') !== -1) {
+        className = match[0]
+          .split('_super (')[1]
+          .split(')')[0]
+          .trim();
+      }
+      command = `vs_goto("^${def.currentWord}$", "${className}")`;
+    } else {
+      const inherit = def.previousWord === '_super' ? '_true' : '_false';
+      command = `vs_goto("^${def.currentWord}$", "${
+        def.className
+      }", ${inherit})`;
+    }
 
     vscode.commands.executeCommand('workbench.action.terminal.focus', {});
 
