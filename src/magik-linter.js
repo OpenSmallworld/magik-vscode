@@ -115,6 +115,12 @@ class MagikLinter {
     });
 
     context.subscriptions.push(
+      vscode.commands.registerCommand('magik.indentLine', () =>
+        this._indentLine()
+      )
+    );
+
+    context.subscriptions.push(
       vscode.commands.registerCommand('magik.indentRegion', () =>
         this._indentRegion()
       )
@@ -486,6 +492,15 @@ class MagikLinter {
     }
 
     return lineIndents;
+  }
+
+  async _indentLine() {
+    const editor = vscode.window.activeTextEditor;
+    if (editor && editor.selection.active.line) {
+      const pos = editor.selection.active;
+      await this._addUnderscore(editor.document, pos, '');
+      await this._indentRegion(pos.line);
+    }
   }
 
   async _indentRegion(currentRow) {

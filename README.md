@@ -24,6 +24,7 @@ Adds the following features to VS Code:
     * Command `Magik Indent File` (**Ctrl+Shift+I**)
     * Command `Magik Format Region` (**Alt+F**) - format and indent current region
     * Command `Magik Format File` (**Shift+Alt+F**)
+    * Command `Magik Indent Line` (**Alt+Enter**)
 * Linting:
     * Command `Magik Check File` (**Ctrl+Shift+C**)
 

@@ -98,6 +98,10 @@
                 "title": "Magik Compile Selection"
             },
             {
+                "command": "magik.indentLine",
+                "title": "Magik Indent Line"
+            },
+            {
                 "command": "magik.indentRegion",
                 "title": "Magik Indent Region"
             },
@@ -174,6 +178,11 @@
             {
                 "command": "magik.compileSelection",
                 "key": "f8",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "magik.indentLine",
+                "key": "alt+enter",
                 "when": "editorTextFocus"
             },
             {
