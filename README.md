@@ -37,6 +37,8 @@ Adds the following features to VS Code:
     * Missing comment from a Basic method
     * (Hint) Complex methods with a cyclomatic complexity over 10
     * (Hint) Long methods with more than 40 lines of code
+* Debugging:
+    * Magik Debug Session supporting the VS Code debug interface.
 * Symbols:
     * Search Magik methods in the current session (**Ctrl+T**)
     * Magik definitions in the current file to support Outline view
@@ -66,6 +68,19 @@ Warning: This does not confirm the code is without issues!
 
 The linting can be enabled/diabled using the setting `magik-vscode.enableLinting`.
 
+### **Magik Debugging**
+
+The Magik session needs to be started with a Java option to tell the JVM to load the debug agent. For example from the command line this could be:
+
+S:\SW522\2019-10-09\core\bin\x86\runalias **-j -agentpath:S:\SW522\2019-10-09\core\bin\x86\mda.dll** -a S:\SW522\2019-10-09\cambridge_db\config\gis_aliases cambridge_db_open
+
+To start debugging in VS Code select Debug -> Start Debugging (**F5**) and select Magik from the list. The current threads should then be listed under Call Stack.
+Toggle breakpoints by selecting a line and pressing F9 or click to the left of a line number.
+
+Limitation: Compile (saved) files rather than methods during debugging to ensure the line numbers remain synced.
+
+There are some performance issues with stepping.
+
 ## Installation
 
 1. Add the extension to VS Code by cloning the repo to %USERPROFILE%\\.vscode\extensions
@@ -87,7 +102,10 @@ I would recommend using these other extensions:
 
 2. Open a terminal in VS Code and start a magik session.
 
-    e.g. S:\SW519\2018-11-30\core\bin\x86\runalias -a S:\SW519\2018-11-30\cambridge_db\config\gis_aliases cambridge_db_open
+    e.g. S:\SW522\2019-10-09\core\bin\x86\runalias -a S:\SW522\2019-10-09\cambridge_db\config\gis_aliases cambridge_db_open
+
+    or for debugging
+    S:\SW522\2019-10-09\core\bin\x86\runalias -j -agentpath:S:\SW522\2019-10-09\core\bin\x86\mda.dll -a S:\SW522\2019-10-09\cambridge_db\config\gis_aliases cambridge_db_open
 
 3. Load the file vscode_dev.magik at the Magik prompt (Use shortcut **Alt+M** (when the terminal doesn't have focus)).
 
@@ -173,6 +191,11 @@ I would recommend using these other extensions:
 * Magik symbols (to support searching for methods) are not loaded automatically after compiling code - use **Alt+T** to refresh symbols.
 * No highlighting or formatting at the Magik prompt - I suggest creating a temp magik file for writing Magik (**Alt+N**).
 * Linting only available inside methods.
+* Support for conditional breakpoints will be added soon.
+
+Current debug agent issues are listed here:
+https://devcloud.swcoe.ge.com/devspace/pages/viewpage.action?spaceKey=SWV&title=How+to+Use+The+Magik+Debugger
+
 
 Please add issues here:
 https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues

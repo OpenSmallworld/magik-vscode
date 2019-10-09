@@ -5,6 +5,7 @@
 {
 	"version": "0.2.0",
     "configurations": [
+
         {
             "name": "Extension",
             "type": "extensionHost",
@@ -12,7 +13,23 @@
             "runtimeExecutable": "${execPath}",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}"
-            ]
-        }
-    ]
+			],
+        },
+		{
+			"name": "Server",
+			"type": "node",
+			"request": "launch",
+			"cwd": "${workspaceFolder}",
+			"program": "${workspaceFolder}/src/debug-adapter.js",
+			"args": [
+				"--server=4711"
+			]
+		}
+    ],
+    "compounds": [
+		{
+			"name": "Extension + Server",
+			"configurations": [ "Extension", "Server" ]
+		}
+	]
 }

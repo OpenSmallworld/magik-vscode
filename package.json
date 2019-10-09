@@ -8,7 +8,8 @@
         "vscode": "^1.23.0"
     },
     "categories": [
-        "Programming Languages"
+        "Programming Languages",
+        "Debuggers"
     ],
     "icon": "./icons/target_128x128.png",
     "activationEvents": [
@@ -74,6 +75,38 @@
             {
                 "language": "magik",
                 "path": "./snippets/magik.snippets.json"
+            }
+        ],
+        "breakpoints": [
+            {
+                "language": "magik"
+            }
+        ],
+        "debuggers": [
+            {
+                "type": "magikDebug",
+                "label": "Magik",
+                "program": "./src/debug-adapter.js",
+                "runtime": "node",
+                "configurationAttributes": {
+                    "launch": {
+                        "properties": {
+                            "stopOnEntry": {
+                                "type": "boolean",
+                                "description": "Automatically stop after launch.",
+                                "default": true
+                            },
+                            "trace": {
+                                "type": "boolean",
+                                "description": "Enable logging of the Debug Adapter Protocol.",
+                                "default": true
+                            }
+                        }
+                    }
+                },
+                "initialConfigurations": [],
+                "configurationSnippets": [],
+                "variables": {}
             }
         ],
         "commands": [
@@ -285,6 +318,11 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Enable auto scroll to the Magik prompt when sending commands to the terminal."
+                },
+                "magik-vscode.debugClientURL": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Magik Debug Client URL e.g. 'localhost:4123'"
                 }
             }
         },
@@ -300,6 +338,12 @@
         "lint": "eslint \"./src/**/*.js\"",
         "lint:fix": "npm run lint -- --fix",
         "prettier": "prettier --write \"src/**/*.js\""
+    },
+    "dependencies": {
+        "bluebird": "^3.5.0",
+        "await-notify": "1.0.1",
+        "vscode-debugadapter": "1.33.0",
+        "ws": "^2.2.1"
     },
     "devDependencies": {
         "eslint": "5.9.0",
