@@ -460,6 +460,29 @@ _endproc
 $
 
 
+_pragma(classify_level=debug)
+## This method returns the string to display for evaluated expressions during Magik debugging
+## in VS Code.
+_method object.vs_print_string
+
+	s << internal_text_output_stream.new()
+	_if _self.is_kind_of?(basic_collection_mixin) _andif
+		_not {:char16_string, :symbol}.includes?(_self.class_name)
+	_then
+		_if _self.responds_to?(:print_on|()|)
+		_then
+			_self.print_on(s)
+		_else
+			_self.debug_print_on(s)
+		_endif
+	_else
+		_self.write_on(s)
+	_endif
+	>> s.string.as_charvec()
+_endmethod
+$
+
+
 # ---------------------------------------------------------------------------------------
 # The procs below are a copy from magik_tools
 

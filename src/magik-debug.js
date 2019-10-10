@@ -71,8 +71,8 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
     response.body = response.body || {};
     response.body.supportsConfigurationDoneRequest = false;
     response.body.supportsFunctionBreakpoints = false;
-    response.body.supportsConditionalBreakpoints = false;
-    // response.body.supportsEvaluateForHovers = true;
+    response.body.supportsConditionalBreakpoints = true;
+    response.body.supportsEvaluateForHovers = true;
 
     this.sendResponse(response);
 
@@ -132,6 +132,7 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
   }
 
   async _updateBreakpoints() {
+    // console.log('UPDATE');
     const actualBreakpoints = [];
     let breakpointsResponse = [];
 
@@ -166,7 +167,7 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
           // eslint-disable-next-line
           await this._connection.deleteBreakpoint(bp.id);
         } catch (e) {
-          // Ignore
+          console.log(e);
         }
       }
     }
@@ -175,25 +176,46 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
   async setBreakPointsRequest(response, args) {
     // console.log('SET BREAKPOINTS', args);
     const sourcePath = args.source.path;
-    const clientLines = args.lines || [];
+    const lines = args.lines || [];
 
     await this._clearBreakpoints(sourcePath);
 
     const sourceLines = this._getSourceLines(sourcePath);
 
     if (sourceLines) {
-      for (const lineNumber of clientLines) {
+      const conditions = {};
+      for (const bpData of args.breakpoints) {
+        if (bpData.condition) {
+          conditions[bpData.line] = bpData.condition;
+        }
+      }
+
+      for (const lineNumber of lines) {
         const methodDef = this._getMethodDefinition(lineNumber, sourceLines);
         if (methodDef) {
           // console.log('ADD BREAKPOINT', methodDef, lineNumber);
 
           try {
             // eslint-disable-next-line
-            await this._connection.setBreakpoint(
+            const result = await this._connection.setBreakpoint(
               methodDef,
               lineNumber,
               sourcePath
             );
+
+            if (conditions[lineNumber]) {
+              // eslint-disable-next-line
+              await this._connection.setCondition(
+                result.id,
+                conditions[lineNumber],
+                'True'
+              );
+              // eslint-disable-next-line
+              await this._connection.setBreakpointConditionalEnabled(
+                result.id,
+                true
+              );
+            }
           } catch (e) {
             // Can't set breakpoint - probably already set
             // Ignore
@@ -299,7 +321,7 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
             sourcePath
           );
         } catch (e) {
-          this._vscode.window.showInformationMessage(
+          this._vscode.window.showWarningMessage(
             `Cannot find source for ${data.name}`
           );
         }
@@ -381,31 +403,23 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
 
         for (const varData of localsResponse) {
           const nameParts = varData.name.split('!');
-          const name =
+          let name =
             nameParts.length > 1
               ? `(${nameParts[0]}) ${nameParts[1]}`
               : varData.name;
-          let displayName;
           let priority = 2;
 
-          if (varData.arg) {
-            displayName = `${name} (Arg)`;
+          if (name === '_self') {
+            priority = 0;
+          } else if (varData.arg) {
+            name = `${name} (Arg)`;
             priority = 1;
           } else if (varData.slot) {
-            displayName = `${name} (Slot)`;
             priority = 3;
-          } else {
-            displayName = name;
           }
-
-          if (displayName === '_self') {
-            priority = 0;
-          }
-
-          // const value = varData.value === '<unknown>' ? '' : varData.value;
 
           const newVar = {
-            name: displayName,
+            name,
             // type: 'string',
             value: varData.value,
             variablesReference: 0,
@@ -444,7 +458,7 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
       await this._connection.resumeThread(args.threadId);
       this._currentThreads.delete(args.threadId);
     } catch (e) {
-      this._vscode.window.showInformationMessage(e.message);
+      this._vscode.window.showWarningMessage(e.message);
     }
     this.sendResponse(response);
   }
@@ -454,7 +468,7 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
     try {
       await this._connection.suspendThread(args.threadId);
     } catch (e) {
-      this._vscode.window.showInformationMessage(e.message);
+      this._vscode.window.showWarningMessage(e.message);
     }
     this.sendResponse(response);
   }
@@ -468,7 +482,7 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
       await this._connection.step(threadId, 'long-over', 1);
       this.sendEvent(new vscodeDebug.StoppedEvent('step', threadId));
     } catch (e) {
-      this._vscode.window.showInformationMessage(e.message);
+      this._vscode.window.showWarningMessage(e.message);
     }
     this.sendResponse(response);
   }
@@ -481,7 +495,7 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
       await this._connection.step(threadId, 'long-line', 1);
       this.sendEvent(new vscodeDebug.StoppedEvent('step', threadId));
     } catch (e) {
-      this._vscode.window.showInformationMessage(e.message);
+      this._vscode.window.showWarningMessage(e.message);
     }
     this.sendResponse(response);
   }
@@ -494,14 +508,81 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
       await this._connection.step(threadId, 'long-out', 1);
       this.sendEvent(new vscodeDebug.StoppedEvent('step', threadId));
     } catch (e) {
-      this._vscode.window.showInformationMessage(e.message);
+      this._vscode.window.showWarningMessage(e.message);
     }
     this.sendResponse(response);
   }
 
-  evaluateRequest(response, args) {
-    // console.log('EVAL', args);
+  async _eval(threadId, frameId, string) {
+    let reply = '';
+    try {
+      reply = await this._connection.evaluate(threadId, frameId, string);
+    } catch (e) {
+      // Ignore
+    }
+    return reply;
+  }
 
+  async _slotName(threadId, frameId, string) {
+    const testStrings = [string, `${string}?`];
+
+    for (const test of testStrings) {
+      // eslint-disable-next-line
+      const result = await this._eval(
+        threadId,
+        frameId,
+        `_self.sys!has_slot(:${test})`
+      );
+      if (result === 'True') {
+        return test;
+      }
+    }
+  }
+
+  async evaluateRequest(response, args) {
+    // console.log('EVAL', args);
+    const frameId = args.frameId;
+    const expression = args.expression;
+    let reply;
+
+    // Note: Don't call methods on _self - this will hang the debug agent
+
+    if (args.context === 'repl') {
+      reply = await this._eval(this._currentThreadId, frameId, expression);
+    } else if (args.context === 'hover') {
+      let evalString;
+
+      if (expression.startsWith('.') || expression.startsWith('_self.')) {
+        // Test if slot name
+        const slotName = await this._slotName(
+          this._currentThreadId,
+          frameId,
+          expression.split('.')[1]
+        );
+
+        if (slotName) {
+          evalString = `_self.sys!slot(:${slotName})`;
+        }
+      } else if (
+        !expression.startsWith('_super.') &&
+        !expression.startsWith('_clone')
+      ) {
+        evalString = expression;
+      }
+
+      if (evalString) {
+        reply = await this._eval(
+          this._currentThreadId,
+          frameId,
+          `${evalString}.vs_print_string`
+        );
+      }
+    }
+
+    response.body = {
+      result: reply || `Can not evaluate: '${expression}'`,
+      variablesReference: 0,
+    };
     this.sendResponse(response);
   }
 }
