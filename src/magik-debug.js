@@ -14,23 +14,31 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
     const clientURL = vscode.workspace.getConfiguration('magik-vscode')
       .debugClientURL;
     this._connection = new MagikDebuggerConnection(clientURL);
-    // this._connection = new MagikDebuggerConnection();
 
     this._breakpoints = [];
+    this._hitBreakpoints = {};
     this._currentThreads = new Set();
     this._currentThreadId = undefined;
+    this._refreshBreakpointsRequired = false;
 
     this._variableHandles = new vscodeDebug.Handles();
 
     this._connection.onBreakpoint((e) => {
-      // console.log('HIT BREAKPOINT', e.id, e.threadId);
-      this._currentThreads.add(e.threadId);
-      this._currentThreadId = e.threadId;
-      this.sendEvent(new vscodeDebug.StoppedEvent('breakpoint', e.threadId));
+      const threadId = e.threadId;
+
+      if (this._currentThreads.has(threadId)) {
+        delete this._hitBreakpoints[threadId];
+      } else {
+        this._hitBreakpoints[threadId] = e.id;
+        this._currentThreads.add(threadId);
+      }
+
+      this._currentThreadId = threadId;
+
+      this.sendEvent(new vscodeDebug.StoppedEvent('breakpoint', threadId));
     });
 
     this._connection.onThreadEvent((e) => {
-      // console.log('THREAD EVENT', e);
       if (e.type === 'THREAD_STARTED') {
         this.sendEvent(new vscodeDebug.ThreadEvent('started', e.id));
       } else if (e.type === 'THREAD_ENDED') {
@@ -39,12 +47,14 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
     });
 
     this._connection.onClose(() => {
-      // console.log('CLOSE');
       this.sendEvent(new vscodeDebug.TerminatedEvent());
     });
+
+    // TODO - add command to remove all breakpoints and resume all threads.
   }
 
-  async disconnectRequest(response, args) {
+  async disconnectRequest(response) {
+    // Resume threads and try to remove breakpoints from agent
     for (const id of Array.from(this._currentThreads)) {
       try {
         // eslint-disable-next-line
@@ -54,19 +64,17 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
       }
     }
 
-    await this._clearBreakpoints();
-    await this._updateBreakpoints();
+    await this._removeAllBreakpoints();
 
     this._currentThreads.clear();
-
-    // this._connection.socket.destroy();
+    this._currentThreadId = undefined;
+    this._hitBreakpoints = {};
+    this._refreshBreakpointsRequired = true;
 
     this.sendResponse(response);
-
-    // this.shutdown();
   }
 
-  initializeRequest(response, args) {
+  initializeRequest(response) {
     // build and return the capabilities of this debug adapter:
     response.body = response.body || {};
     response.body.supportsConfigurationDoneRequest = false;
@@ -131,54 +139,149 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
       .split('\n');
   }
 
-  async _updateBreakpoints() {
-    // console.log('UPDATE');
-    const actualBreakpoints = [];
-    let breakpointsResponse = [];
+  // Compare breakpoints with agent breakpoints
+  async _refreshBreakpoints() {
+    if (!this._refreshBreakpointsRequired) {
+      return;
+    }
+
+    const breakpointIds = [];
+    let agentBreakpointData = [];
+    const agentBreakpointIds = [];
+
+    for (const bp of this._breakpoints) {
+      breakpointIds.push(bp.id);
+    }
 
     try {
-      breakpointsResponse = await this._connection.getBreakpoints();
+      agentBreakpointData = await this._connection.getBreakpoints();
+
+      for (const data of agentBreakpointData) {
+        agentBreakpointIds.push(data.id);
+      }
     } catch (e) {
       console.log(e);
       this._vscode.window.showErrorMessage(e.message);
+      return;
     }
 
-    for (const data of breakpointsResponse) {
-      // const source = new vscodeDebug.Source(
-      //   path.basename(data.filename),
-      //   data.filename
-      // );
-      const bp = new vscodeDebug.Breakpoint(true, data.line);
-      bp.id = data.id;
-      bp._name = data.name;
-      bp._enabled = data.enabled;
-      bp._sourcePath = data.filename;
-      actualBreakpoints.push(bp);
-    }
-
-    this._breakpoints = actualBreakpoints;
-  }
-
-  async _clearBreakpoints(sourcePath) {
     for (const bp of this._breakpoints) {
-      if (!sourcePath || bp._sourcePath === sourcePath) {
-        // console.log('REMOVE BREAKPOINT', bp.id);
-        try {
-          // eslint-disable-next-line
-          await this._connection.deleteBreakpoint(bp.id);
-        } catch (e) {
-          console.log(e);
+      if (!agentBreakpointIds.includes(bp.id)) {
+        // eslint-disable-next-line
+        const id = await this._addBreakpoint(
+          bp._method,
+          bp.line,
+          bp._sourcePath
+        );
+        if (id) {
+          bp.id = id;
+
+          if (bp._condition) {
+            // eslint-disable-next-line
+            await this._setCondition(id, bp._condition);
+          }
         }
       }
+    }
+
+    for (const bp of this._breakpoints) {
+      for (const agentData of agentBreakpointData) {
+        if (
+          bp._sourcePath === agentData.filename &&
+          bp.line === agentData.line
+        ) {
+          const conditional = bp._condition !== undefined;
+          const agentConditional = agentData.enabled && agentData.conditional;
+          if (conditional !== agentConditional) {
+            // eslint-disable-next-line
+            await this._setCondition(bp.id, bp._condition);
+          }
+          break;
+        }
+      }
+    }
+
+    for (const id of agentBreakpointIds) {
+      if (!breakpointIds.includes(id)) {
+        // eslint-disable-next-line
+        await this._removeBreakpoint(id);
+      }
+    }
+
+    this._refreshBreakpointsRequired = false;
+
+    // console.log('REFRESH BREAKPOINTS');
+    // console.log('UI:');
+    // console.log(this._breakpoints);
+    // console.log('AGENT:');
+    // const breakpointData = await this._connection.getBreakpoints();
+    // console.log(breakpointData);
+    // console.log('DONE REFRESH');
+  }
+
+  async _addBreakpoint(method, line, sourcePath) {
+    let id;
+
+    try {
+      const result = await this._connection.setBreakpoint(
+        method,
+        line,
+        sourcePath
+      );
+      id = result.id;
+    } catch (e) {
+      // Can't set breakpoint - probably already set
+    }
+
+    return id;
+  }
+
+  async _setCondition(id, condition) {
+    try {
+      if (condition) {
+        await this._connection.setCondition(id, condition, 'True');
+        await this._connection.setBreakpointConditionalEnabled(id, true);
+      } else {
+        await this._connection.setBreakpointConditionalEnabled(id, false);
+      }
+    } catch (e) {
+      console.log(e);
+    }
+  }
+
+  async _removeBreakpoint(id) {
+    try {
+      // eslint-disable-next-line
+      await this._connection.deleteBreakpoint(id);
+    } catch (e) {
+      console.log(e);
+    }
+  }
+
+  async _removeAllBreakpoints() {
+    for (const bp of this._breakpoints) {
+      // eslint-disable-next-line
+      await this._removeBreakpoint(bp.id);
     }
   }
 
   async setBreakPointsRequest(response, args) {
-    // console.log('SET BREAKPOINTS', args);
     const sourcePath = args.source.path;
     const lines = args.lines || [];
 
-    await this._clearBreakpoints(sourcePath);
+    // Defend against changing any breakpoints when a breakpoint is first hit
+    // to avoid hanging the session.
+    // Refresh the breakpoints when stepping starts.
+    const updateAgent =
+      this._hitBreakpoints[this._currentThreadId] === undefined;
+    this._refreshBreakpointsRequired = !updateAgent;
+
+    const oldSourceBreakpoints = [];
+    for (const bp of this._breakpoints) {
+      if (bp._sourcePath === sourcePath) {
+        oldSourceBreakpoints.push(bp);
+      }
+    }
 
     const sourceLines = this._getSourceLines(sourcePath);
 
@@ -190,60 +293,87 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
         }
       }
 
-      for (const lineNumber of lines) {
-        const methodDef = this._getMethodDefinition(lineNumber, sourceLines);
-        if (methodDef) {
-          // console.log('ADD BREAKPOINT', methodDef, lineNumber);
+      for (const line of lines) {
+        const method = this._getMethodDefinition(line, sourceLines);
 
-          try {
-            // eslint-disable-next-line
-            const result = await this._connection.setBreakpoint(
-              methodDef,
-              lineNumber,
-              sourcePath
-            );
+        if (method) {
+          const condition = conditions[line];
+          let breakpoint;
 
-            if (conditions[lineNumber]) {
+          for (const [index, bp] of Object.entries(oldSourceBreakpoints)) {
+            if (bp.line === line) {
+              breakpoint = bp;
+              oldSourceBreakpoints.splice(index, 1);
+              break;
+            }
+          }
+
+          if (!breakpoint) {
+            let id;
+            if (updateAgent) {
               // eslint-disable-next-line
-              await this._connection.setCondition(
-                result.id,
-                conditions[lineNumber],
-                'True'
-              );
-              // eslint-disable-next-line
-              await this._connection.setBreakpointConditionalEnabled(
-                result.id,
-                true
+              id = await this._addBreakpoint(
+                method,
+                line,
+                sourcePath
               );
             }
-          } catch (e) {
-            // Can't set breakpoint - probably already set
-            // Ignore
+
+            breakpoint = new vscodeDebug.Breakpoint(true, line);
+            breakpoint.id = id;
+            breakpoint._method = method;
+            breakpoint._sourcePath = sourcePath;
+
+            this._breakpoints.push(breakpoint);
+          }
+
+          if (breakpoint._condition !== condition) {
+            if (updateAgent && breakpoint.id) {
+              // eslint-disable-next-line
+              await this._setCondition(breakpoint.id, condition);
+            }
+            breakpoint._condition = condition;
           }
         }
       }
     }
 
-    await this._updateBreakpoints();
-
-    // console.log('BREAKPOINTS', this._breakpoints);
-
-    const newBreakpoints = [];
-    for (const bp of this._breakpoints) {
-      if (bp._sourcePath === sourcePath) {
-        newBreakpoints.push(bp);
+    // Remove old breakpoints for the source path
+    for (const oldBreakpoint of oldSourceBreakpoints) {
+      for (const [index, bp] of Object.entries(this._breakpoints)) {
+        if (bp._sourcePath === sourcePath && bp.line === oldBreakpoint.line) {
+          this._breakpoints.splice(index, 1);
+          break;
+        }
+      }
+      if (updateAgent && oldBreakpoint.id) {
+        // eslint-disable-next-line
+        await this._removeBreakpoint(oldBreakpoint.id);
       }
     }
 
-    // send back the actual breakpoint positions
+    const sourceBreakpoints = [];
+    for (const bp of this._breakpoints) {
+      if (bp._sourcePath === sourcePath) {
+        sourceBreakpoints.push(bp);
+      }
+    }
+
+    // console.log('SET BREAKPOINTS', sourcePath);
+    // console.log('UI:');
+    // console.log(this._breakpoints);
+    // console.log('AGENT:');
+    // const breakpointData = await this._connection.getBreakpoints();
+    // console.log(breakpointData);
+    // console.log('DONE SET');
+
     response.body = {
-      breakpoints: newBreakpoints,
+      breakpoints: sourceBreakpoints,
     };
     this.sendResponse(response);
   }
 
   async threadsRequest(response) {
-    // console.log('THREADS');
     const maxNameLength = 40;
     let threadIds = [];
 
@@ -260,7 +390,6 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
       try {
         // eslint-disable-next-line
         const threadInfo = await this._connection.getThreadInfo(id);
-        // console.log(id, threadInfo);
 
         name = threadInfo.name;
         // if (name.length > maxNameLength) {
@@ -283,7 +412,6 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
   }
 
   async stackTraceRequest(response, args) {
-    // console.log('STACK REQUEST', args);
     const startFrame =
       typeof args.startFrame === 'number' ? args.startFrame : 0;
     const maxLevels = typeof args.levels === 'number' ? args.levels : 1000;
@@ -300,22 +428,24 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
     const end = Math.min(endFrame, stackData.length);
 
     // FIXME
-    const gis = 'C:/projects/hg/corerepo';
+    const replacements = {
+      '$SMALLWORLD_GIS': 'C:/projects/hg/corerepo',
+    };
 
     for (let index = startFrame; index < end; index++) {
       const data = stackData[index];
 
       if (data.language === 'Magik') {
-        // console.log(data);
-
         let source = '';
         try {
           // eslint-disable-next-line
           const sourceData = await this._connection.getSource(data.name);
-          const sourcePath = sourceData.filename.replace(
-            '$SMALLWORLD_GIS',
-            gis
-          );
+          let sourcePath = sourceData.filename;
+
+          for (const [str1, str2] of replacements) {
+            sourcePath = sourcePath.replace(str1, str2);
+          }
+
           source = new vscodeDebug.Source(
             path.basename(sourcePath),
             sourcePath
@@ -346,7 +476,6 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
   }
 
   scopesRequest(response, args) {
-    // console.log('SCOPES', args);
     const frameId = args.frameId;
     const scopes = [];
 
@@ -376,7 +505,6 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
   }
 
   async variablesRequest(response, args) {
-    // console.log('VARS', args);
     let variables = [];
     const ref = args.variablesReference;
     const id = this._variableHandles.get(ref);
@@ -395,8 +523,6 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
           console.log(e);
           this._vscode.window.showErrorMessage(e.message);
         }
-
-        // console.log(localsResponse);
 
         const local = [];
         const slots = [];
@@ -453,20 +579,29 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
   }
 
   async continueRequest(response, args) {
-    // console.log('CONTINUE', args);
+    const threadId = args.threadId;
+
+    delete this._hitBreakpoints[threadId];
+
     try {
-      await this._connection.resumeThread(args.threadId);
-      this._currentThreads.delete(args.threadId);
+      await this._connection.resumeThread(threadId);
+      this._currentThreads.delete(threadId);
     } catch (e) {
       this._vscode.window.showWarningMessage(e.message);
     }
     this.sendResponse(response);
+
+    this._refreshBreakpoints();
   }
 
   async pauseRequest(response, args) {
-    // console.log('PAUSE', args);
+    const threadId = args.threadId;
+
+    this._currentThreads.add(threadId);
+    this._currentThreadId = threadId;
+
     try {
-      await this._connection.suspendThread(args.threadId);
+      await this._connection.suspendThread(threadId);
     } catch (e) {
       this._vscode.window.showWarningMessage(e.message);
     }
@@ -474,9 +609,10 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
   }
 
   async nextRequest(response, args) {
-    // 'step over'
-    // console.log('NEXT', args);
+    // Step Over
     const threadId = args.threadId;
+
+    delete this._hitBreakpoints[threadId];
 
     try {
       await this._connection.step(threadId, 'long-over', 1);
@@ -485,11 +621,14 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
       this._vscode.window.showWarningMessage(e.message);
     }
     this.sendResponse(response);
+
+    this._refreshBreakpoints();
   }
 
   async stepInRequest(response, args) {
-    // console.log('STEP IN', args);
     const threadId = args.threadId;
+
+    delete this._hitBreakpoints[threadId];
 
     try {
       await this._connection.step(threadId, 'long-line', 1);
@@ -498,11 +637,14 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
       this._vscode.window.showWarningMessage(e.message);
     }
     this.sendResponse(response);
+
+    this._refreshBreakpoints();
   }
 
   async stepOutRequest(response, args) {
-    // console.log('STEP OUT', args);
     const threadId = args.threadId;
+
+    delete this._hitBreakpoints[threadId];
 
     try {
       await this._connection.step(threadId, 'long-out', 1);
@@ -511,6 +653,8 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
       this._vscode.window.showWarningMessage(e.message);
     }
     this.sendResponse(response);
+
+    this._refreshBreakpoints();
   }
 
   async _eval(threadId, frameId, string) {
@@ -540,7 +684,6 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
   }
 
   async evaluateRequest(response, args) {
-    // console.log('EVAL', args);
     const frameId = args.frameId;
     const expression = args.expression;
     let reply;

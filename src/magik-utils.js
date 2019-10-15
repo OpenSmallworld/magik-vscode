@@ -293,7 +293,7 @@ function currentRegion(methodOnly, startLine) {
   const endReg = /^_endblock/;
 
   if (!startLine) {
-    startLine = editor.selection.active.line;
+    startLine = editor.selection.active.line || 0;
     if (!startLine) startLine = 0;
   } else if (startLine < 0) {
     startLine = 0;

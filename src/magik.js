@@ -44,6 +44,7 @@ class MagikDebugAdapterDescriptorFactory {
   dispose() {
     if (this.server) {
       this.server.close();
+      this._debugSession = undefined;
     }
   }
 }

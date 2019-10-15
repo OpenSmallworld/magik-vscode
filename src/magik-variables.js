@@ -89,6 +89,11 @@ function findAssignedVariables(lines, firstRow, lineCount, assignedVars) {
 
   const lineText = lines[lineCount];
   const text = lineText.split('#')[0];
+
+  if (!/[a-zA-Z0-9_?!]+\s*\)?\s*<</.test(text)) {
+    return;
+  }
+
   const assignSplit = text.split('<<');
   const assignSplitLength = assignSplit.length;
   if (assignSplitLength < 2) return;

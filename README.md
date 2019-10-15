@@ -38,7 +38,10 @@ Adds the following features to VS Code:
     * (Hint) Complex methods with a cyclomatic complexity over 10
     * (Hint) Long methods with more than 40 lines of code
 * Debugging:
-    * Magik Debug Session supporting the VS Code debug interface.
+    * Breakpoints and conditional breakpoints
+    * Evaluate expressions at the Debug console
+    * Debug actions Continue/Pause F5, Step Over F10, Step Into F11 and Step Out Shift+F11
+    * Data inspection as you hover over source in the editor
 * Symbols:
     * Search Magik methods in the current session (**Ctrl+T**)
     * Magik definitions in the current file to support Outline view
@@ -74,12 +77,12 @@ The Magik session needs to be started with a Java option to tell the JVM to load
 
 S:\SW522\2019-10-09\core\bin\x86\runalias **-j -agentpath:S:\SW522\2019-10-09\core\bin\x86\mda.dll** -a S:\SW522\2019-10-09\cambridge_db\config\gis_aliases cambridge_db_open
 
-To start debugging in VS Code select Debug -> Start Debugging (**F5**) and select Magik from the list. The current threads should then be listed under Call Stack.
+To start debugging in VS Code select Debug -> Start Debugging (**F5**) and select Magik from the list. The current threads should then be listed under Call Stack in the Debug View.
 Toggle breakpoints by selecting a line and pressing F9 or click to the left of a line number.
 
-Limitation: Compile (saved) files rather than methods during debugging to ensure the line numbers remain synced.
+Limitation: Compile (saved) files rather than methods during debugging to ensure the line numbers remain in step.
 
-There are some performance issues with stepping.
+Warning: There are some performance issues with stepping!
 
 ## Installation
 
@@ -191,7 +194,8 @@ I would recommend using these other extensions:
 * Magik symbols (to support searching for methods) are not loaded automatically after compiling code - use **Alt+T** to refresh symbols.
 * No highlighting or formatting at the Magik prompt - I suggest creating a temp magik file for writing Magik (**Alt+N**).
 * Linting only available inside methods.
-* Support for conditional breakpoints will be added soon.
+* No status feedback when stepping in debug session.
+* The debug session can get stuck and need to restart the magik session.
 
 Current debug agent issues are listed here:
 https://devcloud.swcoe.ge.com/devspace/pages/viewpage.action?spaceKey=SWV&title=How+to+Use+The+Magik+Debugger
