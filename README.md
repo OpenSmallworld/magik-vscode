@@ -82,6 +82,8 @@ To start debugging in VS Code select Debug -> Start Debugging (**F5**) and selec
 The current threads should then be listed under Call Stack in the Debug View.<br>
 Toggle breakpoints by selecting a line and pressing F9 or click to the left of a line number.
 
+I suggest using relocate_products() to ensure local source files can be found during debugging.
+
 Limitation: Compile (saved) files rather than methods during debugging to ensure the line numbers remain in step.
 
 Warning: There are some performance issues with stepping!
