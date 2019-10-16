@@ -467,7 +467,8 @@ _method object.vs_print_string
 
 	s << internal_text_output_stream.new()
 	_if _self.is_kind_of?(basic_collection_mixin) _andif
-		_not {:char16_string, :symbol}.includes?(_self.class_name)
+		_not {:char16_string, :symbol}.includes?(_self.class_name) _andif
+		_not _self.empty?
 	_then
 		_if _self.responds_to?(:print_on|()|)
 		_then

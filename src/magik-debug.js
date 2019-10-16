@@ -6,10 +6,11 @@ const path = require('path');
 const MagikDebuggerConnection = require('./magik-debugger-connection');
 
 class MagikDebugSession extends vscodeDebug.DebugSession {
-  constructor(vscode) {
+  constructor(vscode, symbolProvider) {
     super();
 
     this._vscode = vscode;
+    this._symbolProvider = symbolProvider;
 
     const clientURL = vscode.workspace.getConfiguration('magik-vscode')
       .debugClientURL;
@@ -139,6 +140,52 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
       .split('\n');
   }
 
+  async _addBreakpoint(method, line, sourcePath) {
+    let id;
+
+    try {
+      const result = await this._connection.setBreakpoint(
+        method,
+        line,
+        sourcePath
+      );
+      id = result.id;
+    } catch (e) {
+      // Can't set breakpoint - probably already set
+    }
+
+    return id;
+  }
+
+  async _setCondition(id, condition) {
+    try {
+      if (condition) {
+        await this._connection.setCondition(id, condition, 'True');
+        await this._connection.setBreakpointConditionalEnabled(id, true);
+      } else {
+        await this._connection.setBreakpointConditionalEnabled(id, false);
+      }
+    } catch (e) {
+      console.log(e);
+    }
+  }
+
+  async _removeBreakpoint(id) {
+    try {
+      // eslint-disable-next-line
+      await this._connection.deleteBreakpoint(id);
+    } catch (e) {
+      console.log(e);
+    }
+  }
+
+  async _removeAllBreakpoints() {
+    for (const bp of this._breakpoints) {
+      // eslint-disable-next-line
+      await this._removeBreakpoint(bp.id);
+    }
+  }
+
   // Compare breakpoints with agent breakpoints
   async _refreshBreakpoints() {
     if (!this._refreshBreakpointsRequired) {
@@ -217,52 +264,6 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
     // const breakpointData = await this._connection.getBreakpoints();
     // console.log(breakpointData);
     // console.log('DONE REFRESH');
-  }
-
-  async _addBreakpoint(method, line, sourcePath) {
-    let id;
-
-    try {
-      const result = await this._connection.setBreakpoint(
-        method,
-        line,
-        sourcePath
-      );
-      id = result.id;
-    } catch (e) {
-      // Can't set breakpoint - probably already set
-    }
-
-    return id;
-  }
-
-  async _setCondition(id, condition) {
-    try {
-      if (condition) {
-        await this._connection.setCondition(id, condition, 'True');
-        await this._connection.setBreakpointConditionalEnabled(id, true);
-      } else {
-        await this._connection.setBreakpointConditionalEnabled(id, false);
-      }
-    } catch (e) {
-      console.log(e);
-    }
-  }
-
-  async _removeBreakpoint(id) {
-    try {
-      // eslint-disable-next-line
-      await this._connection.deleteBreakpoint(id);
-    } catch (e) {
-      console.log(e);
-    }
-  }
-
-  async _removeAllBreakpoints() {
-    for (const bp of this._breakpoints) {
-      // eslint-disable-next-line
-      await this._removeBreakpoint(bp.id);
-    }
   }
 
   async setBreakPointsRequest(response, args) {
@@ -411,6 +412,38 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
     this.sendResponse(response);
   }
 
+  async _getSourcePath(name) {
+    const parts = name.split('.');
+    const query = `^${parts[0]}$.^${parts[1]}$`;
+    const symbols = await this._symbolProvider.getSymbols(query, false, 2);
+    const classData = this._symbolProvider.classData[parts[0]];
+    let sourcePath;
+
+    if (symbols.length === 1) {
+      sourcePath = symbols[0]._fileName;
+    } else if (classData && classData.sourceFile) {
+      sourcePath = classData.sourceFile;
+    } else {
+      const sourceData = await this._connection.getSource(name);
+      if (sourceData) {
+        sourcePath = sourceData.filename;
+      }
+    }
+
+    if (sourcePath) {
+      // FIXME
+      const replacements = {
+        $SMALLWORLD_GIS: 'C:/projects/hg/corerepo',
+      };
+
+      for (const [str1, str2] of Object.entries(replacements)) {
+        sourcePath = sourcePath.replace(str1, str2);
+      }
+    }
+
+    return sourcePath;
+  }
+
   async stackTraceRequest(response, args) {
     const startFrame =
       typeof args.startFrame === 'number' ? args.startFrame : 0;
@@ -427,30 +460,27 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
     const stackFrames = [];
     const end = Math.min(endFrame, stackData.length);
 
-    // FIXME
-    const replacements = {
-      '$SMALLWORLD_GIS': 'C:/projects/hg/corerepo',
-    };
-
     for (let index = startFrame; index < end; index++) {
       const data = stackData[index];
 
       if (data.language === 'Magik') {
         let source = '';
+
         try {
           // eslint-disable-next-line
-          const sourceData = await this._connection.getSource(data.name);
-          let sourcePath = sourceData.filename;
+          const sourcePath = await this._getSourcePath(data.name);
 
-          for (const [str1, str2] of replacements) {
-            sourcePath = sourcePath.replace(str1, str2);
+          if (sourcePath) {
+            source = new vscodeDebug.Source(
+              path.basename(sourcePath),
+              sourcePath
+            );
           }
-
-          source = new vscodeDebug.Source(
-            path.basename(sourcePath),
-            sourcePath
-          );
         } catch (e) {
+          // console.log(e);
+        }
+
+        if (source === '') {
           this._vscode.window.showWarningMessage(
             `Cannot find source for ${data.name}`
           );
@@ -587,7 +617,7 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
       await this._connection.resumeThread(threadId);
       this._currentThreads.delete(threadId);
     } catch (e) {
-      this._vscode.window.showWarningMessage(e.message);
+      this._vscode.window.showErrorMessage(e.message);
     }
     this.sendResponse(response);
 
@@ -603,7 +633,7 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
     try {
       await this._connection.suspendThread(threadId);
     } catch (e) {
-      this._vscode.window.showWarningMessage(e.message);
+      this._vscode.window.showErrorMessage(e.message);
     }
     this.sendResponse(response);
   }

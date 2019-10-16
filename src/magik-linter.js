@@ -85,13 +85,15 @@ const START_PROC = /(?<=(^|[^a-zA-Z0-9_?!]))_proc\s*[@a-zA-Z0-9_?!]*\s*\(/;
 const DEC_STATEMENT = /(?<=\S(\s+|\s*;))(_endproc|_endif$)/;
 
 class MagikLinter {
-  constructor(magikVSCode, context) {
+  constructor(magikVSCode, symbolProvider, context) {
     const magikFile = {
       scheme: 'file',
       language: 'magik',
     };
 
     this.magikVSCode = magikVSCode;
+    this.symbolProvider = symbolProvider;
+
     this.diagnosticCollection = vscode.languages.createDiagnosticCollection(
       'magik'
     );
@@ -620,10 +622,10 @@ class MagikLinter {
   }
 
   _checkClassNameVariables(assignedVars, diagnostics) {
-    if (this.magikVSCode.classNames.length === 0) return;
+    if (this.symbolProvider.classNames.length === 0) return;
 
     for (const [varName, data] of Object.entries(assignedVars)) {
-      if (!data.global && this.magikVSCode.classData[varName]) {
+      if (!data.global && this.symbolProvider.classData[varName]) {
         const range = new vscode.Range(
           data.row,
           data.index,
@@ -664,7 +666,7 @@ class MagikLinter {
     methodNames,
     diagnostics
   ) {
-    if (this.magikVSCode.classNames.length === 0) return;
+    if (this.symbolProvider.classNames.length === 0) return;
 
     const names = magikUtils.getClassAndMethodName(lines[0]);
     const currentClassName = names ? names.className : undefined;
@@ -700,7 +702,7 @@ class MagikLinter {
           } else if (prevWord === '_super') {
             className = currentClassName;
             inherit = true;
-          } else if (this.magikVSCode.classData[prevWord]) {
+          } else if (this.symbolProvider.classData[prevWord]) {
             className = prevWord;
           } else {
             const superMatch = /_super\s*\(\s*[a-zA-Z0-9_?!]+\s*\)\s*\.\s*[a-zA-Z0-9_?!]*$/.exec(
@@ -913,7 +915,7 @@ class MagikLinter {
     if (!vscode.workspace.getConfiguration('magik-vscode').enableLinting)
       return;
 
-    await this.magikVSCode.loadSymbols();
+    await this.symbolProvider.loadSymbols();
 
     const diagnostics = [];
     const methodNames = {};
@@ -933,9 +935,9 @@ class MagikLinter {
           const assignedVars = magikVar.getVariables(
             lines,
             firstRow,
-            this.magikVSCode.classNames,
-            this.magikVSCode.classData,
-            this.magikVSCode.globals,
+            this.symbolProvider.classNames,
+            this.symbolProvider.classData,
+            this.symbolProvider.globals,
             diagnostics
           );
           this._checkUnusedVariables(assignedVars, diagnostics);

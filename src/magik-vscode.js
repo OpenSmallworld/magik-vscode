@@ -4,31 +4,16 @@ const vscode = require('vscode'); // eslint-disable-line
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const readline = require('readline');
 const magikUtils = require('./magik-utils');
 const magikVar = require('./magik-variables');
 
-const DEFAULT_GLOBALS = [
-  'newline_char',
-  'tab_char',
-  'space_char',
-  'system_messages',
-  '!output!',
-  '!error_output!',
-  '!terminal!',
-  '!window_system!',
-  '!print_length!',
-  'thread',
-];
-
 class MagikVSCode {
-  constructor(context) {
-    this.classData = {};
-    this.classNames = [];
-    this.globals = [...DEFAULT_GLOBALS];
+  constructor(symbolProvider, context) {
     this.openFiles = [];
     this.currentSymbols = [];
     this.resolveSymbols = true;
+
+    this.symbolProvider = symbolProvider;
 
     this._initialise(context);
   }
@@ -328,15 +313,6 @@ class MagikVSCode {
       query = `^${textSplit[1]}$.^${textSplit[0]}$`;
       command = `vs_goto("^${textSplit[0]}$", "${textSplit[1]}")`;
     } else {
-      // const data = this.classData[text];
-      // if (data) {
-      //   await vscode.commands.executeCommand(
-      //     'vscode.open',
-      //     vscode.Uri.file(data.sourceFile)
-      //   );
-      //   return;
-      // }
-
       const textSplit = text.split('.');
       if (textSplit.length === 2) {
         query = `^${textSplit[0]}$.^${textSplit[1]}`;
@@ -347,7 +323,7 @@ class MagikVSCode {
       }
     }
 
-    const symbols = await this._getSymbols(query);
+    const symbols = await this.symbolProvider.getSymbols(query, undefined, 2);
 
     if (symbols.length === 1) {
       const resSymbol = this.resolveWorkspaceSymbol(symbols[0]);
@@ -588,243 +564,8 @@ class MagikVSCode {
     return symbols;
   }
 
-  _matchString(string, query, matchType) {
-    if (matchType === 0) {
-      const length = query.length;
-      if (length > string.length) return false;
-
-      let index = 0;
-      for (let i = 0; i < length; i++) {
-        index = string.indexOf(query[i], index);
-        if (index === -1) return false;
-        index++;
-      }
-
-      return true;
-    }
-    if (matchType === 1) {
-      return string === query;
-    }
-    if (matchType === 2) {
-      return string.startsWith(query);
-    }
-    if (matchType === 3) {
-      return string.endsWith(query);
-    }
-    return false;
-  }
-
-  _getMethodSymbol(name, fileName, methodData) {
-    let sym = methodData.symbol;
-    if (!sym) {
-      const type = methodData.variable
-        ? vscode.SymbolKind.Variable
-        : vscode.SymbolKind.Method;
-      const loc = new vscode.Location(vscode.Uri.file(fileName), undefined);
-      const mName = methodData.name;
-
-      sym = new vscode.SymbolInformation(name, type, undefined, loc);
-      sym._fileName = fileName;
-      sym._methodName = mName;
-
-      const length = mName.length;
-      const last = mName[length - 1];
-      if (last === ')') {
-        sym._completionName = mName.substr(0, length - 1);
-      } else if (last === '<') {
-        sym._completionName = `${mName.substr(0, length - 2)} << `;
-      } else {
-        sym._completionName = mName;
-      }
-
-      methodData.symbol = sym;
-    }
-    return sym;
-  }
-
-  _findMethods(
-    className,
-    methodString,
-    symbols,
-    doneMethods,
-    checkParents,
-    methodMatchType,
-    max
-  ) {
-    const data = this.classData[className];
-    const sourceFile = data.sourceFile;
-    const methods = data.methods;
-    const methodsLength = methods.length;
-
-    for (let methodIndex = 0; methodIndex < methodsLength; methodIndex++) {
-      const methodData = methods[methodIndex];
-      const name = `${className}.${methodData.name}`;
-
-      if (
-        !doneMethods.includes(name) &&
-        this._matchString(methodData.name, methodString, methodMatchType)
-      ) {
-        let fileName = methodData.sourceFile;
-        if (!fileName) {
-          fileName = sourceFile;
-        }
-        const sym = this._getMethodSymbol(name, fileName, methodData);
-
-        symbols.push(sym);
-        doneMethods.push(name);
-
-        if (doneMethods.length >= max) return;
-      }
-    }
-
-    if (checkParents) {
-      const parents = data.parents;
-      const parentsLength = parents.length;
-
-      for (let parentIndex = 0; parentIndex < parentsLength; parentIndex++) {
-        this._findMethods(
-          parents[parentIndex],
-          methodString,
-          symbols,
-          doneMethods,
-          true,
-          methodMatchType,
-          max
-        );
-        if (doneMethods.length >= max) return;
-      }
-    }
-  }
-
-  _findSuperMethods(
-    className,
-    methodString,
-    symbols,
-    doneMethods,
-    methodMatchType,
-    max
-  ) {
-    const data = this.classData[className];
-    const parents = data.parents;
-    const parentsLength = parents.length;
-
-    for (let parentIndex = 0; parentIndex < parentsLength; parentIndex++) {
-      this._findMethods(
-        parents[parentIndex],
-        methodString,
-        symbols,
-        doneMethods,
-        false,
-        methodMatchType,
-        max
-      );
-      if (doneMethods.length >= max) return;
-    }
-
-    if (doneMethods.length === 0) {
-      for (let parentIndex = 0; parentIndex < parentsLength; parentIndex++) {
-        this._findSuperMethods(
-          parents[parentIndex],
-          methodString,
-          symbols,
-          doneMethods,
-          methodMatchType,
-          max
-        );
-        if (doneMethods.length >= max) return;
-      }
-    }
-  }
-
   async provideWorkspaceSymbols(query) {
-    return this._getSymbols(query);
-  }
-
-  async _getSymbols(query, inherit, max = 500) {
-    await this.loadSymbols();
-
-    const queryString = query.replace(' ', '');
-    const queryParts = queryString.split('.');
-    let classString;
-    let methodString;
-    let classMatchType = 0;
-    let methodMatchType = 0;
-
-    if (queryParts.length > 1) {
-      classString = queryParts[0];
-      methodString = queryParts[1];
-      if (classString.length < 2 && methodString.length < 2) return;
-    } else {
-      methodString = queryParts[0];
-      if (methodString.length < 2) return;
-    }
-
-    if (classString) {
-      if (
-        classString[0] === '^' &&
-        classString[classString.length - 1] === '$'
-      ) {
-        classMatchType = 1;
-        classString = classString.substr(1, classString.length - 2);
-      } else if (classString[0] === '^') {
-        classMatchType = 2;
-        classString = classString.substr(1, classString.length - 1);
-      } else if (classString[classString.length - 1] === '$') {
-        classMatchType = 3;
-        classString = classString.substr(0, classString.length - 1);
-      }
-    }
-    if (
-      methodString[0] === '^' &&
-      methodString[methodString.length - 1] === '$'
-    ) {
-      methodMatchType = 1;
-      methodString = methodString.substr(1, methodString.length - 2);
-    } else if (methodString[0] === '^') {
-      methodMatchType = 2;
-      methodString = methodString.substr(1, methodString.length - 1);
-    } else if (methodString[methodString.length - 1] === '$') {
-      methodMatchType = 3;
-      methodString = methodString.substr(0, methodString.length - 1);
-    }
-
-    const symbols = [];
-    const doneMethods = [];
-    const classLength = this.classNames.length;
-
-    for (let classIndex = 0; classIndex < classLength; classIndex++) {
-      const className = this.classNames[classIndex];
-
-      if (
-        !classString ||
-        this._matchString(className, classString, classMatchType)
-      ) {
-        if (inherit) {
-          this._findSuperMethods(
-            className,
-            methodString,
-            symbols,
-            doneMethods,
-            methodMatchType,
-            max
-          );
-        } else {
-          this._findMethods(
-            className,
-            methodString,
-            symbols,
-            doneMethods,
-            classString,
-            methodMatchType,
-            max
-          );
-        }
-      }
-    }
-
-    symbols.sort((a, b) => a.name.localeCompare(b.name));
-
-    return symbols;
+    return this.symbolProvider.getSymbols(query);
   }
 
   resolveWorkspaceSymbol(sym) {
@@ -844,15 +585,11 @@ class MagikVSCode {
   }
 
   _getCurrentReceiver(doc, pos, previousWord) {
-    const region = magikUtils.currentRegion(false, pos.line);
-    const lines = region.lines;
-    const names = magikUtils.getClassAndMethodName(lines[0]);
-    const currentClassName = names ? names.className : undefined;
     let className;
 
     if (['_self', '_super', '_clone'].includes(previousWord)) {
-      className = currentClassName;
-    } else if (this.classData[previousWord]) {
+      className = magikUtils.currentClassName(doc, pos);
+    } else if (this.symbolProvider.classData[previousWord]) {
       className = previousWord;
     } else {
       const currentText = doc.lineAt(pos.line).text;
@@ -865,6 +602,8 @@ class MagikVSCode {
           .split(')')[0]
           .trim();
       } else {
+        const region = magikUtils.currentRegion(false, pos.line);
+        const lines = region.lines;
         const firstRow = region.firstRow;
         const end = pos.line - firstRow + 1;
         const assignedVars = {};
@@ -878,9 +617,9 @@ class MagikVSCode {
             lineText,
             row,
             assignedVars,
-            this.classNames,
-            this.classData,
-            this.globals,
+            this.symbolProvider.classNames,
+            this.symbolProvider.classData,
+            this.symbolProvider.globals,
             []
           );
         }
@@ -918,11 +657,11 @@ class MagikVSCode {
       if (receiverClassName) className = receiverClassName;
 
       let query = `^${className}$.^${currentWord}$`;
-      let symbols = await this._getSymbols(query, inherit, 1);
+      let symbols = await this.symbolProvider.getSymbols(query, inherit, 2);
 
-      if (symbols.length !== 1) {
+      if (symbols.length === 0) {
         query = `^${currentWord}$`;
-        symbols = await this._getSymbols(query);
+        symbols = await this.symbolProvider.getSymbols(query, undefined, 2);
       }
 
       if (symbols.length === 1) {
@@ -1015,73 +754,6 @@ class MagikVSCode {
     this._sendToTerminal('vs_save_symbols()');
   }
 
-  async _wait(ms) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve();
-      }, ms);
-    });
-  }
-
-  async loadSymbols() {
-    const symbolFile = path.join(os.tmpdir(), 'vscode_symbols.txt');
-    if (!fs.existsSync(symbolFile)) return;
-
-    const input = fs.createReadStream(symbolFile);
-    const rl = readline.createInterface({input});
-
-    this.classData = {};
-    this.globals = [...DEFAULT_GLOBALS];
-
-    rl.on('line', (line) => {
-      if (line.startsWith('glob:') || line.startsWith('cond:')) {
-        const globalName = line.split(':')[1];
-        this.globals.push(globalName);
-        return;
-      }
-      const parts = line.split('|');
-      const className = parts[0];
-      const classSourceFile = parts[1];
-      const parents = parts[2].split(';');
-      parents.pop();
-      const methodParts = parts[3].split(';');
-      const methodLength = methodParts.length - 1;
-      const methods = [];
-
-      for (let i = 0; i < methodLength; i++) {
-        const data = methodParts[i].split(',');
-        const methodData = {
-          name: data[0],
-          variable: data[1] === '1',
-        };
-        if (data[2] !== '') {
-          methodData.sourceFile = data[2];
-        }
-        methods.push(methodData);
-      }
-
-      this.classData[className] = {
-        sourceFile: classSourceFile,
-        parents,
-        methods,
-      };
-    });
-
-    let done = false;
-    rl.on('close', () => {
-      done = true;
-    });
-
-    for (let i = 0; i < 50; i++) {
-      if (done) {
-        this.classNames = Object.keys(this.classData);
-        fs.unlinkSync(symbolFile);
-        return;
-      }
-      await this._wait(50); //eslint-disable-line
-    }
-  }
-
   async provideDefinition(doc, pos) {
     const def = await this._getCurrentDefinitionSymbol(doc, pos);
 
@@ -1152,7 +824,7 @@ class MagikVSCode {
       : `^${currentWord}`;
 
     this.resolveSymbols = false;
-    const symbols = await this._getSymbols(query, inherit);
+    const symbols = await this.symbolProvider.getSymbols(query, inherit);
     this.resolveSymbols = true;
 
     const methodNames = [];
@@ -1238,10 +910,10 @@ class MagikVSCode {
         }
       }
 
-      length = this.classNames.length;
+      length = this.symbolProvider.classNames.length;
       for (let i = 0; i < length; i++) {
-        const className = this.classNames[i];
-        if (this._matchString(className, currentWord, 0)) {
+        const className = this.symbolProvider.classNames[i];
+        if (this.symbolProvider.matchString(className, currentWord, 0)) {
           const item = new vscode.CompletionItem(
             className,
             vscode.CompletionItemKind.Class
@@ -1255,14 +927,14 @@ class MagikVSCode {
 
       const vars = magikVar.getMethodVariables(
         pos,
-        this.classNames,
-        this.classData,
-        this.globals
+        this.symbolProvider.classNames,
+        this.symbolProvider.classData,
+        this.symbolProvider.globals
       );
       length = vars.length;
       for (let i = 0; i < length; i++) {
         const varName = vars[i];
-        if (this._matchString(varName, currentWord, 0)) {
+        if (this.symbolProvider.matchString(varName, currentWord, 0)) {
           const item = new vscode.CompletionItem(
             varName,
             vscode.CompletionItemKind.Variable
@@ -1274,10 +946,10 @@ class MagikVSCode {
         }
       }
 
-      length = this.globals.length;
+      length = this.symbolProvider.globals.length;
       for (let i = 0; i < length; i++) {
-        const global = this.globals[i];
-        if (this._matchString(global, currentWord, 0)) {
+        const global = this.symbolProvider.globals[i];
+        if (this.symbolProvider.matchString(global, currentWord, 0)) {
           const item = new vscode.CompletionItem(
             global,
             vscode.CompletionItemKind.Variable
@@ -1423,7 +1095,7 @@ class MagikVSCode {
   }
 
   _parentClasses(className, parents) {
-    const data = this.classData[className];
+    const data = this.symbolProvider.classData[className];
     if (data) {
       for (const parentClassName of data.parents) {
         parents.push(parentClassName);
@@ -1436,7 +1108,7 @@ class MagikVSCode {
     const lines = magikUtils.currentRegion(true).lines;
     if (!lines) return;
 
-    await this.loadSymbols();
+    await this.symbolProvider.loadSymbols();
 
     const res = magikUtils.getClassAndMethodName(lines[0]);
     if (res.methodName) {

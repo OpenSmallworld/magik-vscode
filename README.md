@@ -206,6 +206,10 @@ https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 
 ## Release Notes
 
+### 0.0.6
+
+* Added Magik Debug session
+
 ### 0.0.5
 
 * Added auto completion for local variables.

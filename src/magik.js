@@ -5,6 +5,7 @@ const Net = require('net');
 const MagikVSCode = require('./magik-vscode');
 const MagikLinter = require('./magik-linter');
 const MagikDebug = require('./magik-debug');
+const MagikSymbolProvider = require('./magik-symbols');
 
 class MagikConfigurationProvider {
   resolveDebugConfiguration(folder, config) {
@@ -23,12 +24,16 @@ class MagikConfigurationProvider {
 }
 
 class MagikDebugAdapterDescriptorFactory {
+  constructor(symbolProvider) {
+    this._symbolProvider = symbolProvider;
+  }
+
   createDebugAdapterDescriptor(session, executable) {
     if (!this.server) {
       // start listening on a random port
       this.server = Net.createServer((socket) => {
         if (!this._debugSession) {
-          this._debugSession = new MagikDebug(vscode);
+          this._debugSession = new MagikDebug(vscode, this._symbolProvider);
           this._debugSession.setRunAsServer(true);
         }
         this._debugSession.start(socket, socket);
@@ -50,15 +55,17 @@ class MagikDebugAdapterDescriptorFactory {
 }
 
 function activate(context) {
-  const magikVSCode = new MagikVSCode(context);
-  new MagikLinter(magikVSCode, context); // eslint-disable-line
+  const symbolProvider = new MagikSymbolProvider(vscode);
+  const magikVSCode = new MagikVSCode(symbolProvider, context);
+
+  new MagikLinter(magikVSCode, symbolProvider, context); // eslint-disable-line
 
   const provider = new MagikConfigurationProvider();
   context.subscriptions.push(
     vscode.debug.registerDebugConfigurationProvider('magikDebug', provider)
   );
 
-  const factory = new MagikDebugAdapterDescriptorFactory();
+  const factory = new MagikDebugAdapterDescriptorFactory(symbolProvider);
   context.subscriptions.push(
     vscode.debug.registerDebugAdapterDescriptorFactory('magikDebug', factory)
   );
