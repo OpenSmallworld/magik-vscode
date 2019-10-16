@@ -458,7 +458,7 @@ class MagikVSCode {
           if (sym) {
             const range = sym.location.range;
             editor.selection = new vscode.Selection(range.start, range.end);
-            editor.revealRange(range); // , vscode.TextEditorRevealType.InCenter);
+            editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
             return;
           }
         }
@@ -484,7 +484,7 @@ class MagikVSCode {
           if (sym) {
             const range = sym.location.range;
             editor.selection = new vscode.Selection(range.start, range.end);
-            editor.revealRange(range); // , vscode.TextEditorRevealType.InCenter);
+            editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
             return;
           }
         }
