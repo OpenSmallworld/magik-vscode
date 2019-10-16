@@ -11,9 +11,11 @@ Adds the following features to VS Code:
     * `Magik Load Module` (**Ctrl+Shift+F7**)
     * `Magik Compile Selection` (**F8**)
 * Code Navigation Commands:
-    * `Magik Goto` (**F3**) to jump to source. Click on a method name and invoke the command to jump to source or display method candidates at the Magik prompt.
+    * `Magik Goto` (**F3**) to jump to source.<br>
+    Click on a method name and invoke the command to jump to source or display method candidates at the Magik prompt.
     * `Go to Definition` (**F12**) and `Peek Definition` (**Alt+F12**) in Magik.
-    * `Find All References` (**Shift+F12**) and `List All References` (**Shift+Alt+F12**) in Magik. (Only searches in the current file - use Find in Folder to expand a search)
+    * `Find All References` (**Shift+F12**) and `List All References` (**Shift+Alt+F12**) in Magik.<br>
+    (Only searches in the current file - use Find in Folder to expand a search)
 * Code Formating:
     * Magik Syntax highlighting
     * Auto indenting of Magik code
@@ -22,9 +24,9 @@ Adds the following features to VS Code:
     * Snippets for common Magik definitions
     * Command `Magik Indent Region` (**Ctrl+I**)
     * Command `Magik Indent File` (**Ctrl+Shift+I**)
+    * Command `Magik Indent Line` (**Alt+Enter**)
     * Command `Magik Format Region` (**Alt+F**) - format and indent current region
     * Command `Magik Format File` (**Shift+Alt+F**)
-    * Command `Magik Indent Line` (**Alt+Enter**)
 * Linting:
     * Command `Magik Check File` (**Ctrl+Shift+C**)
 
@@ -58,15 +60,14 @@ Adds the following features to VS Code:
 
 ### **Method Search**
 
-You can search for Magik methods using **Ctrl+T** and typing `<method name>` or `<class name>`.`<method name>`.
-
-The search supports ^ and $.
-
+You can search for Magik methods using **Ctrl+T** and typing `<method name>` or `<class name>`.`<method name>`.<br>
+The search supports ^ and $ for starts and ends with.<br>
 Use **Alt+T** to refresh symbols after compiling code.
 
 ### **Magik Linting**
 
 Magik files are scanned when they are opened and saved or by using the command `Magik Check File` (**Ctrl+Shift+T**).
+
 Warning: This does not confirm the code is without issues!
 
 The linting can be enabled/diabled using the setting `magik-vscode.enableLinting`.
@@ -77,7 +78,8 @@ The Magik session needs to be started with a Java option to tell the JVM to load
 
 S:\SW522\2019-10-09\core\bin\x86\runalias **-j -agentpath:S:\SW522\2019-10-09\core\bin\x86\mda.dll** -a S:\SW522\2019-10-09\cambridge_db\config\gis_aliases cambridge_db_open
 
-To start debugging in VS Code select Debug -> Start Debugging (**F5**) and select Magik from the list. The current threads should then be listed under Call Stack in the Debug View.
+To start debugging in VS Code select Debug -> Start Debugging (**F5**) and select Magik from the list.<br>
+The current threads should then be listed under Call Stack in the Debug View.<br>
 Toggle breakpoints by selecting a line and pressing F9 or click to the left of a line number.
 
 Limitation: Compile (saved) files rather than methods during debugging to ensure the line numbers remain in step.
@@ -87,7 +89,11 @@ Warning: There are some performance issues with stepping!
 ## Installation
 
 1. Add the extension to VS Code by cloning the repo to %USERPROFILE%\\.vscode\extensions
-2. VS Code Settings:
+2. Run npm install inside the Magik extension (requires Node.js to be installed):
+
+    cd %USERPROFILE%\\.vscode\extensions\magik-vscode<br>
+    npm install
+3. VS Code Settings:
     * Enable `Editor: Format on Type` in the VS Code settings to allow adding _ and auto indentation.
     * Add the command `magik.gotoClipboardText` to `Terminal > Integrated: Commands To Skip Shell`.
     * Enable `Terminal > Integrated: Copy On Selection` to allow jump to source from the terminal using **F3**.
@@ -105,9 +111,9 @@ I would recommend using these other extensions:
 
 2. Open a terminal in VS Code and start a magik session.
 
-    e.g. S:\SW522\2019-10-09\core\bin\x86\runalias -a S:\SW522\2019-10-09\cambridge_db\config\gis_aliases cambridge_db_open
-
-    or for debugging
+    e.g.<br>
+    S:\SW522\2019-10-09\core\bin\x86\runalias -a S:\SW522\2019-10-09\cambridge_db\config\gis_aliases cambridge_db_open<br>
+    or for debugging<br>
     S:\SW522\2019-10-09\core\bin\x86\runalias -j -agentpath:S:\SW522\2019-10-09\core\bin\x86\mda.dll -a S:\SW522\2019-10-09\cambridge_db\config\gis_aliases cambridge_db_open
 
 3. Load the file vscode_dev.magik at the Magik prompt (Use shortcut **Alt+M** (when the terminal doesn't have focus)).
@@ -151,11 +157,9 @@ I would recommend using these other extensions:
 * Other:
     * Load vscode_dev.magik in the .magik file in your home directory.
     * You can toggle between the editor and terminal using **Ctrl+'**
-    * The module for the current Magik file can be loaded using the shortcut **Ctrl+Shift+F7**.
-
-        This will load (or reload) the module containing the file and adds products and loads prerequisite modules as necessary.
-
-        For example, this is useful for loading a test file or new module into the session.
+    * The module for the current Magik file can be loaded using the shortcut **Ctrl+Shift+F7**.<br>
+    This will load (or reload) the module containing the file and adds products and loads prerequisite modules as necessary.<br>
+    For example, this is useful for loading a test file or new module into the session.
     * You can jump to source from the terminal by selecting a method name (or class.method) and pressing **F3**. Requires the steps in 2. in the Installtion notes above.
     * Use Alt+Click to move the cursor in the terminal.
 

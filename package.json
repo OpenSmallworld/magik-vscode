@@ -341,7 +341,6 @@
     },
     "dependencies": {
         "bluebird": "^3.5.0",
-        "await-notify": "1.0.1",
         "vscode-debugadapter": "1.33.0",
         "ws": "^2.2.1"
     },
