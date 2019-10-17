@@ -20,7 +20,7 @@ Adds the following features to VS Code:
     * Magik Syntax highlighting
     * Auto indenting of Magik code
     * Auto completion for Magik keywords, classes, variables, globals and methods.
-    * Adds _ before Magik keywords
+    * Adds underscore before Magik keywords
     * Snippets for common Magik definitions
     * Command `Magik Indent Region` (**Ctrl+I**)
     * Command `Magik Indent File` (**Ctrl+Shift+I**)
@@ -114,9 +114,13 @@ I would recommend using these other extensions:
 2. Open a terminal in VS Code and start a magik session.
 
     e.g.<br>
+    ```
     S:\SW522\2019-10-09\core\bin\x86\runalias -a S:\SW522\2019-10-09\cambridge_db\config\gis_aliases cambridge_db_open<br>
+    ```
     or for debugging<br>
+    ```
     S:\SW522\2019-10-09\core\bin\x86\runalias -j -agentpath:S:\SW522\2019-10-09\core\bin\x86\mda.dll -a S:\SW522\2019-10-09\cambridge_db\config\gis_aliases cambridge_db_open
+    ```
 
 3. Load the file vscode_dev.magik at the Magik prompt (Use shortcut **Alt+M** (when the terminal doesn't have focus)).
 
@@ -178,6 +182,7 @@ I would recommend using these other extensions:
 * Requires Magik to be running in the VS Code integrated terminal.
 * Requires the utility procs to be loaded from vscode_dev.magik.
 * VS Code must be included in your Path (e.g. 'C:\Program Files\Microsoft VS Code\bin').
+* Need Node.js to install in the extension dependencies.
 
 
 ## Extension Settings
@@ -208,7 +213,8 @@ I would recommend using these other extensions:
 * No highlighting or formatting at the Magik prompt - I suggest creating a temp magik file for writing Magik (**Alt+N**).
 * Linting only available inside methods.
 * No status feedback when stepping in debug session.
-* The debug session can get stuck and need to restart the magik session.
+* The debugger can get stuck and hang the session. Sometimes pressing Pause on the thread allows you to regain control.<br>
+Apologies if you need to restart your Magik session.
 
 Current debug agent issues are listed here:
 https://devcloud.swcoe.ge.com/devspace/pages/viewpage.action?spaceKey=SWV&title=How+to+Use+The+Magik+Debugger
