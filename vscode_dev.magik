@@ -20,7 +20,7 @@ _block
 
 
 	_global default_trunk_branch_name
-	default_trunk_branch_name << "SW521"
+	default_trunk_branch_name << "SW522"
 
 
 	# Reinitialise products to get source from local repositories
@@ -461,12 +461,23 @@ $
 
 
 _pragma(classify_level=debug)
-## This method returns the string to display for evaluated expressions during Magik debugging
-## in VS Code.
-_method object.vs_print_string
+## This method returns the string to display during Magik debugging in VS Code.
+_method object.vs_debug_string
 
 	s << internal_text_output_stream.new()
-	_if _self.is_kind_of?(basic_collection_mixin) _andif
+	_if _self.is_kind_of?(dd_record_and_collection_mixin)
+	_then
+		_dynamic !output!
+		orig_output << !output!
+		_try
+			!output! << s
+			_self.describe_fields()
+		_when error
+			s.reset()
+			_self.write_on(s)
+		_endtry
+		!output! << orig_output
+	_elif _self.is_kind_of?(basic_collection_mixin) _andif
 		_not {:char16_string, :symbol}.includes?(_self.class_name) _andif
 		_not _self.empty?
 	_then

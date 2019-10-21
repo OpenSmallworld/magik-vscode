@@ -480,7 +480,7 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
           // console.log(e);
         }
 
-        if (source === '') {
+        if (source === '' && data.name !== '<loopbody>') {
           this._vscode.window.showWarningMessage(
             `Cannot find source for ${data.name}`
           );
@@ -737,6 +737,12 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
           evalString = `_self.sys!slot(:${slotName})`;
         }
       } else if (
+        expression.indexOf('.') > 0 &&
+        this._symbolProvider.classData[expression.split('.')[0]]
+      ) {
+        // Don't try and call a method or slot on a class
+        evalString = undefined;
+      } else if (
         !expression.startsWith('_super.') &&
         !expression.startsWith('_clone')
       ) {
@@ -747,13 +753,13 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
         reply = await this._eval(
           this._currentThreadId,
           frameId,
-          `${evalString}.vs_print_string`
+          `${evalString}.vs_debug_string`
         );
       }
     }
 
     response.body = {
-      result: reply || `Can not evaluate: '${expression}'`,
+      result: reply || `Cannot evaluate: '${expression}'`,
       variablesReference: 0,
     };
     this.sendResponse(response);
