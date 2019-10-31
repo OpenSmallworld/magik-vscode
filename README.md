@@ -115,7 +115,7 @@ I would recommend using these other extensions:
 
     e.g.<br>
     ```
-    S:\SW522\2019-10-09\core\bin\x86\runalias -a S:\SW522\2019-10-09\cambridge_db\config\gis_aliases cambridge_db_open<br>
+    S:\SW522\2019-10-09\core\bin\x86\runalias -a S:\SW522\2019-10-09\cambridge_db\config\gis_aliases cambridge_db_open
     ```
     or for debugging<br>
     ```
