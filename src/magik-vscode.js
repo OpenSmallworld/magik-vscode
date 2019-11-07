@@ -336,44 +336,50 @@ class MagikVSCode {
     this._sendToTerminal(command);
   }
 
-  // TODO - handle definitions across multiple lines
-  _findDefinition(fileName, word, methodName) {
+  _findDefinition(fileName, word) {
     const lines = this.getFileLines(fileName);
     const lineCount = lines.length;
     let methodTest;
     let defineTest;
+    let defineTestMultiLine;
 
-    if (methodName) {
-      const invalidIndex = word.search(magikUtils.INVALID_CHAR);
+    const invalidIndex = word.search(magikUtils.INVALID_CHAR);
 
-      if (invalidIndex !== -1) {
-        word = word.substring(0, invalidIndex);
-        const searchName = word.replace(/\?/g, '\\?');
-        methodTest = new RegExp(
-          `(^|\\s+)_method\\s+.+\\.\\s*${searchName}\\s*(\\(|<<|\\[|^<<)`
-        );
-      } else {
-        const searchName = word.replace(/\?/g, '\\?');
-        methodTest = new RegExp(
-          `(^|\\s+)_method\\s+.+\\.\\s*${searchName}\\s*$`
-        );
-      }
+    if (invalidIndex !== -1) {
+      // Search for method def only
+      word = word.substring(0, invalidIndex);
+      const searchName = word.replace(/\?/g, '\\?');
+      methodTest = new RegExp(
+        `(^|\\s+)_method\\s+.+\\.\\s*${searchName}\\s*(\\(|<<|\\[|^<<)`
+      );
     } else {
       const searchName = word.replace(/\?/g, '\\?');
       methodTest = new RegExp(
         `(^|\\s+)_method\\s+.+\\.\\s*${searchName}\\s*($|\\(|<<|\\[|^<<)`
       );
       defineTest = new RegExp(
-        `\\.\\s*(define_slot_access|define_shared_constant|def_property|define_property|define_shared_variable)\\s*\\(\\s*:${searchName}($|[^\\w!?])`
+        `\\.\\s*(define_slot_access|define_shared_constant|def_property|define_property|define_shared_variable|define_slot_externally_readable|define_slot_externally_writable)\\s*\\(\\s*:${searchName}($|[^\\w!?])`
+      );
+      defineTestMultiLine = new RegExp(
+        `\\.\\s*(define_slot_access|define_shared_constant|def_property|define_property|define_shared_variable|define_slot_externally_readable|define_slot_externally_writable)\\s*\\(\\s*$`
       );
     }
 
     for (let row = 0; row < lineCount; row++) {
-      const text = lines[row];
+      let text = lines[row];
       let index = text.search(methodTest);
 
       if (defineTest && index === -1) {
         index = text.search(defineTest);
+
+        if (index === -1 && text.search(defineTestMultiLine) !== -1) {
+          const nextResult = magikUtils.nextWordInFile(lines, row + 1, 0, true);
+          if (nextResult.word === word) {
+            row = nextResult.row;
+            text = lines[row];
+            index = 0;
+          }
+        }
       }
 
       if (index !== -1) {
@@ -427,10 +433,12 @@ class MagikVSCode {
       }
     } else {
       const pos = new vscode.Position(row, index + 1);
-      const next = magikUtils.nextWord(doc, pos);
-      if (next) {
+      const nextResult = magikUtils.nextWord(doc, pos, true);
+      if (nextResult.word) {
         className = magikUtils.currentClassName(doc, pos);
-        methodName = next;
+        methodName = nextResult.word;
+        row = nextResult.row;
+        text = doc.lineAt(row).text;
       }
     }
 
@@ -588,11 +596,7 @@ class MagikVSCode {
 
   resolveWorkspaceSymbol(sym) {
     if (this.resolveSymbols) {
-      const loc = this._findDefinition(
-        sym._fileName,
-        sym._methodName,
-        sym.kind === vscode.SymbolKind.Method
-      );
+      const loc = this._findDefinition(sym._fileName, sym._methodName);
       if (loc) {
         sym.location = loc;
         return sym;

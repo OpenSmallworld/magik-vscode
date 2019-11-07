@@ -71,6 +71,7 @@ const MAGIK_KEYWORDS = [
   'thisthread',
   'constant',
   'package',
+  'cf',
 ];
 
 const MAGIK_OBJECT_KEYWORDS = ['self', 'super', 'clone', 'thisthread'];
@@ -131,6 +132,7 @@ const END_WORDS = [
   '_orif',
   '_or',
   '_xor',
+  '_cf',
 ];
 
 const START_ASSIGN_WORDS = [
@@ -170,21 +172,21 @@ const DEFINITION_TESTS = [
     type: vscode.SymbolKind.Method,
   },
   {
-    test: new RegExp(`\\.\\s*define_shared_constant\\s*\\(\\s*:.+`),
+    test: new RegExp(`\\.\\s*define_shared_constant\\s*\\(\\s*($|:.+)`),
     type: vscode.SymbolKind.Constant,
   },
   {
     test: new RegExp(
-      `\\.\\s*(define_slot_access|define_shared_variable)\\s*\\(\\s*:.+`
+      `\\.\\s*(define_slot_access|define_shared_variable|define_slot_externally_readable|define_slot_externally_writable)\\s*\\(\\s*($|:.+)`
     ),
     type: vscode.SymbolKind.Variable,
   },
   {
-    test: new RegExp(`\\.\\s*(def_property|define_property)\\s*\\(\\s*:.+`),
+    test: new RegExp(`\\.\\s*(def_property|define_property)\\s*\\(\\s*($|:.+)`),
     type: vscode.SymbolKind.Property,
   },
   {
-    test: new RegExp(`^def_slotted_exemplar\\s*\\(\\s*:.+`),
+    test: new RegExp(`^def_slotted_exemplar\\s*\\(\\s*($|:.+)`),
     type: vscode.SymbolKind.Class,
   },
 ];
@@ -236,18 +238,40 @@ function nextWordInString(text, index) {
 }
 
 function nextWord(doc, pos, searchNextLine) {
-  const startRow = pos.line;
-  let word = nextWordInString(doc.lineAt(startRow).text, pos.character);
-  if (word || searchNextLine === false) return word;
+  const line = pos.line;
+  let word = nextWordInString(doc.lineAt(line).text, pos.character);
+  if (word || searchNextLine === false) {
+    return {word, row: line};
+  }
 
   const endRow = doc.lineCount;
 
-  for (let row = startRow + 1; row < endRow; row++) {
+  for (let row = line + 1; row < endRow; row++) {
     const text = doc.lineAt(row).text;
+    const firstChar = text.trim()[0];
 
-    if (text.trim()[0] !== '#') {
+    if (firstChar !== undefined && firstChar !== '#') {
       word = nextWordInString(text, 0);
-      if (word) return word;
+      if (word) return {word, row};
+    }
+  }
+}
+
+function nextWordInFile(fileLines, line, col, searchNextLine) {
+  let word = nextWordInString(fileLines[line], col);
+  if (word || searchNextLine === false) {
+    return {word, row: line};
+  }
+
+  const endRow = fileLines.length;
+
+  for (let row = line + 1; row < endRow; row++) {
+    const text = fileLines[row];
+    const firstChar = text.trim()[0];
+
+    if (firstChar !== undefined && firstChar !== '#') {
+      word = nextWordInString(text, 0);
+      if (word) return {word, row};
     }
   }
 }
@@ -267,7 +291,7 @@ function currentClassName(doc, pos) {
     if (exemplarReg.test(testString)) {
       const col = testString.indexOf('def_slotted_exemplar') + 20;
       const newPos = new vscode.Position(row, col);
-      return nextWord(doc, newPos);
+      return nextWord(doc, newPos).word;
     }
   }
 }
@@ -686,6 +710,7 @@ module.exports = {
   previousWord,
   nextWordInString,
   nextWord,
+  nextWordInFile,
   currentClassName,
   currentRegion,
   indentRegion,
