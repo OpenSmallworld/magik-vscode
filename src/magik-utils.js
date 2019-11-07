@@ -157,11 +157,11 @@ const END_ASSIGN_WORDS = [
   '_endlock',
 ];
 
-const VALID_CHAR = /[a-zA-Z0-9_?!]/;
-const INVALID_CHAR = /[^a-zA-Z0-9_?!]/;
-const VAR_TEST = /[a-zA-Z0-9_?!]+/g;
+const VALID_CHAR = /[\w!?]/;
+const INVALID_CHAR = /[^\w!?]/;
+const VAR_TEST = /[\w!?]+/g;
 
-const ASSIGN_IGNORE_NEXT = /^\s*(\(|\.|\)\.|(\s*,\s*[a-zA-Z0-9_?!]+)+\s*$)/;
+const ASSIGN_IGNORE_NEXT = /^\s*(\(|\.|\)\.|(\s*,\s*[\w!?]+)+\s*$)/;
 const VAR_IGNORE_PREV_CHARS = ['.', ':', '"', '%', '|', '@'];
 
 const DEFINITION_TESTS = [
@@ -189,21 +189,16 @@ const DEFINITION_TESTS = [
   },
 ];
 const DEFINE_KEYWORD_TESTS = [
-  /(_local|_with)\s+([a-zA-Z0-9_?!]+\s*,\s*)*$/,
-  /_global\s+([a-zA-Z0-9_?!]+\s*,\s*)*$/,
-  /_dynamic\s+([a-zA-Z0-9_?!]+\s*,\s*)*$/,
+  /(_local|_with)\s+([\w!?]+\s*,\s*)*$/,
+  /_global\s+([\w!?]+\s*,\s*)*$/,
+  /_dynamic\s+([\w!?]+\s*,\s*)*$/,
 ];
-const IMPORT_TEST = /_import\s+([a-zA-Z0-9_?!]+\s*,\s*)*$/;
+const IMPORT_TEST = /_import\s+([\w!?]+\s*,\s*)*$/;
 
 function previousWordInString(text, index) {
-  const match = /[a-zA-Z0-9_?!]+[^a-zA-Z0-9_?!]*[a-zA-Z0-9_?!]*$/.exec(
-    text.substr(0, index)
-  );
+  const match = /([\w!?]+)[^\w!?]*[\w!?]*$/.exec(text.substring(0, index));
   if (match) {
-    const word = match[0];
-    const invalidIndex = word.search(INVALID_CHAR);
-    if (invalidIndex === -1) return word;
-    return word.substr(0, invalidIndex);
+    return match[1];
   }
 }
 
@@ -212,11 +207,9 @@ function previousWord(doc, pos) {
 }
 
 function previousVarInString(text, index) {
-  const match = /[a-zA-Z0-9_?!]+\s*\.\s*[a-zA-Z0-9_?!]*$/.exec(
-    text.substr(0, index)
-  );
+  const match = /([\w!?]+)\s*\.\s*[\w!?]*$/.exec(text.substring(0, index));
   if (match && text[match.index - 1] !== '.') {
-    return match[0].split('.')[0].trim();
+    return match[1];
   }
 }
 
@@ -226,7 +219,7 @@ function currentWordInString(text, index) {
     return previousWordInString(text, index + invalidIndex + 1);
   }
 
-  const match = /[a-zA-Z0-9_?!]+$/.exec(text);
+  const match = /[\w!?]+$/.exec(text);
   if (match) return match[0];
 }
 
@@ -237,7 +230,7 @@ function currentWord(doc, pos) {
 function nextWordInString(text, index) {
   const invalidIndex = text.slice(index).search(INVALID_CHAR);
   if (invalidIndex !== -1) {
-    const match = /[a-zA-Z0-9_?!]+/.exec(text.slice(index + invalidIndex));
+    const match = /[\w!?]+/.exec(text.slice(index + invalidIndex));
     if (match) return match[0];
   }
 }
@@ -260,20 +253,19 @@ function nextWord(doc, pos, searchNextLine) {
 }
 
 function currentClassName(doc, pos) {
-  const methodReg = /(^|\s+)_method\s+/;
+  const methodReg = /(^|\s+)_method\s+([\w!?]+)\s*\./;
+  const exemplarReg = /(^|\s*)def_slotted_exemplar\s*\(/;
 
   for (let row = pos.line; row > -1; row--) {
-    const text = doc.lineAt(row).text;
-    const testString = text.trim();
-    if (methodReg.test(testString)) {
-      const className = text
-        .split('_method ')
-        .slice(-1)[0]
-        .split('.')[0];
-      return className.trim();
+    const testString = doc.lineAt(row).text;
+    const methodMatch = methodReg.exec(testString);
+
+    if (methodMatch) {
+      return methodMatch[2];
     }
-    if (testString.startsWith('def_slotted_exemplar')) {
-      const col = text.indexOf('def_slotted_exemplar') + 20;
+
+    if (exemplarReg.test(testString)) {
+      const col = testString.indexOf('def_slotted_exemplar') + 20;
       const newPos = new vscode.Position(row, col);
       return nextWord(doc, newPos);
     }
@@ -437,116 +429,6 @@ function indentRegion() {
   return {lines, firstRow, lastRow};
 }
 
-function getPackageName(doc) {
-  const lineCount = doc.lineCount;
-
-  for (let row = 0; row < lineCount; row++) {
-    const text = doc.lineAt(row).text.trim();
-
-    if (text.startsWith('_package ')) {
-      return text.split(/\s/)[1];
-    }
-  }
-
-  return 'sw';
-}
-
-function getClassAndMethodName(text) {
-  const parts = text.split('.');
-  const className = parts[0]
-    .split(/\s/)
-    .slice(-1)[0]
-    .trim();
-  let methodName;
-
-  if (parts.length > 1) {
-    methodName = parts[1].trim();
-    let index = methodName.search(INVALID_CHAR);
-    if (index === -1) index = methodName.length;
-    methodName = methodName.slice(0, index);
-    return {className, methodName};
-  }
-}
-
-function getMethodName(text, name, startIndex) {
-  const end = startIndex + name.length;
-  const next = text.slice(end).search(/\S/);
-  let methodName = name;
-
-  if (next !== -1) {
-    const nextC = text[end + next];
-    if (nextC === '(') {
-      methodName += '()';
-    } else if (text.substr(end + next, 2) === '<<') {
-      methodName += '<<';
-    } else if (text.substr(end + next, 3) === '^<<') {
-      methodName += '<<';
-    }
-  }
-
-  return methodName;
-}
-
-function _findParams(lines, startLine, startRow, startRowIndex, params) {
-  const end = lines.length;
-  const ignore = ['_optional', '_gather'];
-
-  for (let i = startRow; i < end; i++) {
-    const row = startLine + i;
-    const text = lines[i].split('#')[0];
-    let startIndex = i === startRow ? startRowIndex : 0;
-    let endIndex = text.indexOf(')', startIndex);
-    if (endIndex === -1) endIndex = text.length;
-    const testString = text.substring(startIndex, endIndex);
-    let match;
-
-    while (match = VAR_TEST.exec(testString)) { // eslint-disable-line
-      const varName = match[0];
-      const varIndex = text.indexOf(varName, startIndex);
-
-      if (!ignore.includes(varName)) {
-        params[varName] = {
-          row,
-          index: varIndex,
-          count: 1,
-          param: true,
-        };
-      }
-
-      startIndex = varIndex + 1;
-    }
-
-    if (/(\)|<<|\])/.test(text)) break;
-  }
-}
-
-function getMethodParams(lines, startLine) {
-  const params = {};
-  const end = lines.length - 1;
-  let match;
-
-  match = lines[0].match(/(\(|<<|\[)/);
-  if (match) {
-    _findParams(lines, startLine, 0, match.index, params);
-  }
-
-  // Find internal proc params
-  const procReg = /(\s+|\()_proc\s*[@a-zA-Z0-9_?!]*\s*\(/;
-
-  for (let i = 1; i < end; i++) {
-    const line = lines[i].split('#')[0];
-
-    match = line.match(procReg);
-    if (match) {
-      const startIndex = match.index + match[0].length - 1;
-
-      _findParams(lines, startLine, i, startIndex, params);
-    }
-  }
-
-  return params;
-}
-
 function removeStrings(text) {
   const textLength = text.length;
   const noStrings = [];
@@ -603,6 +485,156 @@ function withinString(text, index) {
   return false;
 }
 
+function stringBeforeComment(text) {
+  let start = 0;
+  let index = text.indexOf('#', start);
+
+  while (index > -1) {
+    if (withinString(text, index)) {
+      start = index + 1;
+      index = text.indexOf('#', start);
+    } else {
+      return text.substring(0, index);
+    }
+  }
+
+  return text;
+}
+
+function getPackageName(doc) {
+  const lineCount = doc.lineCount;
+
+  for (let row = 0; row < lineCount; row++) {
+    const text = doc.lineAt(row).text.trim();
+
+    if (text.startsWith('_package ')) {
+      return text.split(/\s/)[1];
+    }
+  }
+
+  return 'sw';
+}
+
+function getClassAndMethodName(text) {
+  const isMethod = text.match(
+    /^\s*(_abstract)?\s*(_private)?\s*(_iter)?\s*_method\s+([\w!?]+)\s*\.\s*([\w!?]+)\s*(\(|<<|\[|^<<)?/
+  );
+
+  if (!isMethod) {
+    return;
+  }
+
+  const methodName = isMethod[5];
+  let displayMethodName = methodName;
+
+  if (isMethod[6]) {
+    const next = isMethod[6][0];
+    if (next === '(') {
+      displayMethodName += '()';
+    } else if (next === '<') {
+      displayMethodName += '<<';
+    } else if (next === '[') {
+      displayMethodName += '[]';
+    } else {
+      displayMethodName += '^<<';
+    }
+  }
+
+  return {
+    className: isMethod[4],
+    methodName,
+    displayMethodName,
+  };
+}
+
+function getMethodName(text, name, startIndex) {
+  const searchName = name.replace(/\?/g, '\\\\?');
+  const reg = new RegExp(`${searchName}\\s*(\\(|<<|^<<)?`);
+  const nameMatch = text.slice(startIndex).match(reg);
+  let methodName = name;
+
+  if (nameMatch && nameMatch[1]) {
+    const next = nameMatch[1][0];
+    if (next === '(') {
+      methodName += '()';
+    } else {
+      methodName += '<<';
+    }
+  }
+
+  return methodName;
+}
+
+function _findParams(lines, startLine, startRow, startRowIndex, params) {
+  const end = lines.length;
+  let optional = false;
+  let gather = false;
+
+  for (let i = startRow; i < end; i++) {
+    const row = startLine + i;
+    const text = stringBeforeComment(lines[i]);
+    let startIndex = i === startRow ? startRowIndex : 0;
+    let endIndex = text.indexOf(')', startIndex);
+    if (endIndex === -1) endIndex = text.length;
+    const testString = text.substring(startIndex, endIndex);
+    let match;
+
+    while (match = VAR_TEST.exec(testString)) { // eslint-disable-line
+      const varName = match[0];
+      const varIndex = text.indexOf(varName, startIndex);
+
+      if (varName === '_optional') {
+        optional = true;
+      } else if (varName === '_gather') {
+        gather = true;
+      } else {
+        params[varName] = {
+          row,
+          index: varIndex,
+          count: 1,
+          param: true,
+          optional,
+          gather,
+        };
+        if (gather) {
+          gather = false;
+        }
+      }
+
+      startIndex = varIndex + 1;
+    }
+
+    if (/(\)|<<|\]|^<<)/.test(text)) break;
+  }
+}
+
+function getMethodParams(lines, startLine) {
+  const params = {};
+  const end = lines.length - 1;
+  let match;
+
+  match = lines[0].match(/(\(|<<|\[|^<<)/);
+  if (match) {
+    _findParams(lines, startLine, 0, match.index, params);
+  }
+
+  // Find internal proc params
+  const procReg = /(\s+|\()_proc\s*[@\w!?]*\s*\(/;
+
+  for (let i = 1; i < end; i++) {
+    const line = stringBeforeComment(lines[i]);
+
+    match = line.match(procReg);
+    if (match) {
+      const startIndex = match.index + match[0].length - 1;
+
+      _findParams(lines, startLine, i, startIndex, params);
+    }
+  }
+
+  return params;
+}
+
 function removeSymbolsWithPipes(text) {
   let start = text.indexOf(':|');
   let end;
@@ -612,7 +644,7 @@ function removeSymbolsWithPipes(text) {
     if (end === -1) {
       start = -1;
     } else {
-      text = text.substr(0, start) + text.substr(end + 1);
+      text = text.substring(0, start) + text.substring(end + 1);
       start = text.indexOf(':|');
     }
   }
@@ -621,7 +653,7 @@ function removeSymbolsWithPipes(text) {
 }
 
 function previousCharacter(text, index) {
-  const match = /\S$/.exec(text.substr(0, index));
+  const match = /\S$/.exec(text.substring(0, index));
   if (match) return match[0];
 }
 
@@ -657,12 +689,13 @@ module.exports = {
   currentClassName,
   currentRegion,
   indentRegion,
+  removeStrings,
+  withinString,
+  stringBeforeComment,
   getPackageName,
   getClassAndMethodName,
   getMethodName,
   getMethodParams,
-  removeStrings,
-  withinString,
   removeSymbolsWithPipes,
   previousCharacter,
   nextChar,

@@ -20,11 +20,14 @@ const envVarDefaults = {
   SW_CIM_ADAPTER_DIR: 'C:/projects/hg/gis_adapter',
   FME_DIR: 'C:/projects/hg/fme/fme',
   SW_DXF_DIR: 'C:/projects/hg/dxf/dxf',
-  LNI_DIR: 'C:/projects/hg/lni/lni'
+  LNI_DIR: 'C:/projects/hg/lni/lni',
 };
 
 function replace(string, vars) {
-  return string.replace(/\$(\w+)/g, (full, envvar) => vars[envvar] || envVarDefaults[envvar] || full);
+  return string.replace(
+    /\$(\w+)/g,
+    (full, envvar) => vars[envvar] || envVarDefaults[envvar] || full
+  );
 }
 
 module.exports = {replace};

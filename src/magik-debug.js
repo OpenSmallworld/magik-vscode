@@ -90,7 +90,7 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
 
   _extractMethodDefinition(lineString) {
     const isMethod = lineString.match(
-      /^\s*(_private)?\s*(_iter)?\s*_method\s+([\w!?]+\.[\w!?]+)\s*(\(.*|\s*\[.*)?/
+      /^\s*(_private)?\s*(_iter)?\s*_method\s+([\w!?]+\.[\w!?]+)\s*(\(|<<|\[|^<<)?/
     );
 
     if (!isMethod) {
@@ -100,10 +100,15 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
     let methodName = isMethod[3];
 
     if (isMethod[4]) {
-      if (isMethod[4].startsWith('(')) {
+      const next = isMethod[4][0];
+      if (next === '(') {
         methodName += '()';
-      } else if (isMethod[4].startsWith('[')) {
+      } else if (next === '<') {
+        methodName += '<<';
+      } else if (next === '[') {
         methodName += '[]';
+      } else {
+        methodName += '^<<';
       }
     }
 
@@ -131,13 +136,6 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
     }
 
     return `${pkg}:${method}`;
-  }
-
-  _getSourceLines(sourcePath) {
-    return fs
-      .readFileSync(sourcePath)
-      .toString()
-      .split('\n');
   }
 
   async _addBreakpoint(method, line, sourcePath) {
@@ -284,7 +282,7 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
       }
     }
 
-    const sourceLines = this._getSourceLines(sourcePath);
+    const sourceLines = this._vscode.getFileLines(sourcePath);
 
     if (sourceLines) {
       const conditions = {};
@@ -415,7 +413,7 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
   async _getSourcePath(name) {
     const parts = name.split('.');
     const query = `^${parts[0]}$.^${parts[1]}$`;
-    const symbols = await this._symbolProvider.getSymbols(query, false, 2);
+    const symbols = await this._symbolProvider.getSymbols(query, false, 1);
     const classData = this._symbolProvider.classData[parts[0]];
     let sourcePath;
 

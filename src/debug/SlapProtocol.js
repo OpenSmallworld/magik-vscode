@@ -1,6 +1,6 @@
 'use strict';
 
-var Promise = require('bluebird');
+const Promise = require('bluebird');
 
 const EndianBuffer = require('./EndianBuffer');
 const fs = Promise.promisifyAll(require('fs'));
@@ -20,7 +20,7 @@ const SLAP_REQUEST_TYPES = {
   SOURCE_FILE: 9,
   STEP: 10,
 
-  END_MARKER: 0xffFFffFF,
+  END_MARKER: 0xffffffff,
 };
 
 const SLAP_MODIFY_BREAKPOINTS = {
@@ -44,7 +44,7 @@ const SLAP_THREAD_STATES = [
   'waiting',
   'object wait',
   'parked',
-  'sleeping'
+  'sleeping',
 ];
 
 const LOCAL_FLAGS = {
@@ -65,7 +65,7 @@ const LOCAL_FLAGS = {
 };
 
 const STEP_TYPES = {
-  line:  0,
+  line: 0,
   out: 1,
   over: 2,
 };
@@ -86,17 +86,17 @@ const SLAP_REPLIES = {
 };
 
 const ERROR_MESSAGES = {
-  1:'Unknown error',
-  2:'Invalid line number',
-  3:'Method not found',
-  4:'Assist class not available',
-  5:'Thread not suspended',
-  6:'Request too short',
-  7:'Unknown request',
-  8:'Native Method',
-  9:'No line number info',
-  10:'Evaluation failed',
-  10040:'Breakpoint already set at this location'
+  1: 'Unknown error',
+  2: 'Invalid line number',
+  3: 'Method not found',
+  4: 'Assist class not available',
+  5: 'Thread not suspended',
+  6: 'Request too short',
+  7: 'Unknown request',
+  8: 'Native Method',
+  9: 'No line number info',
+  10: 'Evaluation failed',
+  10040: 'Breakpoint already set at this location',
 };
 
 // Represents a connection with the magik debug agent
@@ -106,9 +106,9 @@ class SlapProtocol {
     this.socket = socket;
 
     socket.on('connect', () => this.connect());
-    socket.on('data', data => this.data(data));
+    socket.on('data', (data) => this.data(data));
     socket.on('close', () => this.closed());
-    socket.on('error', e => this.socketError(e));
+    socket.on('error', (e) => this.socketError(e));
 
     this.messageQueue = [];
     this.breakpointHandlers = new Set();
@@ -128,7 +128,9 @@ class SlapProtocol {
       console.error('Connection to Magik Debug Agent Lost...');
       process.exit();
     } else if (err.code === 'ECONNREFUSED') {
-      console.error(`Unable to Connect to Magik Debug Agent at ${err.address}:${err.port}`);
+      console.error(
+        `Unable to Connect to Magik Debug Agent at ${err.address}:${err.port}`
+      );
       process.exit();
     } else {
       throw err;
@@ -240,8 +242,9 @@ class SlapProtocol {
   }
 
   handleConditionalBreakpoint(breakpoint, threadId) {
-    return this.bypassLock(() => this.evaluate(threadId, 0, breakpoint.condition.code))
-      .then(r => r.result === breakpoint.condition.value);
+    return this.bypassLock(() =>
+      this.evaluate(threadId, 0, breakpoint.condition.code)
+    ).then((r) => r.result === breakpoint.condition.value);
   }
 
   callBreakpointHandlers(event) {
@@ -255,19 +258,24 @@ class SlapProtocol {
     const threadId = message.readUInt32(16);
     const event = {id, threadId};
 
-    const breakpoint = this.breakpoints.find(b => b.id === id);
+    const breakpoint = this.breakpoints.find((b) => b.id === id);
     if (breakpoint && breakpoint.conditional && breakpoint.condition) {
       this.lock();
-      this.handleConditionalBreakpoint(breakpoint, threadId).then(stop => {
-        if (stop) {
+      this.handleConditionalBreakpoint(breakpoint, threadId)
+        .then((stop) => {
+          if (stop) {
+            this.callBreakpointHandlers(event);
+          } else {
+            return this.bypassLock(() => this.resumeThread(threadId));
+          }
+        })
+        .finally(() => this.unlock())
+        .catch((e) => {
+          console.log(
+            `Error while processing conditional breakpoint: ${e.message}`
+          );
           this.callBreakpointHandlers(event);
-        } else {
-          return this.bypassLock(() => this.resumeThread(threadId));
-        }
-      }).finally(() => this.unlock()).catch(e => {
-        console.log(`Error while processing conditional breakpoint: ${e.message}`);
-        this.callBreakpointHandlers(event);
-      });
+        });
     } else {
       this.callBreakpointHandlers(event);
     }
@@ -284,7 +292,7 @@ class SlapProtocol {
 
   handleThreadEvent(message, type) {
     const id = message.readUInt32(12);
-    const event = { type, id };
+    const event = {type, id};
 
     for (const func of this.threadEventHandlers) {
       func(event);
@@ -316,7 +324,10 @@ class SlapProtocol {
   }
 
   makeSlapString(string) {
-    const buffer = new EndianBuffer(Buffer.alloc(string.length + 4), this.isLittleEndian);
+    const buffer = new EndianBuffer(
+      Buffer.alloc(string.length + 4),
+      this.isLittleEndian
+    );
     buffer.writeSlapString(0, string);
     return buffer.buffer;
   }
@@ -327,7 +338,10 @@ class SlapProtocol {
     header.writeUInt32(rsv0, 8);
     header.writeUInt32(rsv1, 12);
 
-    const message = new EndianBuffer(Buffer.concat([header.buffer, extraData || Buffer.alloc(0)]), this.isLittleEndian);
+    const message = new EndianBuffer(
+      Buffer.concat([header.buffer, extraData || Buffer.alloc(0)]),
+      this.isLittleEndian
+    );
     message.writeUInt32(message.length, 0);
 
     return message.buffer;
@@ -371,7 +385,10 @@ class SlapProtocol {
   pushRequest(buffer, nextState) {
     const ps = new Promise((resolve, reject) => {
       this.addRequestToQueue({
-        buffer, nextState, resolve, reject,
+        buffer,
+        nextState,
+        resolve,
+        reject,
       });
 
       this.nextRequest();
@@ -416,12 +433,13 @@ class SlapProtocol {
   getThreadIds() {
     const request = this.makeRequest(SLAP_REQUEST_TYPES.THREAD_LIST, 0, 0);
 
-    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE)
-      .then(response => this.processGetThreadIds(response));
+    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE).then(
+      (response) => this.processGetThreadIds(response)
+    );
   }
 
   processGetThreadStack(data) {
-    const frames = data.slice(1).map(b => {
+    const frames = data.slice(1).map((b) => {
       const buffer = new EndianBuffer(b, this.isLittleEndian);
       const level = buffer.readUInt32(12);
       const offset = buffer.readUInt32(16);
@@ -432,7 +450,10 @@ class SlapProtocol {
       const language = buffer.readString(16 + 12 + nameLength, languageLength);
 
       return {
-        offset, name, language, level,
+        offset,
+        name,
+        language,
+        level,
       };
     });
 
@@ -455,25 +476,33 @@ class SlapProtocol {
   //   level, (integer)
   // }
   getThreadStack(threadId) {
-    const request = this.makeRequest(SLAP_REQUEST_TYPES.GET_THREAD_STACK, threadId, 1);
+    const request = this.makeRequest(
+      SLAP_REQUEST_TYPES.GET_THREAD_STACK,
+      threadId,
+      1
+    );
 
-    return this.pushRequest(request, STATES.WAITING_FOR_MULTIPLE_RESPONSES)
-      .then(response => this.processGetThreadStack(response));
+    return this.pushRequest(
+      request,
+      STATES.WAITING_FOR_MULTIPLE_RESPONSES
+    ).then((response) => this.processGetThreadStack(response));
   }
 
   // Will pause a thread with ID id returned by getTheadIds()
   suspendThread(id) {
     this.stopStepping = true;
     const request = this.makeRequest(SLAP_REQUEST_TYPES.SUSPEND_THREAD, id);
-    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE)
-      .then(() => null);
+    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE).then(
+      () => null
+    );
   }
 
   // Will resume a thread with ID id returned by getThreadIds()
   resumeThread(id) {
     const request = this.makeRequest(SLAP_REQUEST_TYPES.RESUME_THREAD, id);
-    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE)
-      .then(() => null);
+    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE).then(
+      () => null
+    );
   }
 
   processGetThreadInfo(data) {
@@ -503,12 +532,13 @@ class SlapProtocol {
   // }
   getThreadInfo(id) {
     const request = this.makeRequest(SLAP_REQUEST_TYPES.GET_THREAD_INFO, id);
-    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE)
-      .then(response => this.processGetThreadInfo(response));
+    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE).then(
+      (response) => this.processGetThreadInfo(response)
+    );
   }
 
   processGetFrameLocals(data) {
-    const locals = data.splice(1).map(local => {
+    const locals = data.splice(1).map((local) => {
       const buffer = new EndianBuffer(local, this.isLittleEndian);
       const nameLength = buffer.readUInt32(16);
       const name = buffer.readString(20, nameLength);
@@ -530,7 +560,10 @@ class SlapProtocol {
           value = buffer.readDouble(20 + nameLength);
           break;
         case LOCAL_FLAGS.TYPE_OBJ:
-          value = buffer.readString(20 + nameLength + 4, buffer.readUInt32(20 + nameLength));
+          value = buffer.readString(
+            20 + nameLength + 4,
+            buffer.readUInt32(20 + nameLength)
+          );
           break;
         default:
           value = '<unknown>';
@@ -568,9 +601,15 @@ class SlapProtocol {
   //   value, (string/boolean/number)
   // }
   getFrameLocals(threadId, stackLevel) {
-    const request = this.makeRequest(SLAP_REQUEST_TYPES.GET_LOCALS, threadId, stackLevel);
-    return this.pushRequest(request, STATES.WAITING_FOR_MULTIPLE_RESPONSES)
-      .then(response => this.processGetFrameLocals(response));
+    const request = this.makeRequest(
+      SLAP_REQUEST_TYPES.GET_LOCALS,
+      threadId,
+      stackLevel
+    );
+    return this.pushRequest(
+      request,
+      STATES.WAITING_FOR_MULTIPLE_RESPONSES
+    ).then((response) => this.processGetFrameLocals(response));
   }
 
   processGetSource(data) {
@@ -581,7 +620,7 @@ class SlapProtocol {
     let contents;
     try {
       contents = fs.readFileSync(actualFilename).toString('utf-8');
-    } catch(e) {
+    } catch (e) {
       contents = `Not found in ${actualFilename}`;
     }
 
@@ -593,16 +632,24 @@ class SlapProtocol {
   //   filename, (string)
   // }
   getSource(method) {
-    const request = this.makeRequest(SLAP_REQUEST_TYPES.SOURCE_FILE, 0, 0, this.makeSlapString(method));
-    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE)
-      .then(response => this.processGetSource(response));
+    const request = this.makeRequest(
+      SLAP_REQUEST_TYPES.SOURCE_FILE,
+      0,
+      0,
+      this.makeSlapString(method)
+    );
+    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE).then(
+      (response) => this.processGetSource(response)
+    );
   }
 
   processSetBreakpoint(data, breakpointData) {
     const message = new EndianBuffer(data, this.isLittleEndian);
     const id = message.readUInt32(12);
 
-    this.breakpoints.push(Object.assign(breakpointData, {id, enabled: true, conditional: false}));
+    this.breakpoints.push(
+      Object.assign(breakpointData, {id, enabled: true, conditional: false})
+    );
 
     return {id};
   }
@@ -616,46 +663,67 @@ class SlapProtocol {
   //   id, (integer)
   // }
   setBreakpoint(method, line, filename) {
-    const request = this.makeRequest(SLAP_REQUEST_TYPES.BREAKPOINT_SET, 0, line || 0, this.makeSlapString(method));
-    const breakpointData = { type: line ? 'line' : 'method', name: method };
+    const request = this.makeRequest(
+      SLAP_REQUEST_TYPES.BREAKPOINT_SET,
+      0,
+      line || 0,
+      this.makeSlapString(method)
+    );
+    const breakpointData = {type: line ? 'line' : 'method', name: method};
     if (filename) {
       breakpointData.line = line;
       breakpointData.filename = filename;
     }
 
-    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE)
-      .then(response => this.processSetBreakpoint(response, breakpointData));
+    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE).then(
+      (response) => this.processSetBreakpoint(response, breakpointData)
+    );
   }
 
   processModifyBreakpoint(id, newData) {
-    const index = this.breakpoints.findIndex(b => b.id === id);
+    const index = this.breakpoints.findIndex((b) => b.id === id);
     this.breakpoints[index] = Object.assign(this.breakpoints[index], newData);
   }
 
   // Enables a given breakpoint
   enableBreakpoint(id) {
-    const request = this.makeRequest(SLAP_REQUEST_TYPES.BREAKPOINT_MODIFY, id, SLAP_MODIFY_BREAKPOINTS.ENABLE);
-    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE)
-      .then(() => this.processModifyBreakpoint(id, {enabled: true}));
+    const request = this.makeRequest(
+      SLAP_REQUEST_TYPES.BREAKPOINT_MODIFY,
+      id,
+      SLAP_MODIFY_BREAKPOINTS.ENABLE
+    );
+    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE).then(() =>
+      this.processModifyBreakpoint(id, {enabled: true})
+    );
   }
 
   // Disables a given breakpoint
   disableBreakpoint(id) {
-    const request = this.makeRequest(SLAP_REQUEST_TYPES.BREAKPOINT_MODIFY, id, SLAP_MODIFY_BREAKPOINTS.DISABLE);
-    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE)
-      .then(() => this.processModifyBreakpoint(id, {enabled: false}));
+    const request = this.makeRequest(
+      SLAP_REQUEST_TYPES.BREAKPOINT_MODIFY,
+      id,
+      SLAP_MODIFY_BREAKPOINTS.DISABLE
+    );
+    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE).then(() =>
+      this.processModifyBreakpoint(id, {enabled: false})
+    );
   }
 
   processDeleteBreakpoint(id) {
-    const index = this.breakpoints.findIndex(b => b.id === id);
+    const index = this.breakpoints.findIndex((b) => b.id === id);
     this.breakpoints.splice(index, 1);
   }
 
   // Deletes a given breakpoint
   deleteBreakpoint(id) {
-    const request = this.makeRequest(SLAP_REQUEST_TYPES.BREAKPOINT_MODIFY, id, SLAP_MODIFY_BREAKPOINTS.DELETE);
-    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE)
-      .then(() => this.processDeleteBreakpoint(id));
+    const request = this.makeRequest(
+      SLAP_REQUEST_TYPES.BREAKPOINT_MODIFY,
+      id,
+      SLAP_MODIFY_BREAKPOINTS.DELETE
+    );
+    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE).then(() =>
+      this.processDeleteBreakpoint(id)
+    );
   }
 
   // Set the condition to the breakpoint with given id to be eval(code) == value
@@ -664,56 +732,62 @@ class SlapProtocol {
       return Promise.reject(new Error('Must enter some code'));
     }
 
-    const breakpoint = this.breakpoints.find(b => b.id === id);
+    const breakpoint = this.breakpoints.find((b) => b.id === id);
     if (breakpoint) {
       breakpoint.condition = {code, value: value || ''};
       return Promise.resolve({});
-    } else {
-      return Promise.reject(new Error('Cannot find breakpoint'));
     }
+
+    return Promise.reject(new Error('Cannot find breakpoint'));
   }
 
   // Makes the breakpoint with a given id conditional
   setBreakpointConditionalEnabled(id, value) {
-    const breakpoint = this.breakpoints.find(b => b.id === id);
+    const breakpoint = this.breakpoints.find((b) => b.id === id);
     if (breakpoint) {
       breakpoint.conditional = !!value;
       return Promise.resolve({});
-    } else {
-      return Promise.reject(new Error('Cannot find breakpoint'));
     }
+
+    return Promise.reject(new Error('Cannot find breakpoint'));
   }
 
   longStep(id, type) {
     this.stopStepping = false;
 
-    return Promise.coroutine(function* () {
-      const stack = yield this.getThreadStack(id);
-      const initial = stack.frames.find(frame => frame.language === 'Magik');
-      const startPoint = initial.name + initial.offset.toString();
+    return Promise.coroutine(
+      function*() {
+        const stack = yield this.getThreadStack(id);
+        const initial = stack.frames.find(
+          (frame) => frame.language === 'Magik'
+        );
+        const startPoint = initial.name + initial.offset.toString();
 
-      while (true) {
-        yield this.step(id, type, 1);
-        if (this.stopStepping) {
-          break;
-        }
-
-        const newStack = yield this.getThreadStack(id);
-        const topFrame = newStack.frames[0];
-        if (topFrame.language === 'Magik' &&
-          topFrame.offset !== 0 &&
-          topFrame.name !== '<unknown exemplar><unknown method>') {
-          const newPoint = topFrame.name + topFrame.offset.toString();
-          if (startPoint !== newPoint) {
+        while (true) {
+          yield this.step(id, type, 1);
+          if (this.stopStepping) {
             break;
           }
+
+          const newStack = yield this.getThreadStack(id);
+          const topFrame = newStack.frames[0];
+          if (
+            topFrame.language === 'Magik' &&
+            topFrame.offset !== 0 &&
+            topFrame.name !== '<unknown exemplar><unknown method>'
+          ) {
+            const newPoint = topFrame.name + topFrame.offset.toString();
+            if (startPoint !== newPoint) {
+              break;
+            }
+          }
         }
-      }
-    }.bind(this))();
+      }.bind(this)
+    )();
   }
 
   processStep() {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       if (this.stepping) {
         this.stepping = null;
         resolve();
@@ -730,17 +804,21 @@ class SlapProtocol {
   // the top of the stack is magik
   step(id, type, count) {
     if (type.startsWith('long-')) {
-      return this.longStep(id, type.substr('long-'.length));
+      return this.longStep(id, type.substring('long-'.length));
     }
 
     if (this.stepping) {
       return Promise.reject(new Error('Still stepping...'));
     }
 
-    const request = this.makeRequest(SLAP_REQUEST_TYPES.STEP, id,
-      (count << 16) | STEP_TYPES[type] | STEP_UNTIL_MAGIK);
-    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE)
-      .then(() => this.processStep());
+    const request = this.makeRequest(
+      SLAP_REQUEST_TYPES.STEP,
+      id,
+      (count << 16) | STEP_TYPES[type] | STEP_UNTIL_MAGIK
+    );
+    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE).then(() =>
+      this.processStep()
+    );
   }
 
   processEvaluate(data) {
@@ -752,15 +830,20 @@ class SlapProtocol {
   }
 
   evaluate(thread, stack, code) {
-    const request = this.makeRequest(SLAP_REQUEST_TYPES.EVALUATE, thread, stack,
-      this.makeSlapString(code));
-    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE)
-      .then(data => this.processEvaluate(data));
+    const request = this.makeRequest(
+      SLAP_REQUEST_TYPES.EVALUATE,
+      thread,
+      stack,
+      this.makeSlapString(code)
+    );
+    return this.pushRequest(request, STATES.WAITING_FOR_1_RESPONSE).then(
+      (data) => this.processEvaluate(data)
+    );
   }
 }
 
 SlapProtocol.DEBUG_CLIENT_ID = 'DuckOnATricycle\0';
-SlapProtocol.DEBUG_AGENT_ID  = 'SwanOnAUnicycle\0';
+SlapProtocol.DEBUG_AGENT_ID = 'SwanOnAUnicycle\0';
 
 SlapProtocol.SLAP_REQUEST_TYPES = SLAP_REQUEST_TYPES;
 SlapProtocol.STATES = STATES;

@@ -9,64 +9,59 @@ const METHOD_IGNORE_PREV_CHARS = [' ', '\t', ',', '(', '[', '{'];
 const METHOD_IGNORE_WORDS = ['0e', 'exemplar'];
 
 const STATEMENT_PAIRS = [
-  [
-    '_if',
-    '_endif',
-    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_if\s*/,
-    /(;|\s+)_endif/,
-  ],
+  ['_if', '_endif', /([\w!?]+\s*\)?\s*<<|\s+>>|^>>)\s*_if\s*/, /(;|\s+)_endif/],
   [
     '_for',
     '_endloop',
-    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_for\s*/,
+    /([\w!?]+\s*\)?\s*<<|\s+>>|^>>)\s*_for\s*/,
     /(;|\s+)_endloop/,
   ],
   [
     '_proc',
     '_endproc',
-    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_proc\s*[@a-zA-Z0-9_?!]*\s*\(.*/,
+    /([\w!?]+\s*\)?\s*<<|\s+>>|^>>)\s*_proc\s*[@\w!?]*\s*\(.*/,
     /(;|\s+)_endproc/,
   ],
   [
     '_try',
     '_endtry',
-    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_try\s*/,
+    /([\w!?]+\s*\)?\s*<<|\s+>>|^>>)\s*_try\s*/,
     /(;|\s+)_endtry/,
   ],
   [
     '_while',
     '_endloop',
-    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_while\s*/,
+    /([\w!?]+\s*\)?\s*<<|\s+>>|^>>)\s*_while\s*/,
     /(;|\s+)_endloop/,
   ],
   [
     '_loop',
     '_endloop',
-    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_loop\s*/,
+    /([\w!?]+\s*\)?\s*<<|\s+>>|^>>)\s*_loop\s*/,
     /(;|\s+)_endloop/,
   ],
   [
     '_catch',
     '_endcatch',
-    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_catch\s*/,
+    /([\w!?]+\s*\)?\s*<<|\s+>>|^>>)\s*_catch\s*/,
     /(;|\s+)_endcatch/,
   ],
   [
     '_block',
     '_endblock',
-    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_block\s*/,
+    /([\w!?]+\s*\)?\s*<<|\s+>>|^>>)\s*_block\s*/,
     /(;|\s+)_endblock/,
   ],
   [
     '_lock',
     '_endlock',
-    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_lock\s*/,
+    /([\w!?]+\s*\)?\s*<<|\s+>>|^>>)\s*_lock\s*/,
     /(;|\s+)_endlock/,
   ],
   [
     '_over',
     '_endloop',
-    /([a-zA-Z0-9_?!]+\s*\)?\s*<<|\s+>>|^>>)\s*_over\s*/,
+    /([\w!?]+\s*\)?\s*<<|\s+>>|^>>)\s*_over\s*/,
     /(;|\s+)_endloop/,
   ],
 ];
@@ -81,7 +76,7 @@ const INDENT_INC_STATEMENT_WORDS = [
 const INC_BRACKETS = /(?<!%)[({]/g;
 const DEC_BRACKETS = /(?<!%)[)}]/g;
 const NO_CODE = /^\s*(#|$)/;
-const START_PROC = /(?<=(^|[^a-zA-Z0-9_?!]))_proc\s*[@a-zA-Z0-9_?!]*\s*\(/;
+const START_PROC = /(?<=(^|[^\w!?]))_proc\s*[@\w!?]*\s*\(/;
 const DEC_STATEMENT = /(?<=\S(\s+|\s*;))(_endproc|_endif$)/;
 
 class MagikLinter {
@@ -378,7 +373,7 @@ class MagikLinter {
           arrowAssignRows[arrowAssignRows.length - 1]++;
         }
       } else {
-        testString = testString.split('#')[0].trim();
+        testString = magikUtils.stringBeforeComment(testString).trim();
 
         if (arrowAssignRows.length > 0) {
           if (row === arrowAssignRows.slice(-1)[0] + 1) {
@@ -523,25 +518,11 @@ class MagikLinter {
     }
   }
 
-  _docLines() {
-    const lines = [];
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) return lines;
-
-    const doc = editor.document;
-    const linesLength = doc.lineCount;
-    for (let i = 0; i < linesLength; i++) {
-      lines.push(doc.lineAt(i).text);
-    }
-
-    return lines;
-  }
-
   async _indentFile() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
 
-    const lines = this._docLines();
+    const lines = this.magikVSCode.getDocLines(editor.document);
     await this._indentMagikLines(lines, 0);
   }
 
@@ -549,7 +530,7 @@ class MagikLinter {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
 
-    const lines = this._docLines();
+    const lines = this.magikVSCode.getDocLines(editor.document);
     const lastRow = lines.length - 1;
 
     await this._indentMagikLines(lines, 0);
@@ -675,7 +656,7 @@ class MagikLinter {
     for (let i = 1; i < lineLength; i++) {
       const row = firstRow + i;
       const line = lines[i];
-      const text = line.split('#')[0];
+      const text = magikUtils.stringBeforeComment(line);
       const testString = magikUtils.removeStrings(text);
       let startIndex = 0;
       let match;
@@ -705,14 +686,11 @@ class MagikLinter {
           } else if (this.symbolProvider.classData[prevWord]) {
             className = prevWord;
           } else {
-            const superMatch = /_super\s*\(\s*[a-zA-Z0-9_?!]+\s*\)\s*\.\s*[a-zA-Z0-9_?!]*$/.exec(
+            const superMatch = /_super\s*\(\s*([\w!?]+)\s*\)\s*\.\s*[\w!?]*$/.exec(
               text.substring(0, index)
             );
             if (superMatch) {
-              className = superMatch[0]
-                .split('(')[1]
-                .split(')')[0]
-                .trim();
+              className = superMatch[1];
             } else {
               const prevData = assignedVars[prevWord];
               if (prevData) {

@@ -3,15 +3,15 @@
 const vscode = require('vscode'); // eslint-disable-line
 const magikUtils = require('./magik-utils');
 
-const VAR_MULTI_START_REG = /^\s*\((\s*[a-zA-Z0-9_?!]+\s*,)*\s*([a-zA-Z0-9_?!]+)*\s*$/;
-const VAR_MULTI_MID_REG = /^(\s*[a-zA-Z0-9_?!]+\s*,)*\s*([a-zA-Z0-9_?!]+)*\s*$/;
-const VAR_MULTI_END_REG = /^(\s*[a-zA-Z0-9_?!]+\s*,)*\s*([a-zA-Z0-9_?!]+)*\s*\)\s*<</;
+const VAR_MULTI_START_REG = /^\s*\((\s*[\w!?]+\s*,)*\s*([\w!?]+)*\s*$/;
+const VAR_MULTI_MID_REG = /^(\s*[\w!?]+\s*,)*\s*([\w!?]+)*\s*$/;
+const VAR_MULTI_END_REG = /^(\s*[\w!?]+\s*,)*\s*([\w!?]+)*\s*\)\s*<</;
 const COMMENT_REG = /^\s*#/;
 
 // TODO - refactor find variable functions
 
 function findMultiAssignedVariables(lines, firstRow, lineCount, assignedVars) {
-  const firstText = lines[lineCount].split('#')[0];
+  const firstText = magikUtils.stringBeforeComment(lines[lineCount]);
   if (!VAR_MULTI_START_REG.test(firstText)) return false;
 
   const max = lines.length;
@@ -19,7 +19,7 @@ function findMultiAssignedVariables(lines, firstRow, lineCount, assignedVars) {
 
   for (let i = lineCount + 1; i < max; i++) {
     const lineText = lines[i];
-    const text = lineText.split('#')[0];
+    const text = magikUtils.stringBeforeComment(lineText);
 
     if (VAR_MULTI_END_REG.test(text)) {
       endCount = i;
@@ -49,7 +49,7 @@ function findMultiAssignedVariables(lines, firstRow, lineCount, assignedVars) {
   // Find all variables
   for (let i = lineCount; i < endCount + 1; i++) {
     const row = i + firstRow;
-    const text = lines[i].split('#')[0];
+    const text = magikUtils.stringBeforeComment(lines[i]);
     const testString = text.split('<<')[0];
 
     while (match = magikUtils.VAR_TEST.exec(testString)) { // eslint-disable-line
@@ -88,9 +88,9 @@ function findAssignedVariables(lines, firstRow, lineCount, assignedVars) {
   }
 
   const lineText = lines[lineCount];
-  const text = lineText.split('#')[0];
+  const text = magikUtils.stringBeforeComment(lineText);
 
-  if (!/[a-zA-Z0-9_?!]+\s*\)?\s*<</.test(text)) {
+  if (!/[\w!?]+\s*\)?\s*<</.test(text)) {
     return;
   }
 
@@ -102,7 +102,7 @@ function findAssignedVariables(lines, firstRow, lineCount, assignedVars) {
   const multiLine = /<<\s*$/.test(text);
   let lastText = text;
   if (multiLine) {
-    const ignoreReg = /^\s*(#|$|([a-zA-Z0-9_?!]+\s*<<\s*)+$)/;
+    const ignoreReg = /^\s*(#|$|([\w!?]+\s*<<\s*)+$)/;
     const max = lines.length;
     for (let i = lineCount + 1; i < max; i++) {
       const nextText = lines[i];
@@ -156,18 +156,15 @@ function findAssignedVariables(lines, firstRow, lineCount, assignedVars) {
             varData.row = row;
             varData.index = index;
           } else {
-            const dynamic = /_dynamic\s+$/.test(text.substr(0, index));
+            const dynamic = /_dynamic\s+$/.test(text.substring(0, index));
             let className;
 
             if (varCount < annoLength) {
               className = annoClasses[varCount];
-            } else if (
-              multiLine &&
-              /^\s*[a-zA-Z0-9_?!]+.new\s*\(/.test(lastText)
-            ) {
+            } else if (multiLine && /^\s*[\w!?]+.new\s*\(/.test(lastText)) {
               className = lastText.split('.')[0].trimStart();
             } else if (
-              /^\s*<<\s*[a-zA-Z0-9_?!]+.new\s*\(/.test(
+              /^\s*<<\s*[\w!?]+.new\s*\(/.test(
                 text.slice(index + varName.length)
               )
             ) {
@@ -199,7 +196,7 @@ function findLocalVariables(
   globals,
   diagnostics
 ) {
-  const text = lineText.split('#')[0];
+  const text = magikUtils.stringBeforeComment(lineText);
   let testString = magikUtils.removeStrings(text);
   testString = magikUtils.removeSymbolsWithPipes(testString);
 
@@ -245,7 +242,7 @@ function findLocalVariables(
     const varName = match[0];
     const varLength = varName.length;
     let varIndex = match.index;
-    const defTestString = text.substr(0, varIndex);
+    const defTestString = text.substring(0, varIndex);
 
     if (
       Number.isNaN(Number(varName)) &&
@@ -298,7 +295,7 @@ function findLocalVariables(
       if (
         varData &&
         (varData.row !== row || varData.index !== varIndex) &&
-        !magikUtils.IMPORT_TEST.test(text.substr(0, varIndex))
+        !magikUtils.IMPORT_TEST.test(text.substring(0, varIndex))
       ) {
         varData.count++;
       }
@@ -325,7 +322,7 @@ function getVariables(
   for (let i = 0; i < end; i++) {
     const row = firstRow + i;
     const line = lines[i];
-    const text = line.split('#')[0];
+    const text = magikUtils.stringBeforeComment(line);
 
     if (search) {
       findAssignedVariables(lines, firstRow, i, assignedVars);
@@ -339,8 +336,8 @@ function getVariables(
         diagnostics
       );
     } else if (
-      /(\)|<<|\])/.test(text) ||
-      /(^|\s+)_method\s+.*[a-zA-Z0-9_?!]$/.test(text)
+      /(\)|<<|\]|^<<)/.test(text) ||
+      /(^|\s+)_method\s+.*[\w!?]$/.test(text)
     ) {
       search = true;
     }

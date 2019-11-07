@@ -9,7 +9,7 @@ async function addSpaceAfterComma(firstRow, lastRow) {
 
   for (let row = firstRow; row < lastRow + 1; row++) {
     const lineText = doc.lineAt(row).text;
-    let text = lineText.split('#')[0];
+    let text = magikUtils.stringBeforeComment(lineText);
     const reg = /(?<!%),(?!( |$))/g;
     let match;
 
@@ -33,8 +33,8 @@ async function removeSpacesAfterMethodName(firstRow, lastRow) {
 
   for (let row = firstRow; row < lastRow + 1; row++) {
     const lineText = doc.lineAt(row).text;
-    let text = lineText.split('#')[0];
-    const reg = /[a-zA-Z0-9_?!]+\.[a-zA-Z0-9_?!]+\s+\(/g;
+    let text = magikUtils.stringBeforeComment(lineText);
+    const reg = /[\w!?]+\.[\w!?]+\s+\(/g;
     let match;
 
       while (match = reg.exec(text)) { // eslint-disable-line
@@ -64,7 +64,7 @@ async function removeSpacesBetweenBrackets(firstRow, lastRow) {
   const doc = editor.document;
 
   for (let row = firstRow; row < lastRow + 1; row++) {
-    let text = doc.lineAt(row).text.split('#')[0];
+    let text = magikUtils.stringBeforeComment(doc.lineAt(row).text);
     let reg = /(?<!%)[([{](?= )/g;
     let match;
 

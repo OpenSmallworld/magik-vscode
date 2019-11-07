@@ -113,11 +113,11 @@ class MagikSymbolProvider {
       const length = mName.length;
       const last = mName[length - 1];
       if (last === ')') {
-        sym._completionName = mName.substr(0, length - 1);
+        sym._completionText = mName.substring(0, length - 1);
       } else if (last === '<') {
-        sym._completionName = `${mName.substr(0, length - 2)} << `;
+        sym._completionText = `${mName.substring(0, length - 2)} << `;
       } else {
-        sym._completionName = mName;
+        sym._completionText = mName;
       }
 
       methodData.symbol = sym;
@@ -245,7 +245,7 @@ class MagikSymbolProvider {
     }
   }
 
-  async getSymbols(query, inherit, max = 500) {
+  async getSymbols(query, inheritOnly, max = 500) {
     await this.loadSymbols();
 
     const queryString = query.replace(' ', '');
@@ -270,13 +270,13 @@ class MagikSymbolProvider {
         classString[classString.length - 1] === '$'
       ) {
         classMatchType = 1;
-        classString = classString.substr(1, classString.length - 2);
+        classString = classString.substring(1, classString.length - 1);
       } else if (classString[0] === '^') {
         classMatchType = 2;
-        classString = classString.substr(1, classString.length - 1);
+        classString = classString.substring(1, classString.length);
       } else if (classString[classString.length - 1] === '$') {
         classMatchType = 3;
-        classString = classString.substr(0, classString.length - 1);
+        classString = classString.substring(0, classString.length - 1);
       }
     }
     if (
@@ -284,13 +284,13 @@ class MagikSymbolProvider {
       methodString[methodString.length - 1] === '$'
     ) {
       methodMatchType = 1;
-      methodString = methodString.substr(1, methodString.length - 2);
+      methodString = methodString.substring(1, methodString.length - 1);
     } else if (methodString[0] === '^') {
       methodMatchType = 2;
-      methodString = methodString.substr(1, methodString.length - 1);
+      methodString = methodString.substring(1, methodString.length);
     } else if (methodString[methodString.length - 1] === '$') {
       methodMatchType = 3;
-      methodString = methodString.substr(0, methodString.length - 1);
+      methodString = methodString.substring(0, methodString.length - 1);
     }
 
     const symbols = [];
@@ -304,7 +304,7 @@ class MagikSymbolProvider {
         !classString ||
         this.matchString(className, classString, classMatchType)
       ) {
-        if (inherit) {
+        if (inheritOnly) {
           this._findSuperMethods(
             className,
             methodString,

@@ -13,33 +13,29 @@ class EndianBuffer {
   readUInt32(offset) {
     if (this.isLittleEndian) {
       return this.buffer.readUInt32LE(offset);
-    } else {
-      return this.buffer.readUInt32BE(offset);
     }
+    return this.buffer.readUInt32BE(offset);
   }
 
   writeUInt32(data, offset) {
     if (this.isLittleEndian) {
       return this.buffer.writeUInt32LE(data, offset);
-    } else {
-      return this.buffer.writeUInt32BE(data, offset);
     }
+    return this.buffer.writeUInt32BE(data, offset);
   }
 
   readDouble(offset) {
     if (this.isLittleEndian) {
       return this.buffer.readDoubleLE(offset);
-    } else {
-      return this.buffer.readDoubleBE(offset);
     }
+    return this.buffer.readDoubleBE(offset);
   }
 
   readFloat(offset) {
     if (this.isLittleEndian) {
       return this.buffer.readFloatLE(offset);
-    } else {
-      return this.buffer.readFloatBE(offset);
     }
+    return this.buffer.readFloatBE(offset);
   }
 
   readString(offset, length) {
