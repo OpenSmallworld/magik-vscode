@@ -365,7 +365,8 @@ _proc @vs_save_symbols()
 					_try
 						m_file << m.source_file
 						_if m_file _isnt _unset _andif
-							m_file.index_of_seq("load_mutated_methods.magik") _is _unset
+							m_file.index_of_seq("load_mutated_methods.magik") _is _unset _andif
+							(c_name _is :sw_component _orif m_file.index_of_seq("sw_component.magik") _is _unset) # component properties
 						_then
 							_if m_file[1] = %/ _orif m_file[1] = %/
 							_then

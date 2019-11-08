@@ -87,7 +87,7 @@
 				},
 				{
 					"name": "storage.type.function.magik",
-					"match": "\\b(_proc|_endproc|_block|_endblock|_lock|_endlock)\\b"
+					"match": "\\b(_proc|_endproc|_block|_endblock|_lock|_endlock|_locking)\\b"
 				},
 				{
 					"name": "storage.modifier.magik",

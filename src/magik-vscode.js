@@ -336,7 +336,7 @@ class MagikVSCode {
     this._sendToTerminal(command);
   }
 
-  _findDefinition(fileName, word) {
+  _findDefinition(fileName, word, kind) {
     const lines = this.getFileLines(fileName);
     const lineCount = lines.length;
     let methodTest;
@@ -354,9 +354,18 @@ class MagikVSCode {
       );
     } else {
       const searchName = word.replace(/\?/g, '\\?');
-      methodTest = new RegExp(
-        `(^|\\s+)_method\\s+.+\\.\\s*${searchName}\\s*($|\\(|<<|\\[|^<<)`
-      );
+      if (kind !== vscode.SymbolKind.Variable) {
+        if (kind) {
+          // Search for exact name if resolving a symbol
+          methodTest = new RegExp(
+            `(^|\\s+)_method\\s+.+\\.\\s*${searchName}\\s*$`
+          );
+        } else {
+          methodTest = new RegExp(
+            `(^|\\s+)_method\\s+.+\\.\\s*${searchName}\\s*($|\\(|<<|\\[|^<<)`
+          );
+        }
+      }
       defineTest = new RegExp(
         `\\.\\s*(define_slot_access|define_shared_constant|def_property|define_property|define_shared_variable|define_slot_externally_readable|define_slot_externally_writable)\\s*\\(\\s*:${searchName}($|[^\\w!?])`
       );
@@ -367,7 +376,7 @@ class MagikVSCode {
 
     for (let row = 0; row < lineCount; row++) {
       let text = lines[row];
-      let index = text.search(methodTest);
+      let index = methodTest ? text.search(methodTest) : -1;
 
       if (defineTest && index === -1) {
         index = text.search(defineTest);
@@ -596,7 +605,11 @@ class MagikVSCode {
 
   resolveWorkspaceSymbol(sym) {
     if (this.resolveSymbols) {
-      const loc = this._findDefinition(sym._fileName, sym._methodName);
+      const loc = this._findDefinition(
+        sym._fileName,
+        sym._methodName,
+        sym.kind
+      );
       if (loc) {
         sym.location = loc;
         return sym;

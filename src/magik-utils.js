@@ -59,6 +59,7 @@ const MAGIK_KEYWORDS = [
   'divmod',
   'lock',
   'endlock',
+  'locking',
   'abstract',
   'private',
   'local',
@@ -572,7 +573,7 @@ function getClassAndMethodName(text) {
 }
 
 function getMethodName(text, name, startIndex) {
-  const searchName = name.replace(/\?/g, '\\\\?');
+  const searchName = name.replace(/\?/g, '\\?');
   const reg = new RegExp(`${searchName}\\s*(\\(|<<|^<<)?`);
   const nameMatch = text.slice(startIndex).match(reg);
   let methodName = name;
