@@ -110,6 +110,15 @@
 		"comments": {
 			"patterns": [
 				{
+					"begin": "##?\\s*((fixme|FIXME|debug|DEBUG|todo|TODO|ToDo)\\s*[:-]?)",
+					"beginCaptures": {
+						"0": {"name": "comment.line.magik"},
+						"1": {"name": "invalid.illegal.magik"}
+					},
+					"end": "\\n",
+					"name": "comment.line.magik"
+				},
+				{
 					"begin": "##",
 					"beginCaptures": {
 							"0": {"name": "comment.block.documentation.magik"}
@@ -161,7 +170,7 @@
 		"methods": {
 			"patterns": [
 				{
-					"match": "(_method)\\s+([A-Za-z0-9_\\!\\?]+)\\s*(?:\\.)\\s*([A-Za-z0-9_\\!\\?]+)",
+					"match": "(_method)\\s+([\\w!?]+)\\s*(?:\\.)\\s*([\\w!?]+)",
 					"captures": {
 							"1": {"name": "storage.type.function.magik"},
 							"2": {"name": "entity.name.type.class.magik"},
@@ -169,7 +178,7 @@
 					}
 				},
 				{
-					"match": "(_method)\\s+([A-Za-z0-9_\\!\\?]+)\\s*(?:\\.)",
+					"match": "(_method)\\s+([\\w!?]+)\\s*(?:\\.)",
 					"captures": {
 							"1": {"name": "storage.type.function.magik"},
 							"2": {"name": "entity.name.type.class.magik"}
@@ -184,7 +193,7 @@
 		"definitions": {
 			"patterns": [
 				{
-					"match": "\\b([A-Za-z0-9_\\!\\?]+)\\s*(?:\\.)\\s*(define_slot_access|define_shared_constant|def_property|define_property|define_shared_variable|define_slot_externally_readable|define_slot_externally_writable)",
+					"match": "\\b([\\w!?]+)\\s*(?:\\.)\\s*(define_slot_access|define_shared_constant|def_property|define_property|define_shared_variable|define_slot_externally_readable|define_slot_externally_writable)",
 					"captures": {
 							"1": {"name": "entity.name.type.class.magik"},
 							"2": {"name": "storage.type.property.magik"}
@@ -205,7 +214,7 @@
 		"proc": {
 			"patterns": [
 				{
-					"match": "(?:\\s*[^#\"A-Za-z0-9_\\!\\?])([A-Za-z0-9\\!\\?]+[A-Za-z0-9_\\!\\?]*)\\s*(?=\\()",
+					"match": "(?:\\s*[^#\"\\w!?])([A-Za-z0-9!?]+[\\w!?]*)\\s*(?=\\()",
 					"captures": {
 							"1": {"name": "entity.name.function.magik"}
 					}
@@ -215,7 +224,7 @@
 		"slot": {
 			"patterns": [
 				{
-					"match": "(?:\\s*[^#\"A-Za-z0-9_\\!\\?])(\\.[A-Za-z0-9_\\!\\?]+)(?=\\s*[^A-Za-z0-9_\\!\\?])",
+					"match": "(?:\\s*[^#\"\\w!?])(\\.[\\w!?]+)(?=\\s*[^\\w!?])",
 					"captures": {
 							"1": {"name": "variable.other.object.property.magik"}
 					}
@@ -225,7 +234,7 @@
 		"symbol": {
 			"patterns": [
 				{
-					"match": "(?:\\s*[^#\"A-Za-z0-9_\\!\\?])((?:\\:[A-Za-z0-9_\\!\\?]*\\|.+\\|)|(?:\\:[A-Za-z0-9_\\!\\?]+))(?=\\s*[^A-Za-z0-9_\\!\\?])",
+					"match": "(?:\\s*[^#\"\\w!?])((?:\\:[\\w!?]*\\|.+\\|)|(?:\\:[\\w!?]+))(?=\\s*[^\\w!?])",
 					"captures": {
 							"1": {"name": "meta.object-literal.key.magik"}
 					}
@@ -235,7 +244,7 @@
 		"method_call": {
 			"patterns": [
 				{
-					"match": "(?:[^\"]\\.)([A-Za-z0-9_\\!\\?]+)\\s*(?=\\()",
+					"match": "(?:[^\"]\\.)([\\w!?]+)\\s*(?=\\()",
 					"captures": {
 							"1": {"name": "entity.name.function.magik"}
 					}
@@ -245,7 +254,7 @@
 		"object": {
 			"patterns": [
 				{
-					"match": "\\b[A-Za-z0-9_\\!\\?]+\\b",
+					"match": "\\b[\\w!?]+\\b",
 					"name": "variable.other.object.magik"
 				}
 			]
