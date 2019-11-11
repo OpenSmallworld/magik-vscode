@@ -110,7 +110,7 @@
 		"comments": {
 			"patterns": [
 				{
-					"begin": "##?\\s*((fixme|FIXME|debug|DEBUG|todo|TODO|ToDo)\\s*[:-]?)",
+					"begin": "##?\\s*(fixme|FIXME|debug|DEBUG|todo|TODO|ToDo)",
 					"beginCaptures": {
 						"0": {"name": "comment.line.magik"},
 						"1": {"name": "invalid.illegal.magik"}
@@ -236,7 +236,7 @@
 				{
 					"match": "(?:\\s*[^#\"\\w!?])((?:\\:[\\w!?]*\\|.+\\|)|(?:\\:[\\w!?]+))(?=\\s*[^\\w!?])",
 					"captures": {
-							"1": {"name": "meta.object-literal.key.magik"}
+							"1": {"name": "string.quoted.other.magik"}
 					}
 				}
 			]
