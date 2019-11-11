@@ -24,7 +24,8 @@ class MagikConfigurationProvider {
 }
 
 class MagikDebugAdapterDescriptorFactory {
-  constructor(symbolProvider) {
+  constructor(magikVSCode, symbolProvider) {
+    this._magikVSCode = magikVSCode;
     this._symbolProvider = symbolProvider;
   }
 
@@ -33,7 +34,11 @@ class MagikDebugAdapterDescriptorFactory {
       // start listening on a random port
       this.server = Net.createServer((socket) => {
         if (!this._debugSession) {
-          this._debugSession = new MagikDebug(vscode, this._symbolProvider);
+          this._debugSession = new MagikDebug(
+            vscode,
+            this._magikVSCode,
+            this._symbolProvider
+          );
           this._debugSession.setRunAsServer(true);
         }
         this._debugSession.start(socket, socket);
@@ -65,7 +70,10 @@ function activate(context) {
     vscode.debug.registerDebugConfigurationProvider('magikDebug', provider)
   );
 
-  const factory = new MagikDebugAdapterDescriptorFactory(symbolProvider);
+  const factory = new MagikDebugAdapterDescriptorFactory(
+    magikVSCode,
+    symbolProvider
+  );
   context.subscriptions.push(
     vscode.debug.registerDebugAdapterDescriptorFactory('magikDebug', factory)
   );

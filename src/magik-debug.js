@@ -6,10 +6,11 @@ const path = require('path');
 const MagikDebuggerConnection = require('./magik-debugger-connection');
 
 class MagikDebugSession extends vscodeDebug.DebugSession {
-  constructor(vscode, symbolProvider) {
+  constructor(vscode, magikVSCode, symbolProvider) {
     super();
 
     this._vscode = vscode;
+    this._magikVSCode = magikVSCode;
     this._symbolProvider = symbolProvider;
 
     const clientURL = vscode.workspace.getConfiguration('magik-vscode')
@@ -282,7 +283,7 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
       }
     }
 
-    const sourceLines = this._vscode.getFileLines(sourcePath);
+    const sourceLines = this._magikVSCode.getFileLines(sourcePath);
 
     if (sourceLines) {
       const conditions = {};
