@@ -6,10 +6,11 @@ const magikUtils = require('./magik-utils');
 async function addSpaceAfterComma(firstRow, lastRow) {
   const editor = vscode.window.activeTextEditor;
   const doc = editor.document;
+  const edit = new vscode.WorkspaceEdit();
 
   for (let row = firstRow; row < lastRow + 1; row++) {
     const lineText = doc.lineAt(row).text;
-    let text = magikUtils.stringBeforeComment(lineText);
+    const text = magikUtils.stringBeforeComment(lineText);
     const reg = /(?<!%),(?!( |$))/g;
     let match;
 
@@ -17,113 +18,170 @@ async function addSpaceAfterComma(firstRow, lastRow) {
       const index = match.index;
 
       if (!magikUtils.withinString(text, index)) {
-        const edit = new vscode.WorkspaceEdit();
         const insertPos = new vscode.Position(row, index + 1);
         edit.insert(doc.uri, insertPos, ' ');
-        await vscode.workspace.applyEdit(edit); // eslint-disable-line
-        text = `${text.substring(0, index + 1)} ${text.substring(index + 1)}`;
       }
     }
+  }
+
+  if (edit.size > 0) {
+    await vscode.workspace.applyEdit(edit);
   }
 }
 
 async function removeSpacesAfterMethodName(firstRow, lastRow) {
   const editor = vscode.window.activeTextEditor;
   const doc = editor.document;
+  const edit = new vscode.WorkspaceEdit();
 
   for (let row = firstRow; row < lastRow + 1; row++) {
     const lineText = doc.lineAt(row).text;
-    let text = magikUtils.stringBeforeComment(lineText);
+    const text = magikUtils.stringBeforeComment(lineText);
     const reg = /[\w!?]+\.[\w!?]+\s+\(/g;
     let match;
 
-      while (match = reg.exec(text)) { // eslint-disable-line
+    while (match = reg.exec(text)) { // eslint-disable-line
       const spaceMatch = /\s+/.exec(match[0]);
       const index = match.index + spaceMatch.index;
 
       if (!magikUtils.withinString(text, index)) {
-        const edit = new vscode.WorkspaceEdit();
+        const spaceMatchLength = spaceMatch[0].length;
         const range = new vscode.Range(
           row,
           index,
           row,
-          index + spaceMatch[0].length
+          index + spaceMatchLength
         );
         edit.delete(doc.uri, range);
-        await vscode.workspace.applyEdit(edit); // eslint-disable-line
-        text = `${text.substring(0, index)}${text.substring(
-          index + spaceMatch[0].length
-        )}`;
       }
     }
+  }
+
+  if (edit.size > 0) {
+    await vscode.workspace.applyEdit(edit);
   }
 }
 
 async function removeSpacesBetweenBrackets(firstRow, lastRow) {
   const editor = vscode.window.activeTextEditor;
   const doc = editor.document;
+  const edit = new vscode.WorkspaceEdit();
 
   for (let row = firstRow; row < lastRow + 1; row++) {
-    let text = magikUtils.stringBeforeComment(doc.lineAt(row).text);
-    let reg = /(?<!%)[([{](?= )/g;
+    const text = magikUtils.stringBeforeComment(doc.lineAt(row).text);
+    let reg = /(?<!%)[([{]\s+/g;
     let match;
 
-      while (match = reg.exec(text)) { // eslint-disable-line
+    while (match = reg.exec(text)) { // eslint-disable-line
       const index = match.index;
 
       if (!magikUtils.withinString(text, index)) {
-        const edit = new vscode.WorkspaceEdit();
-        const range = new vscode.Range(row, index + 1, row, index + 2);
+        const matchLength = match[0].length;
+        const range = new vscode.Range(
+          row,
+          index + 1,
+          row,
+          index + matchLength
+        );
         edit.delete(doc.uri, range);
-        await vscode.workspace.applyEdit(edit); // eslint-disable-line
-        text = text.substring(0, index + 1) + text.substring(index + 2);
       }
     }
 
-    reg = /(?<= )[)\]}]/g;
+    reg = /(?<!$)\s+[)\]}]/g;
 
-      while (match = reg.exec(text)) { // eslint-disable-line
+    while (match = reg.exec(text)) { // eslint-disable-line
       const index = match.index;
 
       if (!magikUtils.withinString(text, index)) {
-        const edit = new vscode.WorkspaceEdit();
-        const range = new vscode.Range(row, index - 1, row, index);
+        const matchLength = match[0].length;
+        const range = new vscode.Range(
+          row,
+          index,
+          row,
+          index + matchLength - 1
+        );
         edit.delete(doc.uri, range);
-        await vscode.workspace.applyEdit(edit); // eslint-disable-line
-        text = text.substring(0, index - 1) + text.substring(index);
       }
     }
+  }
+
+  if (edit.size > 0) {
+    await vscode.workspace.applyEdit(edit);
+  }
+}
+
+async function addSpacesAroundOperators(firstRow, lastRow) {
+  const editor = vscode.window.activeTextEditor;
+  const doc = editor.document;
+  const edit = new vscode.WorkspaceEdit();
+
+  // FIXME negative number
+
+  for (let row = firstRow; row < lastRow + 1; row++) {
+    const lineText = doc.lineAt(row).text;
+    const text = magikUtils.stringBeforeComment(lineText);
+    const firstChar = text.search(/\S/);
+    const lastIndex = text.length;
+    const reg = /(?<!%)( *)(\^<<|\+<<|-?<<|\*?<<|\/?<<|<<|>>|\*\*|>=?|<=?|~=|<>|\+|-|\*|\/)(\s*)/g;
+    let match;
+
+    while (match = reg.exec(text)) { // eslint-disable-line
+      const index = match.index;
+
+      if (!magikUtils.withinString(text, index)) {
+        let insertText;
+        if (firstChar === match.index) {
+          if (match.index + match[0].length === lastIndex) {
+            insertText = match[2];
+          } else {
+            insertText = `${match[2]} `;
+          }
+        } else if (match.index + match[0].length === lastIndex) {
+          insertText = ` ${match[2]}`;
+        } else {
+          insertText = ` ${match[2]} `;
+        }
+
+        if (insertText !== match[0]) {
+          const matchLength = match[0].length;
+          const range = new vscode.Range(row, index, row, index + matchLength);
+          edit.replace(doc.uri, range, insertText);
+        }
+      }
+    }
+  }
+
+  if (edit.size > 0) {
+    await vscode.workspace.applyEdit(edit);
   }
 }
 
 async function addNewlineAfterDollar(firstRow, lastRow) {
   const editor = vscode.window.activeTextEditor;
   const doc = editor.document;
-  let last = lastRow;
   let row = firstRow;
 
-  while (row < last) {
+  const edit = new vscode.WorkspaceEdit();
+
+  while (row < lastRow) {
     const lineText = doc.lineAt(row).text;
 
     if (lineText[0] === '$') {
       const nextLineText = doc.lineAt(row + 1).text;
 
       if (nextLineText.trim() !== '') {
-        const edit = new vscode.WorkspaceEdit();
         const insertPos = new vscode.Position(row + 1, 0);
         edit.insert(doc.uri, insertPos, '\n');
-        await vscode.workspace.applyEdit(edit); // eslint-disable-line
-        last++;
       }
-
-      row += 2;
-    } else {
-      row++;
     }
+
+    row++;
+  }
+
+  if (edit.size > 0) {
+    await vscode.workspace.applyEdit(edit);
   }
 }
-
-// TODO add space around << and operators
 
 // TODO format comment blocks
 
@@ -181,6 +239,7 @@ module.exports = {
   addSpaceAfterComma,
   removeSpacesAfterMethodName,
   removeSpacesBetweenBrackets,
+  addSpacesAroundOperators,
   addNewlineAfterDollar,
   wrapComment,
 };

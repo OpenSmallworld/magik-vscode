@@ -94,15 +94,13 @@ class MagikLinter {
     );
 
     vscode.workspace.onDidOpenTextDocument(async (doc) => {
-      const ext = doc.uri.fsPath.split('.').slice(-1)[0];
-      if (ext === 'magik') {
+      if (doc.languageId === 'magik') {
         await this._checkMagik(doc);
       }
     });
 
     vscode.workspace.onDidSaveTextDocument(async (doc) => {
-      const ext = doc.uri.fsPath.split('.').slice(-1)[0];
-      if (ext === 'magik') {
+      if (doc.languageId === 'magik') {
         await this._checkMagik(doc);
       }
     });
@@ -326,6 +324,8 @@ class MagikLinter {
     let indent = 0;
     let tempIndent = false;
 
+    const edit = new vscode.WorkspaceEdit();
+
     for (let row = 0; row < lines.length; row++) {
       const text = lines[row];
       const textLength = text.length;
@@ -354,7 +354,6 @@ class MagikLinter {
         indentText !== text.slice(0, start) &&
         (!currentRow || firstRow + row === currentRow)
       ) {
-        const edit = new vscode.WorkspaceEdit();
         const range = new vscode.Range(
           firstRow + row,
           0,
@@ -362,7 +361,6 @@ class MagikLinter {
           start
         );
         edit.replace(doc.uri, range, indentText);
-        await vscode.workspace.applyEdit(edit); // eslint-disable-line
       }
 
       if (firstRow + row === currentRow) return;
@@ -488,6 +486,10 @@ class MagikLinter {
       }
     }
 
+    if (edit.size > 0) {
+      await vscode.workspace.applyEdit(edit);
+    }
+
     return lineIndents;
   }
 
@@ -515,6 +517,7 @@ class MagikLinter {
       await magikFormat.removeSpacesBetweenBrackets(firstRow, lastRow);
       await magikFormat.removeSpacesAfterMethodName(firstRow, lastRow);
       await magikFormat.addSpaceAfterComma(firstRow, lastRow);
+      await magikFormat.addSpacesAroundOperators(firstRow, lastRow);
     }
   }
 
@@ -537,6 +540,7 @@ class MagikLinter {
     await magikFormat.removeSpacesBetweenBrackets(0, lastRow);
     await magikFormat.removeSpacesAfterMethodName(0, lastRow);
     await magikFormat.addSpaceAfterComma(0, lastRow);
+    await magikFormat.addSpacesAroundOperators(0, lastRow);
     await magikFormat.addNewlineAfterDollar(0, lastRow);
   }
 
