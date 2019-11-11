@@ -225,6 +225,13 @@ https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 
 ## Release Notes
 
+### 0.0.7
+
+* Improved auto completion for methods to include variable and comment help.
+* Improved formatting of Magik files.
+* Fixed some issues with Magik Goto.
+* Outline view can now show definitions defined over multiple lines.
+
 ### 0.0.6
 
 * Added Magik Debug session
