@@ -277,16 +277,26 @@ function nextWordInFile(fileLines, line, col, searchNextLine) {
   }
 }
 
-function currentClassName(doc, pos) {
+function currentClassName(doc, currentLine, startLine) {
   const methodReg = /(^|\s+)_method\s+([\w!?]+)\s*\./;
   const exemplarReg = /(^|\s*)def_slotted_exemplar\s*\(/;
+  const defineReg = /(^|\s*)([\w!?]+)\s*\.\s*(define_|def_)\w+\s*\(/;
 
-  for (let row = pos.line; row > -1; row--) {
+  if (!startLine) {
+    startLine = 0;
+  }
+
+  for (let row = currentLine; row > startLine - 1; row--) {
     const testString = doc.lineAt(row).text;
     const methodMatch = methodReg.exec(testString);
 
     if (methodMatch) {
       return methodMatch[2];
+    }
+
+    const defineMatch = defineReg.exec(testString);
+    if (defineMatch) {
+      return defineMatch[2];
     }
 
     if (exemplarReg.test(testString)) {
@@ -295,6 +305,39 @@ function currentClassName(doc, pos) {
       return nextWord(doc, newPos).word;
     }
   }
+}
+
+function allClassNames(doc) {
+  const classNames = new Set();
+  const methodReg = /(^|\s+)_method\s+([\w!?]+)\s*\./;
+  const exemplarReg = /(^|\s*)def_slotted_exemplar\s*\(/;
+  const defineReg = /(^|\s*)([\w!?]+)\s*\.\s*(define_|def_)\w+\s*\(/;
+  const lineCount = doc.lineCount;
+
+  for (let row = 0; row < lineCount; row++) {
+    const testString = doc.lineAt(row).text;
+    const methodMatch = methodReg.exec(testString);
+
+    if (methodMatch) {
+      classNames.add(methodMatch[2]);
+    } else {
+      const defineMatch = defineReg.exec(testString);
+
+      if (defineMatch) {
+        classNames.add(defineMatch[2]);
+      } else if (exemplarReg.test(testString)) {
+        const col = testString.indexOf('def_slotted_exemplar') + 20;
+        const newPos = new vscode.Position(row, col);
+        const className = nextWord(doc, newPos).word;
+
+        if (className) {
+          classNames.add(className);
+        }
+      }
+    }
+  }
+
+  return Array.from(classNames);
 }
 
 function currentRegion(methodOnly, startLine) {
@@ -713,6 +756,7 @@ module.exports = {
   nextWord,
   nextWordInFile,
   currentClassName,
+  allClassNames,
   currentRegion,
   indentRegion,
   removeStrings,

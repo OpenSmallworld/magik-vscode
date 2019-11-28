@@ -115,26 +115,55 @@ class MagikVSCode {
     this._sendToTerminal('vs_load()');
   }
 
-  _compileFile() {
+  async _compileFile() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
 
     const doc = editor.document;
     const {fileName} = doc;
+    const classNames = magikUtils.allClassNames(doc);
+    let classNamesStr;
+
+    if (classNames.length > 0) {
+      await this.symbolProvider.loadSymbols();
+
+      for (const className of classNames) {
+        if (classNamesStr) {
+          classNamesStr += `, :${className}`;
+        } else {
+          classNamesStr = `:${className}`;
+        }
+      }
+    }
 
     if (doc.isDirty) {
       const lines = this.getDocLines(doc);
 
       lines.unshift(`# Output:Loading file '${fileName}'...`);
+
+      if (classNames.length > 0) {
+        lines.push('_block');
+
+        lines.push(`vs_save_symbols({${classNamesStr}})`);
+        lines.push('_endblock');
+        lines.push('$');
+      }
+
       this._compileText(lines);
     } else if (path.extname(fileName) === '.magik') {
-      const command = `load_file("${fileName}")`;
+      let command;
+
+      if (classNames.length > 0) {
+        command = `load_file("${fileName}"); vs_save_symbols({${classNamesStr}})`;
+      } else {
+        command = `load_file("${fileName}")`;
+      }
 
       this._sendToTerminal(command);
     }
   }
 
-  _loadModule() {
+  async _loadModule() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
 
@@ -142,15 +171,17 @@ class MagikVSCode {
     const {fileName} = doc;
 
     if (path.extname(fileName) === '.magik') {
+      await this.symbolProvider.loadSymbols();
+
       const name = path.basename(fileName, '.magik');
       const searchPath = path.dirname(fileName);
-      const command = `load_file_name("${name}", "${searchPath}", _true)`;
+      const command = `load_file_name("${name}", "${searchPath}", _true); vs_save_symbols()`;
 
       this._sendToTerminal(command);
     }
   }
 
-  _compileSelection() {
+  async _compileSelection() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
 
@@ -162,6 +193,12 @@ class MagikVSCode {
         new vscode.Range(selection.start, selection.end)
       );
       const packageName = magikUtils.getPackageName(doc);
+      const className = magikUtils.currentClassName(
+        doc,
+        selection.end.line,
+        selection.start.line
+      );
+
       const lines = [
         '#% text_encoding = iso8859_1',
         `_package ${packageName}`,
@@ -169,11 +206,21 @@ class MagikVSCode {
         '# Output:Loading selection...',
       ];
       lines.push(text);
+
+      if (className) {
+        await this.symbolProvider.loadSymbols();
+
+        lines.push('_block');
+        lines.push(`vs_save_symbols({:${className}})`);
+        lines.push('_endblock');
+        lines.push('$');
+      }
+
       this._compileText(lines);
     }
   }
 
-  _compileMethod() {
+  async _compileMethod() {
     const lines = magikUtils.currentRegion(true).lines;
     if (!lines) {
       return this._compileRegion();
@@ -208,8 +255,10 @@ class MagikVSCode {
     lines.unshift('#% text_encoding = iso8859_1');
     lines.push('$');
 
-    // Set source file
+    // Set source file and save class symbols
     if (methodName) {
+      await this.symbolProvider.loadSymbols();
+
       lines.push('_block');
       lines.push(`_local meth << ${className}.method(:|${methodName}|)`);
       lines.push(
@@ -217,6 +266,7 @@ class MagikVSCode {
           doc.fileName
         }" _endif`
       );
+      lines.push(`vs_save_symbols({:${className}})`);
       lines.push('_endblock');
       lines.push('$');
     }
@@ -224,7 +274,7 @@ class MagikVSCode {
     this._compileText(lines);
   }
 
-  _compileRegion() {
+  async _compileRegion() {
     const region = magikUtils.currentRegion(false);
     const lines = region.lines;
     if (!lines) return;
@@ -233,6 +283,11 @@ class MagikVSCode {
     const doc = editor.document;
     const fileName = path.basename(doc.fileName);
     const packageName = magikUtils.getPackageName(doc);
+    const className = magikUtils.currentClassName(
+      doc,
+      region.lastRow,
+      region.firstRow
+    );
 
     lines.unshift(
       `# Output:Loading ${fileName}:${region.firstRow + 1}-${region.lastRow +
@@ -242,6 +297,15 @@ class MagikVSCode {
     lines.unshift(`_package ${packageName}`);
     lines.unshift('#% text_encoding = iso8859_1');
     lines.push('$');
+
+    if (className) {
+      await this.symbolProvider.loadSymbols();
+
+      lines.push('_block');
+      lines.push(`vs_save_symbols({:${className}})`);
+      lines.push('_endblock');
+      lines.push('$');
+    }
 
     this._compileText(lines);
   }
@@ -444,7 +508,7 @@ class MagikVSCode {
       const pos = new vscode.Position(row, index + 1);
       const nextResult = magikUtils.nextWord(doc, pos, true);
       if (nextResult.word) {
-        className = magikUtils.currentClassName(doc, pos);
+        className = magikUtils.currentClassName(doc, pos.line);
         methodName = nextResult.word;
         row = nextResult.row;
         text = doc.lineAt(row).text;
@@ -623,7 +687,7 @@ class MagikVSCode {
     let className;
 
     if (['_self', '_super', '_clone'].includes(previousWord)) {
-      className = magikUtils.currentClassName(doc, pos);
+      className = magikUtils.currentClassName(doc, pos.line);
     } else if (this.symbolProvider.classData[previousWord]) {
       className = previousWord;
     } else {

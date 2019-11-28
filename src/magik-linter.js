@@ -363,7 +363,7 @@ class MagikLinter {
         edit.replace(doc.uri, range, indentText);
       }
 
-      if (firstRow + row === currentRow) return;
+      if (firstRow + row === currentRow) break;
 
       if (NO_CODE.test(testString)) {
         if (arrowAssignRows.length > 0) {

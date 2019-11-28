@@ -243,177 +243,246 @@ $
 _pragma(classify_level=debug)
 ## Save methods names to file to load as symbols in VS Code.
 _global _constant vs_save_symbols <<
-_proc @vs_save_symbols()
-	_global slot_access_method_name
+	_proc @vs_save_symbols(_optional class_names)
+		_global slot_access_method_name
 
-	temp_dir << _if system.os_name _is :windows
+		temp_dir << _if system.os_name _is :windows
+			_then
+				>> system.getenv("TEMP")
+			_else
+				>> "/tmp"
+			_endif
+		output_name << system.pathname_down(temp_dir, "vscode_symbols.txt")
+		temp_output_name << system.pathname_down(temp_dir, "vscode_symbols_temp.txt")
+
+		_if class_names _isnt _unset _andif
+			system.file_exists?(output_name)
 		_then
-			>> system.getenv("TEMP")
-		_else
-			>> "/tmp"
-		_endif
-	output_name << system.pathname_down(temp_dir, "vscode_symbols.txt")
-	temp_output_name << system.pathname_down(temp_dir, "vscode_symbols_temp.txt")
-
-	_try
-		system.unlink(output_name)
-		system.unlink(temp_output_name)
-	_when error
-	_endtry
-
-	slot_mt << slot_access_method_name.method_table
-	serial_prefix << sw_canvas_container.serialisation_thread_name
-	serial_prefix_n << serial_prefix.size + 1
-
-	_local get_source_file << _proc @get_source_file(mt)
-
-		source_file << mt.source_file
-
-		_if source_file _is _unset
-		_then
-			# Try the most common local method source file
-			methods << equality_hash_table.new()
-			_for m _over mt.local_methods()
+			a_set << set.new()
+			_for c_name _over class_names.fast_elements()
 			_loop
-				_if _not m.slot_accessor?
-				_then
-					_try
-						source_file << m.source_file
-						n << methods[ source_file ].default(0)
-						methods[ source_file ] << n + 1
-					_when error
-					_endtry
-				_endif
+				a_set.add(c_name.as_symbol())
 			_endloop
-			max << 0
-			_for f, total _over methods.fast_keys_and_elements()
-			_loop
-				_if total > max
-				_then
-					source_file << f
-					max << total
-				_endif
-			_endloop
-		_endif
+			class_names << a_set
 
-		_if source_file _isnt _unset
-		_then
-			_if source_file[1] = %/ _orif source_file[1] = %\
-			_then
-				a_path << write_string("C:", source_file)
-				_if system.file_exists?(a_path)
-				_then
-					source_file << a_path
-				_endif
-			_endif
-		_else
-			source_file << ""
-		_endif
-
-		_return source_file
-	_endproc
-
-	done << set.new()
-
-	output << _unset
-	_protect
-		output << external_text_output_stream.new(temp_output_name)
-
-		_for g _over package.all_globals()
-		_loop
-			val << g.value
-
-			_if val _is _unset _orif
-				val.class_name _is :procedure
-			_then
-				output.write("glob:", g.key, newline_char)
-				_continue
-			_endif
-
-			mt << val.define_method_target
-			c_name << mt.meta_at(:class_name)
-			_if done.includes?( c_name )
-			_then
-				_continue
-			_endif
-			done.add( c_name )
-
-			source_file << get_source_file(mt)
-			methods_str << internal_text_output_stream.new()
-
-			_for m _over mt.local_methods(_true)
-			_loop
-				m_name << m.name
-				_if m_name _is :exemplar _orif
-					m_name.method_table _is slot_mt _orif
-					m_name.an_element() _is %$
-				_then
-					_continue
-				_endif
-
-				_if m_name.index_of_seq( serial_prefix ) _is 1 _andif
-					m_name.index_of( %!, serial_prefix_n ) _isnt _unset
-				_then
-					_continue
-				_endif
-
-				_if m.slot_accessor?
-				_then
-					methods_str.write(m_name, ",1,;")
-				_else
-					m_source_file << source_file
-					_try
-						m_file << m.source_file
-						_if m_file _isnt _unset _andif
-							m_file.index_of_seq("load_mutated_methods.magik") _is _unset _andif
-							(c_name _is :sw_component _orif m_file.index_of_seq("sw_component.magik") _is _unset) # component properties
-						_then
-							_if m_file[1] = %/ _orif m_file[1] = %/
-							_then
-								a_file << write_string("C:", m_file)
-								_if system.file_exists?(a_file)
-								_then
-									m_file << a_file
-								_endif
-							_endif
-							m_source_file << m_file
-						_endif
-					_when error
-					_endtry
-					_if m_source_file <> source_file
+			update? << _unset
+			_protect
+				input << external_text_input_stream.new(output_name)
+				_loop
+					_if (a_line << input.get_line()) _is _unset
 					_then
-						methods_str.write(m_name, ",,", m_source_file, ";")
-					_else
-						methods_str.write(m_name, ",,;")
+						_leave
 					_endif
-				_endif
-			_endloop
-
-			parents_str << internal_text_output_stream.new()
-			_for parent_mt _over mt.parents()
-			_loop
-				parents_str.write(parent_mt.meta_at(:class_name), ";")
-			_endloop
-
-			str << write_string(c_name, "|", source_file, "|", parents_str.string, "|", methods_str.string)
-			output.write(str, newline_char)
-		_endloop
-
-		# Add conditions
-		_for key _over condition.sys!perform(:template_map).fast_keys()
-		_loop
-			output.write("cond:", key, newline_char)
-		_endloop
-
-	_protection
-		_if output _isnt _unset
-		_then
-			output.close()
-			system.rename(temp_output_name, output_name)
+					_if update? _is _unset
+					_then
+						update? << a_line.index_of_seq("update:") _is 1
+					_elif update?
+					_then
+						# Previous symbol file was an update -> append these classes to new update
+						class_name << a_line.split_by("|")[1].as_symbol()
+						class_names.add(class_name)
+					_endif
+				_endloop
+			_protection
+				input.close()
+			_endprotect
+			_if update? _isnt _true
+			_then
+				# Previous symbol file was not an update -> save all methods
+				class_names << _unset
+			_endif
 		_endif
-	_endprotect
 
-_endproc
+		_try
+			system.unlink(output_name)
+			system.unlink(temp_output_name)
+		_when error
+		_endtry
+
+		_local slot_mt << slot_access_method_name.method_table
+		_local serial_prefix << sw_canvas_container.serialisation_thread_name
+		_local serial_prefix_n << serial_prefix.size + 1
+
+		_local get_source_file << _proc @get_source_file(mt)
+
+				source_file << mt.source_file
+
+				_if source_file _is _unset
+				_then
+					# Try the most common local method source file
+					methods << equality_hash_table.new()
+					_for m _over mt.local_methods()
+					_loop
+						_if _not m.slot_accessor?
+						_then
+							_try
+								source_file << m.source_file
+								n << methods[ source_file ].default(0)
+								methods[ source_file ] << n + 1
+							_when error
+							_endtry
+						_endif
+					_endloop
+					max << 0
+					_for f, total _over methods.fast_keys_and_elements()
+					_loop
+						_if total > max
+						_then
+							source_file << f
+							max << total
+						_endif
+					_endloop
+				_endif
+
+				_if source_file _isnt _unset
+				_then
+					_if source_file[1] = %/ _orif source_file[1] = %\
+					_then
+						a_path << write_string("C:", source_file)
+						_if system.file_exists?(a_path)
+						_then
+							source_file << a_path
+						_endif
+					_endif
+				_else
+					source_file << ""
+				_endif
+
+				_return source_file
+			_endproc
+
+		_local output_class << _proc @output_class(mt, c_name, output)
+				_import get_source_file
+				_import slot_mt
+				_import serial_prefix
+				_import serial_prefix_n
+
+				source_file << get_source_file(mt)
+				methods_str << internal_text_output_stream.new()
+
+				_for m _over mt.local_methods(_true)
+				_loop
+					m_name << m.name
+					_if m_name _is :exemplar _orif
+						m_name.method_table _is slot_mt _orif
+						m_name.an_element() _is %$
+					_then
+						_continue
+					_endif
+
+					_if m_name.index_of_seq( serial_prefix ) _is 1 _andif
+						m_name.index_of( %!, serial_prefix_n ) _isnt _unset
+					_then
+						_continue
+					_endif
+
+					_if m.slot_accessor?
+					_then
+						methods_str.write(m_name, ",1,;")
+					_else
+						m_source_file << source_file
+						_try
+							m_file << m.source_file
+							_if m_file _isnt _unset _andif
+								m_file.index_of_seq("load_mutated_methods.magik") _is _unset _andif
+								(c_name _is :sw_component _orif m_file.index_of_seq("sw_component.magik") _is _unset) # component properties
+							_then
+								_if m_file[1] = %/ _orif m_file[1] = %/
+									_then
+									a_file << write_string("C:", m_file)
+									_if system.file_exists?(a_file)
+									_then
+										m_file << a_file
+									_endif
+								_endif
+								m_source_file << m_file
+							_endif
+						_when error
+						_endtry
+						_if m_source_file <> source_file
+						_then
+							methods_str.write(m_name, ",,", m_source_file, ";")
+						_else
+							methods_str.write(m_name, ",,;")
+						_endif
+					_endif
+				_endloop
+
+				parents_str << internal_text_output_stream.new()
+				_for parent_mt _over mt.parents()
+				_loop
+					parents_str.write(parent_mt.meta_at(:class_name), ";")
+				_endloop
+
+				str << write_string(c_name, "|", source_file, "|", parents_str.string, "|", methods_str.string)
+				output.write(str, newline_char)
+			_endproc
+
+		done << set.new()
+
+		output << _unset
+		_protect
+			output << external_text_output_stream.new(temp_output_name)
+
+			_if class_names _isnt _unset
+			_then
+				output.write("update:", newline_char)
+
+				_for c_name _over class_names.fast_elements()
+				_loop
+					key << c_name.as_symbol()
+					a_class << _for a_package _over package.all_packages.fast_elements()
+						_loop
+							_if (val << a_package[key]) _isnt _unset
+							_then
+								_leave _with val
+							_endif
+						_endloop
+					_if a_class _isnt _unset
+					_then
+						mt << a_class.define_method_target
+						output_class(mt, key, output)
+					_endif
+				_endloop
+			_else
+				_for g _over package.all_globals()
+				_loop
+					val << g.value
+
+					_if val _is _unset _orif
+						val.class_name _is :procedure
+					_then
+						output.write("glob:", g.key, newline_char)
+						_continue
+					_endif
+
+					mt << val.define_method_target
+					c_name << mt.meta_at(:class_name)
+					_if done.includes?( c_name )
+					_then
+						_continue
+					_endif
+					done.add( c_name )
+
+					output_class(mt, c_name, output)
+				_endloop
+
+				# Add conditions
+				_for key _over condition.sys!perform(:template_map).fast_keys()
+				_loop
+					output.write("cond:", key, newline_char)
+				_endloop
+			_endif
+
+		_protection
+			_if output _isnt _unset
+			_then
+				output.close()
+				system.rename(temp_output_name, output_name)
+			_endif
+		_endprotect
+
+	_endproc
 $
 
 

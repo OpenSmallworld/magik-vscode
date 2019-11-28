@@ -42,13 +42,19 @@ class MagikSymbolProvider {
     const input = fs.createReadStream(symbolFile);
     const rl = readline.createInterface({input});
 
-    this.classData = {};
+    const newClassData = {};
+    let update = false;
+
     this.globals = [...DEFAULT_GLOBALS];
 
     rl.on('line', (line) => {
       if (line.startsWith('glob:') || line.startsWith('cond:')) {
         const globalName = line.split(':')[1];
         this.globals.push(globalName);
+        return;
+      }
+      if (line.startsWith('update:')) {
+        update = true;
         return;
       }
       const parts = line.split('|');
@@ -72,7 +78,7 @@ class MagikSymbolProvider {
         methods.push(methodData);
       }
 
-      this.classData[className] = {
+      newClassData[className] = {
         sourceFile: classSourceFile,
         parents,
         methods,
@@ -84,13 +90,18 @@ class MagikSymbolProvider {
       done = true;
     });
 
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 100; i++) {
+      await this._wait(20); //eslint-disable-line
       if (done) {
+        if (update) {
+          this.classData = {...this.classData, ...newClassData};
+        } else {
+          this.classData = newClassData;
+        }
         this.classNames = Object.keys(this.classData);
         fs.unlinkSync(symbolFile);
         return;
       }
-          await this._wait(50); //eslint-disable-line
     }
   }
 

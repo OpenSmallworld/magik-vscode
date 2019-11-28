@@ -62,7 +62,10 @@ Adds the following features to VS Code:
 
 You can search for Magik methods using **Ctrl+T** and typing `<method name>` or `<class name>`.`<method name>`.<br>
 The search supports ^ and $ for starts and ends with.<br>
-Use **Alt+T** to refresh symbols after compiling code.
+e.g. `add_comp` or `map_.goto_` or `^gui_frame.^activ`<br><br>
+Use **Alt+T** to refresh symbols after compiling code (when not using VS Code Magik commands).<br>
+Symbols are refreshed after using **F7**, **Ctrl+F7** etc.
+
 
 ### **Magik Linting**
 
@@ -209,8 +212,8 @@ I would recommend using these other extensions:
 
 ## Known Issues
 
-* Magik symbols (to support searching for methods) are not loaded automatically after compiling code - use **Alt+T** to refresh symbols.
-* No highlighting or formatting at the Magik prompt - I suggest creating a temp magik file for writing Magik (**Alt+N**).
+* Magik symbols (to support searching for methods) are not loaded automatically after compiling code when not using VS Code Magik commands - use **Alt+T** to refresh symbols.
+* No highlighting or formatting at the Magik prompt - I suggest creating a temp magik file for writing Magik (**Alt+N**) and compile using **F7** or **F8**.
 * Linting only available inside methods.
 * No status feedback when stepping in debug session.
 * The debugger can get stuck and hang the session. Sometimes pressing Pause on the thread allows you to regain control.<br>
@@ -231,6 +234,7 @@ https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 * Improved formatting of Magik files.
 * Fixed some issues with Magik Goto.
 * Outline view can now show definitions defined over multiple lines.
+* Symbols for method search are refreshed when compiling code using F7, Ctrl+F7 etc.
 
 ### 0.0.6
 
