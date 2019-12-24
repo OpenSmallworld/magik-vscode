@@ -315,7 +315,7 @@ function getVariables(
   globals,
   diagnostics
 ) {
-  const assignedVars = magikUtils.getMethodParams(lines, firstRow);
+  const assignedVars = magikUtils.getMethodParams(lines, firstRow, true);
   const end = lines.length - 1;
   let search = false;
 

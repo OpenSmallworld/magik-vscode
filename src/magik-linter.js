@@ -73,8 +73,6 @@ const INDENT_INC_STATEMENT_WORDS = [
   '_block',
   '_lock',
 ];
-const INC_BRACKETS = /(?<!%)[({]/g;
-const DEC_BRACKETS = /(?<!%)[)}]/g;
 const NO_CODE = /^\s*(#|$)/;
 const START_PROC = /(?<=(^|[^\w!?]))_proc\s*[@\w!?]*\s*\(/;
 const DEC_STATEMENT = /(?<=\S(\s+|\s*;))(_endproc|_endif$)/;
@@ -475,11 +473,11 @@ class MagikLinter {
         // Remove strings before counting brackets
         const noStrings = magikUtils.removeStrings(testString);
 
-        matches = noStrings.match(INC_BRACKETS);
+        matches = noStrings.match(magikUtils.INC_BRACKETS);
         if (matches) {
           indent += matches.length;
         }
-        matches = noStrings.match(DEC_BRACKETS);
+        matches = noStrings.match(magikUtils.DEC_BRACKETS);
         if (matches) {
           indent -= matches.length;
         }
@@ -643,6 +641,24 @@ class MagikLinter {
     return symbols.length > 0;
   }
 
+  async _getMethodParamString(methodName, className, inherit) {
+    this.magikVSCode.resolveSymbols = false;
+    const symbols = await this.magikVSCode.provideWorkspaceSymbols(
+      `^${className}$.^${methodName}$`,
+      inherit
+    );
+    this.magikVSCode.resolveSymbols = true;
+
+    if (symbols.length === 1) {
+      const sym = symbols[0];
+      this.magikVSCode.resolveSymbolCompletion(sym);
+      const help = sym._help;
+      if (help) {
+        return help.signatures[0]._paramString;
+      }
+    }
+  }
+
   // Simple check for method call typos
   async _checkMethodCalls(
     lines,
@@ -726,6 +742,76 @@ class MagikLinter {
               vscode.DiagnosticSeverity.Error
             );
             diagnostics.push(d);
+          } else if (className && methodName.indexOf('(') !== -1) {
+            const paramString = await this._getMethodParamString(methodName, className, inherit); // eslint-disable-line
+
+            if (paramString && paramString !== '') {
+              // console.log(methodName, className, `'${paramString}'`);
+              const args = magikUtils.findArgs(
+                lines,
+                firstRow,
+                i,
+                index + name.length + 1
+              );
+              // console.log(args);
+              // console.log(' ');
+
+              if (args) {
+                let gatherIndex = paramString.indexOf('_gather');
+                let optionalIndex = paramString.indexOf('_optional');
+                const exactNumber = gatherIndex === -1 && optionalIndex === -1;
+                const optionalNoGather =
+                  optionalIndex !== -1 && gatherIndex === -1;
+
+                if (gatherIndex === -1) {
+                  gatherIndex = paramString.length;
+                }
+                if (optionalIndex === -1) {
+                  optionalIndex = paramString.length;
+                }
+
+                const totalParams = paramString.split(',').length;
+                const params = paramString
+                  .substring(0, Math.min(gatherIndex, optionalIndex))
+                  .split(',');
+                const minString = params.slice(-1)[0].trim();
+                if (minString === '' || minString === ',') {
+                  params.pop();
+                }
+                const minParams = params.length;
+                const actualParams = args.length;
+
+                // console.log(
+                //   minParams,
+                //   actualParams,
+                //   exactNumber,
+                //   optionalNoGather
+                // );
+
+                if (
+                  actualParams < minParams ||
+                  (exactNumber && actualParams !== minParams) ||
+                  (optionalNoGather && actualParams > totalParams)
+                ) {
+                  const range = new vscode.Range(
+                    row,
+                    index,
+                    row,
+                    index + name.length
+                  );
+                  const msg =
+                    actualParams > minParams
+                      ? `Too many arguments for method '${className}.${methodName}'.`
+                      : `Insufficient arguments for method '${className}.${methodName}'.`;
+                  const d = new vscode.Diagnostic(
+                    range,
+                    msg,
+                    vscode.DiagnosticSeverity.Error
+                  );
+                  diagnostics.push(d);
+                }
+              }
+            }
           }
         }
 

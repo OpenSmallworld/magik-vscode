@@ -898,7 +898,7 @@ class MagikVSCode {
     return magikFiles;
   }
 
-  _resolveSymbolCompletion(sym) {
+  resolveSymbolCompletion(sym) {
     if (!sym._completionDocumentation) {
       this.resolveWorkspaceSymbol(sym);
       if (sym.location.range) {
@@ -971,7 +971,7 @@ class MagikVSCode {
       item.detail = sym.name;
 
       if (docCount < 30) {
-        this._resolveSymbolCompletion(sym);
+        this.resolveSymbolCompletion(sym);
         const documentation = sym._completionDocumentation;
         if (documentation) {
           item.detail = sym._completionName;
@@ -1172,7 +1172,7 @@ class MagikVSCode {
         lines.push(fileLines[row]);
       }
 
-      const methodParams = magikUtils.getMethodParams(lines, 0);
+      const methodParams = magikUtils.getMethodParams(lines, 0, false);
       const params = [];
       const paramNames = [];
       let paramString = '';
@@ -1215,6 +1215,7 @@ class MagikVSCode {
       const info = new vscode.SignatureInformation(name, commentData.comment);
 
       info.parameters = params;
+      info._paramString = paramString;
 
       help = new vscode.SignatureHelp();
       help.signatures = [info];
