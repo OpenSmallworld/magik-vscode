@@ -641,7 +641,7 @@ function _findParams(lines, startLine, startRow, startRowIndex, params) {
   let optional = false;
   let gather = false;
 
-  // console.log('PARAMS')
+  // console.log('PARAMS');
 
   for (let i = startRow; i < end; i++) {
     const row = startLine + i;
@@ -715,217 +715,99 @@ function getMethodParams(lines, startLine, procs) {
   return params;
 }
 
-// TODO - sort this mess out
-// TODO - currently there are some cases where the arg string is not a perfect match
-// Only used to match the number of args at the moment!
+function _bracketCount(testString) {
+  let count = 0;
+  let cIndex = 0;
+  let lastChar;
+
+  for (const c of testString) {
+    if (lastChar !== '%') {
+      if ((c === '(' || c === '{') && !withinString(testString, cIndex)) {
+        count++;
+      } else if (
+        (c === ')' || c === '}') &&
+        !withinString(testString, cIndex)
+      ) {
+        count--;
+      }
+    }
+    lastChar = c;
+    cIndex++;
+  }
+
+  return count;
+}
+
 function findArgs(lines, startLine, startRow, startRowIndex) {
-  const args = [];
-  // const argTest = /(\S+)\s*($|\)|,)/g;
-  const argTest = /([^\s,]+)\s*($|\)|,)/g;
-  const keywordPairs = {
-    _proc: '_endproc',
-    _if: '_endif',
-    _for: '_endloop',
-    _while: '_endloop',
-    _loop: '_endloop',
-  };
   const end = lines.length;
-  let tempString = '';
-  let methodCall = false;
-  let argRow;
-  let argIndex;
+  let argString = '';
+  let lastChar;
+  let bracketCount = 1;
 
+  // Gather complete argment string - find closing bracket
   for (let i = startRow; i < end; i++) {
-    const row = startLine + i;
     const text = stringBeforeComment(lines[i]);
-    const startIndex = i === startRow ? startRowIndex : 0;
-    const testString = text.substring(startIndex);
-    let searchIndex = startIndex;
-    let lastIndex = 0;
-    let match;
+    const testString =
+      i === startRow ? text.substring(startRowIndex) : ` ${text.trimLeft()}`;
 
-    if (i === startRow) {
-      if (testString.startsWith(')')) {
-        return args;
-      }
-      if (/^\s*_scatter/.test(testString)) {
-        return;
-      }
-    }
-
-    // console.log('TEST', row, startIndex, testString);
-
-    if (
-      methodCall &&
-      /,?\s*(_proc\s*@?[\w!?]*\s*\(|_if |_for |_while|_loop)/.test(testString)
-    ) {
-      // TODO
-      // Abort - it's getting complicated
-      return;
-    }
-
-    while (match = argTest.exec(testString)) { // eslint-disable-line
-      let argString;
-
-      if (tempString === '') {
-        const preString = match.input
-          .substring(lastIndex, match.index)
-          .trimLeft();
-
-        if (
-          preString.match(/^[A-Za-z0-9!?]+[\w!?]*\s*\.\s*[\w!?]+(\s*\(\s*)?/)
-        ) {
-          // Match method call
-          // console.log('MATCH PRE METHOD', `${preString}${match[1]}`);
-          argString = `${preString}${match[1]}`;
-          argIndex = startIndex + lastIndex;
-          methodCall = true;
-        } else if (
-          preString.match(/^"[^"]*/) ||
-          match[1].match(/(\+|-|\/|\*|\.)\s*$/) ||
-          preString.match(/^{/) ||
-          preString.match(/^(_proc|_if|_for|_while|_loop)/)
-        ) {
-          // Match string or split line or proc
-          // console.log('MATCH PRE', `${preString}${match[1]}`);
-          argString = `${preString}${match[1]}`;
-          argIndex = startIndex + lastIndex;
-        } else {
-          argString = match[1];
-        }
-      } else {
-        argString = `${tempString}${match[1]}`;
-      }
-
-      // console.log('MATCH', match[1], match[2]);
-      // console.log('STRING', argString);
-
-      let skip = false;
-      let bracketCount = 0;
-      let keepBracket = false;
-
-      for (const [startWord, endWord] of Object.entries(keywordPairs)) {
-        if (argString.startsWith(startWord)) {
-          const endReg = new RegExp(`${endWord}(,|\\))?$`);
-          if (!endReg.test(argString)) {
-            tempString = `${argString}${match[2]} `;
-            argRow = row;
-            skip = true;
+    let cIndex = 0;
+    for (const c of testString) {
+      if (lastChar !== '%') {
+        if (c === '(' && !withinString(testString, cIndex)) {
+          bracketCount++;
+        } else if (c === ')' && !withinString(testString, cIndex)) {
+          bracketCount--;
+          if (bracketCount === 0) {
+            argString += testString.substring(0, cIndex);
             break;
           }
         }
       }
-
-      if (!skip) {
-        if (
-          argString.startsWith('"') &&
-          !argString.match(/(?<!(^|%))"\s*\.\s*[\w!?]+/)
-        ) {
-          if (!/"(,|\))?$/.test(argString)) {
-            tempString = `${argString}${match[2]} `;
-            argRow = row;
-            skip = true;
-          }
-        } else if (/(\+|-|\/|\*|\.)\s*$/.test(argString)) {
-          tempString = `${argString}${match[2]} `;
-          argRow = row;
-          skip = true;
-        } else if (
-          argString.startsWith('{') &&
-          !argString.match(/}\s*\.\s*[\w!?]+/)
-        ) {
-          if (!/}(,|\))?$/.test(argString)) {
-            tempString = `${argString}${match[2]} `;
-            argRow = row;
-            skip = true;
-          }
-        } else {
-          const incMatches = argString.match(INC_BRACKETS);
-          if (incMatches) {
-            bracketCount += incMatches.length;
-          }
-          const decMatches = argString.match(DEC_BRACKETS);
-          if (decMatches) {
-            bracketCount -= decMatches.length;
-          }
-          if (bracketCount > 0) {
-            tempString = `${argString}${match[2]} `;
-            argRow = row;
-            skip = true;
-          } else if (
-            bracketCount === 0 &&
-            incMatches &&
-            incMatches.length > 0 &&
-            argString.match(/(?<!%)[({]/).index <
-              argString.match(/(?<!%)[)}]/).index
-          ) {
-            keepBracket = true;
-          }
-        }
-      }
-
-      if (!skip) {
-        let endBracket = false;
-
-        if (tempString === '') {
-          if (argString === ')') {
-            return args;
-          }
-
-          const callMatch = argString.match(/([^\s.]+\))\s*\./);
-          if (callMatch) {
-            argString = callMatch[1];
-          }
-        }
-
-        if (argString === '_endmethod' || argString.startsWith(').')) {
-          return args;
-        }
-
-        endBracket = !keepBracket && argString.endsWith(')');
-        if (endBracket || argString.endsWith(',')) {
-          argString = argString.substring(0, argString.length - 1);
-        }
-
-        if (argRow === undefined) {
-          argRow = row;
-        }
-        if (!argIndex) {
-          argIndex = text.indexOf(argString, searchIndex);
-          if (argIndex === -1) {
-            argRow = row;
-            argIndex = text.indexOf(match[1], searchIndex);
-          }
-          if (argIndex < 1) {
-            argRow = row;
-            argIndex = text.match(/^\t*/)[0].length;
-          }
-        }
-
-        // console.log('**** ARG', argRow, argIndex, argString);
-        args.push({
-          text: argString,
-          row: argRow,
-          index: argIndex,
-        });
-
-        if (endBracket || match[2] === ')') {
-          return args;
-        }
-
-        searchIndex = argIndex + 1;
-        lastIndex = match.index + match[0].length;
-        argRow = undefined;
-        argIndex = undefined;
-        tempString = '';
-        methodCall = false;
-      }
+      lastChar = c;
+      cIndex++;
     }
 
-    if (/^\s*\)/.test(text)) {
-      return args;
+    if (bracketCount === 0) {
+      break;
+    }
+    argString += testString;
+  }
+
+  if (bracketCount !== 0) {
+    return;
+  }
+
+  // Split string at commas (not inside strings)
+  const args = [];
+  let cIndex = 0;
+  let startIndex = 0;
+  lastChar = undefined;
+  for (const c of argString) {
+    if (lastChar !== '%') {
+      if (c === ',' && !withinString(argString, cIndex)) {
+        args.push(argString.substring(startIndex, cIndex));
+        startIndex = cIndex + 1;
+      }
+    }
+    lastChar = c;
+    cIndex++;
+  }
+  args.push(argString.substring(startIndex, argString.length));
+
+  // Combine args to match brackets
+  let argIndex = 0;
+  while (argIndex < args.length - 1) {
+    const str = args[argIndex];
+    const count = _bracketCount(str);
+    if (count > 0) {
+      args[argIndex + 1] = `${str},${args[argIndex + 1]}`;
+      args.splice(argIndex, 1);
+    } else {
+      argIndex++;
     }
   }
+
+  return args.map((str) => str.trim());
 }
 
 function removeSymbolsWithPipes(text) {

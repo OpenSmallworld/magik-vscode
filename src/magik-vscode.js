@@ -439,7 +439,7 @@ class MagikVSCode {
     }
 
     for (let row = 0; row < lineCount; row++) {
-      let text = lines[row];
+      let text = magikUtils.stringBeforeComment(lines[row]);
       let index = methodTest ? text.search(methodTest) : -1;
 
       if (defineTest && index === -1) {
@@ -449,7 +449,7 @@ class MagikVSCode {
           const nextResult = magikUtils.nextWordInFile(lines, row + 1, 0, true);
           if (nextResult.word === word) {
             row = nextResult.row;
-            text = lines[row];
+            text = magikUtils.stringBeforeComment(lines[row]);
             index = 0;
           }
         }

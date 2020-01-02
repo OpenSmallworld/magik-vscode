@@ -756,7 +756,7 @@ class MagikLinter {
               // console.log(args);
               // console.log(' ');
 
-              if (args) {
+              if (args && !args.some((str) => str.startsWith('_scatter '))) {
                 let gatherIndex = paramString.indexOf('_gather');
                 let optionalIndex = paramString.indexOf('_optional');
                 const exactNumber = gatherIndex === -1 && optionalIndex === -1;
@@ -780,13 +780,6 @@ class MagikLinter {
                 }
                 const minParams = params.length;
                 const actualParams = args.length;
-
-                // console.log(
-                //   minParams,
-                //   actualParams,
-                //   exactNumber,
-                //   optionalNoGather
-                // );
 
                 if (
                   actualParams < minParams ||
