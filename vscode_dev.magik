@@ -6,6 +6,9 @@ $
 
 # Note: Please reload open_file() below if the dev procs are loaded from magik_tools (e.g. if the Dev Application is loaded)
 
+!global_auto_declare?! << _true
+$
+
 _block
 	# Optional dev setup - please update this block locally to suit your needs!
 
@@ -117,7 +120,8 @@ _proc ( method_string, _optional class_string, super? )
 
 	a_class << _unset
 
-	_if class_string _isnt _unset
+	_if class_string _isnt _unset _andif
+		class_string.an_element() _isnt %*
 	_then
 		key << class_string.as_symbol()
 		class_string << _unset
@@ -300,7 +304,12 @@ _global _constant vs_save_symbols <<
 		_endtry
 
 		_local slot_mt << slot_access_method_name.method_table
-		_local serial_prefix << sw_canvas_container.serialisation_thread_name
+		_local serial_prefix << _if system.vm_version < 5
+			_then
+				>> "queued_work"
+			_else
+				>> sw_canvas_container.serialisation_thread_name
+			_endif
 		_local serial_prefix_n << serial_prefix.size + 1
 
 		_local get_source_file << _proc @get_source_file(mt)
@@ -468,9 +477,9 @@ _global _constant vs_save_symbols <<
 				_endloop
 
 				# Add conditions
-				_for key _over condition.sys!perform(:template_map).fast_keys()
+				_for cond_key _over condition.sys!perform(:template_map).fast_keys()
 				_loop
-					output.write("cond:", key, newline_char)
+					output.write("cond:", cond_key, newline_char)
 				_endloop
 			_endif
 
@@ -1238,11 +1247,11 @@ _proc ( a_method, _optional source_file )
 	_protect
 		input << external_text_input_stream.new( source_file )
 		_loop
-			_if ( a_line << input.get_line() ) _is _unset
+			_if ( input_line << input.get_line() ) _is _unset
 			_then
 				_leave
 			_endif
-			file_lines.add_last( a_line )
+			file_lines.add_last( input_line )
 		_endloop
 	_protection
 		input.close()
@@ -1531,7 +1540,7 @@ _proc ( method_string, _optional class_string, mode, max,
 				_then
 					start << 2
 				_else
-					_if match?
+					_if match? _andif a_string[1] _isnt %*
 					_then
 						a_stream.put( %* )
 					_endif
@@ -1542,7 +1551,7 @@ _proc ( method_string, _optional class_string, mode, max,
 					a_stream.write( a_string.slice(start, end - 1) )
 				_else
 					a_stream.write( a_string.slice(start, end) )
-					_if match?
+					_if match? _andif a_string[end] _isnt %*
 					_then
 						a_stream.put( %* )
 					_endif
@@ -1591,7 +1600,12 @@ _proc ( method_string, _optional class_string, mode, max,
 		       mode _is :obj
 
 	slot_mt << slot_access_method_name.method_table
-	serial_prefix << sw_canvas_container.serialisation_thread_name
+	serial_prefix << _if system.vm_version < 5
+		_then
+			>> "queued_work"
+		_else
+			>> sw_canvas_container.serialisation_thread_name
+		_endif
 	serial_prefix_n << serial_prefix.size + 1
 	monitor_prefix << "object_monitor!"
 	monitor_prefix_n << monitor_prefix.size + 1
@@ -1743,9 +1757,9 @@ _proc (start, max, display_args?)
 	end << mfind_results.size.min(start + max - 1)
 	sorted_results << rope.new()
 
-	_for i _over range(start, end)
+	_for res_index _over range(start, end)
 	_loop
-		m << mfind_results[i]
+		m << mfind_results[res_index]
 		c_name << m.owner.meta_at(:class_name)
 		m_name << m.name
 		sorted_results.add({m, m_name, c_name})
@@ -1887,20 +1901,20 @@ _proc (start, max, display_args?)
 						>> n_args + 1
 					_endif
 
-			_for i, arg _over arg_list.fast_keys_and_elements()
+			_for arg_index, arg _over arg_list.fast_keys_and_elements()
 			_loop
-				_if i _is first_opt
+				_if arg_index _is first_opt
 				_then
 					res_stream.put_charvec( "_optional " )
 
-				_elif i _is gather
+				_elif arg_index _is gather
 				_then
 					res_stream.put_charvec( "_gather " )
 				_endif
 
 				res_stream.put_charvec( arg )
 
-				_if i _isnt n_args
+				_if arg_index _isnt n_args
 				_then
 					res_stream.put_charvec( ", " )
 				_endif

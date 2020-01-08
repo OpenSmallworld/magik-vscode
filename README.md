@@ -4,29 +4,37 @@ Magik language extension for VS Code.
 
 ## Features
 
+Supports Magik development in Smallworld 4.x and 5.x
+
 Adds the following features to VS Code:
+
 * Compile Code Commands:
     * `Magik Compile Method` (**F7**) compile the current method or region (e.g. block or proc).
     * `Magik Compile File` (**Ctrl+F7**)
     * `Magik Load Module` (**Ctrl+Shift+F7**)
     * `Magik Compile Selection` (**F8**)
+
 * Code Navigation Commands:
     * `Magik Goto` (**F3**) to jump to source.<br>
     Click on a method name and invoke the command to jump to source or display method candidates at the Magik prompt.
     * `Go to Definition` (**F12**) and `Peek Definition` (**Alt+F12**) in Magik.
     * `Find All References` (**Shift+F12**) and `List All References` (**Shift+Alt+F12**) in Magik.<br>
     (Only searches in the current file - use Find in Folder to expand a search)
+
 * Code Formating:
     * Magik Syntax highlighting
     * Auto indenting of Magik code
     * Auto completion for Magik keywords, classes, variables, globals and methods.
     * Adds underscore before Magik keywords
     * Snippets for common Magik definitions
+    * Removes extra spaces between brackets
+    * Adds spaces around operators
     * Command `Magik Indent Region` (**Ctrl+I**)
     * Command `Magik Indent File` (**Ctrl+Shift+I**)
     * Command `Magik Indent Line` (**Alt+Enter**)
     * Command `Magik Format Region` (**Alt+F**) - format and indent current region
     * Command `Magik Format File` (**Shift+Alt+F**)
+
 * Linting:
     * Command `Magik Check File` (**Ctrl+Shift+C**)
 
@@ -39,16 +47,21 @@ Adds the following features to VS Code:
     * Missing comment from a Basic method
     * (Hint) Complex methods with a cyclomatic complexity over 10
     * (Hint) Long methods with more than 40 lines of code
+    * Incorrect number of variables supplied for (identified) method calls
+
 * Debugging:
     * Breakpoints and conditional breakpoints
     * Evaluate expressions at the Debug console
     * Debug actions Continue/Pause F5, Step Over F10, Step Into F11 and Step Out Shift+F11
     * Data inspection as you hover over source in the editor
+
 * Symbols:
     * Search Magik methods in the current session (**Ctrl+T**)
     * Magik definitions in the current file to support Outline view
+
 * Testing:
     * Command `Magik Run Test` to run the current test method (**Alt+F7**)
+
 * Other:
     * Displays method help for indentified method calls.
     * Command `Magik New Buffer` to create a new Magik file in the temp directory (**Alt+N**)
@@ -75,7 +88,7 @@ Warning: This does not confirm the code is without issues!
 
 The linting can be enabled/diabled using the setting `magik-vscode.enableLinting`.
 
-### **Magik Debugging**
+### **Magik Debugging (5.x)**
 
 The Magik session needs to be started with a Java option to tell the JVM to load the debug agent. For example from the command line this could be:
 
@@ -110,7 +123,7 @@ I would recommend using these other extensions:
 
 ## Usage
 
-1. Open a folder containing magik code in VS Code (**Note: Do this before opening a terminal**).
+1. Open a folder containing Magik code in VS Code (**Note: Do this before opening a terminal**).
 
     e.g. The magik repo or C:\projects\hg
 
@@ -123,6 +136,12 @@ I would recommend using these other extensions:
     or for debugging<br>
     ```
     S:\SW522\2019-10-09\core\bin\x86\runalias -j -agentpath:S:\SW522\2019-10-09\core\bin\x86\mda.dll -a S:\SW522\2019-10-09\cambridge_db\config\gis_aliases cambridge_db_open
+    ```
+
+    For a Smallworld 4.x development, set the property `magik-vscode.magikProcessName`. Use the process id if running more than one session.
+
+    ```json
+    "magik-vscode.magikProcessName: "sw_magik_win32.exe"
     ```
 
 3. Load the file vscode_dev.magik at the Magik prompt (Use shortcut **Alt+M** (when the terminal doesn't have focus)).
@@ -156,7 +175,7 @@ I would recommend using these other extensions:
 	    Magik> sw_module_manager.load_module(:dev_tools_application)
         ```
         **Note:** vscode_dev.magik should be loaded after loading the dev tools as it overrides some helper procs.
-    * Use relocate_products() (from the dev procs in magik_tools) to point the known products to local repositories.
+    * (Smallworld 5.x) Use relocate_products() (from the dev procs in magik_tools) to point the known products to local repositories.
 
         Jumping to source using F3 will then open code from the local repo.
         ```
@@ -182,7 +201,7 @@ I would recommend using these other extensions:
 
 ## Requirements
 
-* Requires Magik to be running in the VS Code integrated terminal.
+* Requires Magik to be running in the VS Code integrated terminal (for Smallworld 5.x).
 * Requires the utility procs to be loaded from vscode_dev.magik.
 * VS Code must be included in your Path (e.g. 'C:\Program Files\Microsoft VS Code\bin').
 * Need Node.js to install in the extension dependencies.
@@ -210,9 +229,19 @@ I would recommend using these other extensions:
     "magik-vscode.enableAutoScrollToPrompt": true
     ```
 
+* Magik Debug Client URL e.g. 'localhost:4123'
+    ```json
+    "magik-vscode.debugClientURL": ""
+    ```
+
+* Name or ID of the process running a Smallworld 4.x session e.g. 'sw_magik_win32.exe'. Leave empty for Smallworld 5 development.
+    ```json
+    "magik-vscode.magikProcessName: ""
+    ```
+
 ## Known Issues
 
-* Magik symbols (to support searching for methods) are not loaded automatically after compiling code when not using VS Code Magik commands - use **Alt+T** to refresh symbols.
+* Magik symbols (to support searching for methods) are not loaded automatically after compiling code when not using VS Code Magik commands - use **Alt+T** to refresh symbols. Symbols are refreshed when code is loaded using **F7** and **Ctrl+F7**.
 * No highlighting or formatting at the Magik prompt - I suggest creating a temp magik file for writing Magik (**Alt+N**) and compile using **F7** or **F8**.
 * Linting only available inside methods.
 * No status feedback when stepping in debug session.
@@ -230,6 +259,7 @@ https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 
 ### 0.0.7
 
+* Added support for Smallworld 4.x development
 * Improved auto completion for methods to include variable and comment help.
 * Improved formatting of Magik files.
 * Fixed some issues with Magik Goto.

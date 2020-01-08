@@ -4,6 +4,7 @@ const vscode = require('vscode'); // eslint-disable-line
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const cp = require('child_process');
 const magikUtils = require('./magik-utils');
 const magikVar = require('./magik-variables');
 
@@ -89,30 +90,49 @@ class MagikVSCode {
     );
   }
 
-  _sendToTerminal(textToSend) {
-    const command = `${textToSend}\u000D`;
+  async _sendToTerminal(textToSend) {
+    const processName = vscode.workspace.getConfiguration('magik-vscode')
+      .magikProcessName;
 
-    if (
-      vscode.workspace.getConfiguration('magik-vscode').enableAutoScrollToPrompt
-    ) {
-      vscode.commands.executeCommand(
-        'workbench.action.terminal.scrollToBottom',
-        {}
-      );
+    if (processName !== '') {
+      const ext = vscode.extensions.getExtension('GE-Smallworld.magik-vscode');
+      const scriptName = isNaN(processName)
+        ? 'sendToMagikName.vbs'
+        : 'sendToMagikID.vbs';
+      const file = path.join(ext.extensionPath, 'scripts', scriptName);
+      let text = textToSend;
+      for (const c of ['~', '!', '^', '+', '(', ')']) {
+        text = text.replace(new RegExp(`\\${c}`, 'g'), `{${c}}`);
+      }
+      text = text.replace(/"/g, "'");
+      const command = `cscript ${file} "${processName}" "${text}"`;
+      await cp.execSync(command);
+    } else {
+      const command = `${textToSend}\u000D`;
+
+      if (
+        vscode.workspace.getConfiguration('magik-vscode')
+          .enableAutoScrollToPrompt
+      ) {
+        vscode.commands.executeCommand(
+          'workbench.action.terminal.scrollToBottom',
+          {}
+        );
+      }
+
+      vscode.commands.executeCommand('workbench.action.terminal.sendSequence', {
+        text: command,
+      });
     }
-
-    vscode.commands.executeCommand('workbench.action.terminal.sendSequence', {
-      text: command,
-    });
   }
 
-  _compileText(lines) {
+  async _compileText(lines) {
     const tempFile = path.join(os.tmpdir(), 'vscode_temp.magik');
     const output = lines.join('\r\n');
 
     fs.writeFileSync(tempFile, output);
 
-    this._sendToTerminal('vs_load()');
+    await this._sendToTerminal('vs_load()');
   }
 
   async _compileFile() {
@@ -149,7 +169,7 @@ class MagikVSCode {
         lines.push('$');
       }
 
-      this._compileText(lines);
+      await this._compileText(lines);
     } else if (path.extname(fileName) === '.magik') {
       let command;
 
@@ -159,7 +179,7 @@ class MagikVSCode {
         command = `load_file("${fileName}")`;
       }
 
-      this._sendToTerminal(command);
+      await this._sendToTerminal(command);
     }
   }
 
@@ -177,7 +197,7 @@ class MagikVSCode {
       const searchPath = path.dirname(fileName);
       const command = `load_file_name("${name}", "${searchPath}", _true); vs_save_symbols()`;
 
-      this._sendToTerminal(command);
+      await this._sendToTerminal(command);
     }
   }
 
@@ -216,7 +236,7 @@ class MagikVSCode {
         lines.push('$');
       }
 
-      this._compileText(lines);
+      await this._compileText(lines);
     }
   }
 
@@ -271,7 +291,7 @@ class MagikVSCode {
       lines.push('$');
     }
 
-    this._compileText(lines);
+    await this._compileText(lines);
   }
 
   async _compileRegion() {
@@ -307,16 +327,16 @@ class MagikVSCode {
       lines.push('$');
     }
 
-    this._compileText(lines);
+    await this._compileText(lines);
   }
 
-  _compileExtensionMagik() {
+  async _compileExtensionMagik() {
     const ext = vscode.extensions.getExtension('GE-Smallworld.magik-vscode');
     if (ext) {
       const fileName = path.join(ext.extensionPath, 'vscode_dev.magik');
       const command = `load_file("${fileName}")`;
 
-      this._sendToTerminal(command);
+      await this._sendToTerminal(command);
     }
   }
 
@@ -396,8 +416,10 @@ class MagikVSCode {
       }
     }
 
-    vscode.commands.executeCommand('workbench.action.terminal.focus', {});
-    this._sendToTerminal(command);
+    if (this._usingIntegratedTerminal()) {
+      vscode.commands.executeCommand('workbench.action.terminal.focus', {});
+    }
+    await this._sendToTerminal(command);
   }
 
   _findDefinition(fileName, word, kind) {
@@ -684,50 +706,53 @@ class MagikVSCode {
   }
 
   _getCurrentReceiver(doc, pos, previousWord) {
-    let className;
-
     if (['_self', '_super', '_clone'].includes(previousWord)) {
-      className = magikUtils.currentClassName(doc, pos.line);
-    } else if (this.symbolProvider.classData[previousWord]) {
-      className = previousWord;
-    } else {
-      const currentText = doc.lineAt(pos.line).text;
-      const match = /_super\s*\(\s*([\w!?]+)\s*\)\s*\.\s*[\w!?]*$/.exec(
-        currentText.substring(0, pos.character)
-      );
-      if (match) {
-        className = match[1];
-      } else {
-        const region = magikUtils.currentRegion(false, pos.line);
-        const lines = region.lines;
-        const firstRow = region.firstRow;
-        const end = pos.line - firstRow + 1;
-        const assignedVars = {};
-
-        for (let i = 0; i < end; i++) {
-          const row = firstRow + i;
-          const lineText = lines[i];
-
-          magikVar.findAssignedVariables(lines, firstRow, i, assignedVars);
-          magikVar.findLocalVariables(
-            lineText,
-            row,
-            assignedVars,
-            this.symbolProvider.classNames,
-            this.symbolProvider.classData,
-            this.symbolProvider.globals,
-            []
-          );
-        }
-
-        const varData = assignedVars[previousWord];
-        if (varData) {
-          className = varData.className;
-        }
-      }
+      return magikUtils.currentClassName(doc, pos.line);
     }
 
-    return className;
+    const currentText = doc.lineAt(pos.line).text;
+    const testString = currentText.substring(0, pos.character);
+
+    if (
+      this.symbolProvider.classData[previousWord] &&
+      !/\.[\w!?]*$/.test(testString) // Not slot or method call
+    ) {
+      return previousWord;
+    }
+
+    const match = /_super\s*\(\s*([\w!?]+)\s*\)\s*\.\s*[\w!?]*$/.exec(
+      testString
+    );
+    if (match) {
+      return match[1];
+    }
+
+    const region = magikUtils.currentRegion(false, pos.line);
+    const lines = region.lines;
+    const firstRow = region.firstRow;
+    const end = pos.line - firstRow + 1;
+    const assignedVars = {};
+
+    for (let i = 0; i < end; i++) {
+      const row = firstRow + i;
+      const lineText = lines[i];
+
+      magikVar.findAssignedVariables(lines, firstRow, i, assignedVars);
+      magikVar.findLocalVariables(
+        lineText,
+        row,
+        assignedVars,
+        this.symbolProvider.classNames,
+        this.symbolProvider.classData,
+        this.symbolProvider.globals,
+        []
+      );
+    }
+
+    const varData = assignedVars[previousWord];
+    if (varData) {
+      return varData.className;
+    }
   }
 
   async _getCurrentDefinitionSymbol(doc, pos) {
@@ -740,8 +765,9 @@ class MagikVSCode {
     currentWord = magikUtils.getMethodName(text, currentWord, start);
 
     const previousWord = magikUtils.previousWord(doc, pos);
-    let className = previousWord;
+    let classString = previousWord;
     let symbol;
+    let className;
 
     if (previousWord) {
       const inherit = previousWord === '_super';
@@ -750,9 +776,12 @@ class MagikVSCode {
         pos,
         previousWord
       );
-      if (receiverClassName) className = receiverClassName;
+      if (receiverClassName) {
+        classString = receiverClassName;
+        className = receiverClassName;
+      }
 
-      let query = `^${className}$.^${currentWord}$`;
+      let query = `^${classString}$.^${currentWord}$`;
       let symbols = await this.symbolProvider.getSymbols(query, inherit, 1);
 
       if (symbols.length === 0) {
@@ -823,20 +852,24 @@ class MagikVSCode {
 
     if (superMatch) {
       command = `vs_goto("^${def.currentWord}$", "${superMatch[1]}")`;
-    } else {
+    } else if (def.className) {
       const inherit = def.previousWord === '_super' ? '_true' : '_false';
       command = `vs_goto("^${def.currentWord}$", "${
         def.className
       }", ${inherit})`;
+    } else {
+      command = `vs_goto("^${def.currentWord}$")`;
     }
 
-    vscode.commands.executeCommand('workbench.action.terminal.focus', {});
+    if (this._usingIntegratedTerminal()) {
+      vscode.commands.executeCommand('workbench.action.terminal.focus', {});
+    }
 
-    this._sendToTerminal(command);
+    await this._sendToTerminal(command);
   }
 
-  _refreshSymbols() {
-    this._sendToTerminal('vs_save_symbols()');
+  async _refreshSymbols() {
+    await this._sendToTerminal('vs_save_symbols()');
   }
 
   async provideDefinition(doc, pos) {
@@ -1277,9 +1310,11 @@ class MagikVSCode {
       if (res.methodName.startsWith('test_') && parents.includes('test_case')) {
         const command = `vs_run_test("${res.className}", "${res.methodName}")`;
 
-        vscode.commands.executeCommand('workbench.action.terminal.focus', {});
+        if (this._usingIntegratedTerminal()) {
+          vscode.commands.executeCommand('workbench.action.terminal.focus', {});
+        }
 
-        this._sendToTerminal(command);
+        await this._sendToTerminal(command);
       }
     }
   }
@@ -1364,6 +1399,12 @@ class MagikVSCode {
     }
 
     return lines;
+  }
+
+  _usingIntegratedTerminal() {
+    return (
+      vscode.workspace.getConfiguration('magik-vscode').magikProcessName === ''
+    );
   }
 }
 

@@ -323,6 +323,11 @@
                     "type": "string",
                     "default": "",
                     "description": "Magik Debug Client URL e.g. 'localhost:4123'"
+                },
+                "magik-vscode.magikProcessName": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Name or ID of the process running a Smallworld 4.x session e.g. 'sw_magik_win32.exe'. Leave empty for Smallworld 5."
                 }
             }
         },
