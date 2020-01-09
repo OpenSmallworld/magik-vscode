@@ -185,6 +185,14 @@
             {
                 "command": "magik.gotoClipboardText",
                 "title": "Magik Go To Clipboard"
+            },
+            {
+                "command": "magik.startSession",
+                "title": "Magik Start Session"
+            },
+            {
+                "command": "magik.startDebugSession",
+                "title": "Magik Start Debug Session"
             }
         ],
         "keybindings": [
@@ -293,6 +301,10 @@
                 "key": "f3",
                 "command": "magik.gotoClipboardText",
                 "when": "terminalFocus"
+            },
+            {
+                "key": "f2 z",
+                "command": "magik.startSession"
             }
         ],
         "configuration": {
@@ -346,6 +358,7 @@
     },
     "dependencies": {
         "bluebird": "^3.5.0",
+        "findit": "^2.0.0",
         "vscode-debugadapter": "1.33.0",
         "ws": "^7.2.0"
     },

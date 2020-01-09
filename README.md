@@ -1,12 +1,14 @@
 # Magik VSCode
 
-Magik language extension for VS Code.
+Magik language extension for VS Code. Supports Magik development in Smallworld 4.x and 5.x
 
 ## Features
 
-Supports Magik development in Smallworld 4.x and 5.x
-
 Adds the following features to VS Code:
+
+* Smallworld Session:
+    * `Magik Start Session` (**F2 z**)
+    * `Magik Start Debug Session`
 
 * Compile Code Commands:
     * `Magik Compile Method` (**F7**) compile the current method or region (e.g. block or proc).
@@ -127,16 +129,25 @@ I would recommend using these other extensions:
 
     e.g. The magik repo or C:\projects\hg
 
-2. Open a terminal in VS Code and start a magik session.
+2. Start a Magik session:
 
-    e.g.<br>
-    ```
-    S:\SW522\2019-10-09\core\bin\x86\runalias -a S:\SW522\2019-10-09\cambridge_db\config\gis_aliases cambridge_db_open
-    ```
-    or for debugging<br>
-    ```
-    S:\SW522\2019-10-09\core\bin\x86\runalias -j -agentpath:S:\SW522\2019-10-09\core\bin\x86\mda.dll -a S:\SW522\2019-10-09\cambridge_db\config\gis_aliases cambridge_db_open
-    ```
+    * Option 1:
+        Open a terminal in VS Code and use a runalias command
+        e.g.<br>
+        ```
+        S:\SW522\2019-10-09\core\bin\x86\runalias -a S:\SW522\2019-10-09\cambridge_db\config\gis_aliases cambridge_db_open
+        ```
+        or for debugging<br>
+        ```
+        S:\SW522\2019-10-09\core\bin\x86\runalias -j -agentpath:S:\SW522\2019-10-09\core\bin\x86\mda.dll -a S:\SW522\2019-10-09\cambridge_db\config\gis_aliases cambridge_db_open
+        ```
+
+    * Option 2:
+        Use `Magik Start Session` (**F2 z**) or `Magik Start Debug Session`
+        1. Select a folder to search for aliases
+        2. Select a folder to search for runalias.exe
+        3. Select an alias from the list to start
+
 
     For a Smallworld 4.x development, set the property `magik-vscode.magikProcessName`. Use the process id if running more than one session.
 
@@ -237,6 +248,11 @@ I would recommend using these other extensions:
 * Name or ID of the process running a Smallworld 4.x session e.g. 'sw_magik_win32.exe'. Leave empty for Smallworld 5 development.
     ```json
     "magik-vscode.magikProcessName: ""
+    ```
+
+* Defines the default path to search for gis_aliases and runalias.exe to start a session.
+    ```json
+    "magik-vscode.smallworldHome: ""
     ```
 
 ## Known Issues

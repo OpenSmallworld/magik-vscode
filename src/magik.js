@@ -6,6 +6,7 @@ const MagikVSCode = require('./magik-vscode');
 const MagikLinter = require('./magik-linter');
 const MagikDebug = require('./magik-debug');
 const MagikSymbolProvider = require('./magik-symbols');
+const MagikSession = require('./magik-session');
 
 class MagikConfigurationProvider {
   resolveDebugConfiguration(folder, config) {
@@ -64,6 +65,7 @@ function activate(context) {
   const magikVSCode = new MagikVSCode(symbolProvider, context);
 
   new MagikLinter(magikVSCode, symbolProvider, context); // eslint-disable-line
+  new MagikSession(context); // eslint-disable-line
 
   const provider = new MagikConfigurationProvider();
   context.subscriptions.push(
