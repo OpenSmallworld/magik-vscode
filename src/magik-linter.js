@@ -108,8 +108,8 @@ class MagikLinter {
     });
 
     context.subscriptions.push(
-      vscode.commands.registerCommand('magik.indentLine', () =>
-        this._indentLine()
+      vscode.commands.registerCommand('magik.indentToLine', () =>
+        this._indentToLine()
       )
     );
 
@@ -312,7 +312,19 @@ class MagikLinter {
     return match && !magikUtils.withinString(testString, match.index);
   }
 
-  async _indentMagikLines(lines, firstRow, currentRow, checkOnly) {
+  /*
+   * Updates the indentation of the supplied array of lines.
+   * Updates all lines if lastRow is not supplied.
+   * Updates firstRow to lastRow if lastRow is supplied and updateRangeOnly is true.
+   * Updates only lastRow if supplied.
+   */
+  async _indentMagikLines(
+    lines,
+    firstRow,
+    lastRow,
+    updateRangeOnly,
+    checkOnly
+  ) {
     const editor = vscode.window.activeTextEditor;
     const doc = editor.document;
 
@@ -350,7 +362,9 @@ class MagikLinter {
       if (
         !checkOnly &&
         indentText !== text.slice(0, start) &&
-        (!currentRow || firstRow + row === currentRow)
+        (!lastRow ||
+          (!updateRangeOnly && firstRow + row === lastRow) ||
+          (updateRangeOnly && firstRow + row <= lastRow))
       ) {
         const range = new vscode.Range(
           firstRow + row,
@@ -361,7 +375,7 @@ class MagikLinter {
         edit.replace(doc.uri, range, indentText);
       }
 
-      if (firstRow + row === currentRow) break;
+      if (firstRow + row === lastRow) break;
 
       if (NO_CODE.test(testString)) {
         if (arrowAssignRows.length > 0) {
@@ -491,19 +505,27 @@ class MagikLinter {
     return lineIndents;
   }
 
-  async _indentLine() {
+  // Update to current line
+  async _indentToLine() {
     const editor = vscode.window.activeTextEditor;
+
     if (editor && editor.selection.active.line) {
       const pos = editor.selection.active;
+
       await this._addUnderscore(editor.document, pos, '');
-      await this._indentRegion(pos.line);
+
+      // Update current line and preceeding lines
+      const {lines, firstRow} = magikUtils.indentRegion();
+      if (lines) {
+        await this._indentMagikLines(lines, firstRow, pos.line, true);
+      }
     }
   }
 
-  async _indentRegion(currentRow) {
+  async _indentRegion(lastRow) {
     const {lines, firstRow} = magikUtils.indentRegion();
     if (lines) {
-      await this._indentMagikLines(lines, firstRow, currentRow);
+      await this._indentMagikLines(lines, firstRow, lastRow);
     }
   }
 
@@ -542,15 +564,15 @@ class MagikLinter {
     await magikFormat.addNewlineAfterDollar(0, lastRow);
   }
 
-  async _getLineIndents(lines, firstRow) {
-    const lineIndents = await this._indentMagikLines(
-      lines,
-      firstRow,
-      undefined,
-      true
-    );
-    return lineIndents;
-  }
+  // async _getLineIndents(lines, firstRow) {
+  //   const lineIndents = await this._indentMagikLines(
+  //     lines,
+  //     firstRow,
+  //     undefined,
+  //     true
+  //   );
+  //   return lineIndents;
+  // }
 
   async provideOnTypeFormattingEdits(doc, pos, ch) {
     if (ch === '\n') {

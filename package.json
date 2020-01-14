@@ -131,8 +131,8 @@
                 "title": "Magik Compile Selection"
             },
             {
-                "command": "magik.indentLine",
-                "title": "Magik Indent Line"
+                "command": "magik.indentToLine",
+                "title": "Magik Indent To Current Line"
             },
             {
                 "command": "magik.indentRegion",
@@ -222,7 +222,7 @@
                 "when": "editorTextFocus"
             },
             {
-                "command": "magik.indentLine",
+                "command": "magik.indentToLine",
                 "key": "alt+enter",
                 "when": "editorTextFocus"
             },

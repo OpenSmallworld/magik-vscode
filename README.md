@@ -31,9 +31,9 @@ Adds the following features to VS Code:
     * Snippets for common Magik definitions
     * Removes extra spaces between brackets
     * Adds spaces around operators
+    * Command `Magik Indent To Line` (**Alt+Enter**) - indent region to current line
     * Command `Magik Indent Region` (**Ctrl+I**)
     * Command `Magik Indent File` (**Ctrl+Shift+I**)
-    * Command `Magik Indent Line` (**Alt+Enter**)
     * Command `Magik Format Region` (**Alt+F**) - format and indent current region
     * Command `Magik Format File` (**Shift+Alt+F**)
 
