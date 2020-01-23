@@ -1358,6 +1358,8 @@ class MagikVSCode {
   }
 
   getFileLines(fileName) {
+    if (!fileName || fileName === '') return;
+
     let openDoc;
 
     for (const doc of vscode.workspace.textDocuments) {
