@@ -156,7 +156,8 @@ class MagikLinter {
         '(',
         ')',
         '\n',
-        ','
+        ',',
+        '}'
       )
     );
   }
@@ -692,7 +693,7 @@ class MagikLinter {
     if (this.symbolProvider.classNames.length === 0) return;
 
     const names = magikUtils.getClassAndMethodName(lines[0]);
-    const currentClassName = names ? names.className : undefined;
+    const currentClassName = names.className;
     const lineLength = lines.length - 1;
 
     for (let i = 1; i < lineLength; i++) {
@@ -836,7 +837,7 @@ class MagikLinter {
   }
 
   _checkPublicComment(doc, lines, firstRow, diagnostics) {
-    if (firstRow === 0) return;
+    if (firstRow === 0 || firstRow >= doc.lineCount) return;
 
     const prevLine = doc.lineAt(firstRow - 1).text;
     if (

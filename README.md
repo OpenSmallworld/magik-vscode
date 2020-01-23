@@ -121,7 +121,7 @@ Warning: There are some performance issues with stepping!
 I would recommend using these other extensions:
 * Bracket Pair Colorizer 2
 * Git Lens
-* Git History
+* vscode-icons
 
 ## Usage
 
@@ -207,7 +207,14 @@ I would recommend using these other extensions:
             "333333",
             "f57c00",
             "9c27b0"
-        ]
+        ],
+        ```
+    * To add an icon for Magik files with vscode-icons add the following to the settings (adding your user name):
+        ```
+        "vsicons.customIconFolderPath": "C:/Users/<user_name>/.vscode/extensions/magik-vscode/icons",
+        "vsicons.associations.files": [
+            { "icon": "magik", "extensions": ["magik"], "format": "png" }
+        ],
         ```
 
 ## Requirements

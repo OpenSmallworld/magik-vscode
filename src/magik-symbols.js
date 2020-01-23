@@ -99,7 +99,9 @@ class MagikSymbolProvider {
           this.classData = newClassData;
         }
         this.classNames = Object.keys(this.classData);
-        fs.unlinkSync(symbolFile);
+        try {
+          fs.unlinkSync(symbolFile);
+        } catch (err) {}
         return;
       }
     }

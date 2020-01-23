@@ -591,7 +591,7 @@ function getClassAndMethodName(text) {
   );
 
   if (!isMethod) {
-    return;
+    return {};
   }
 
   const methodName = isMethod[5];
@@ -689,9 +689,10 @@ function _findParams(lines, startLine, startRow, startRowIndex, params) {
 function getMethodParams(lines, startLine, procs) {
   const params = {};
   const end = lines.length - 1;
-  let match;
 
-  match = lines[0].match(/(\(|<<|\[|^<<)/);
+  if (end === -1) return params;
+
+  let match = lines[0].match(/(\(|<<|\[|^<<)/);
   if (match) {
     _findParams(lines, startLine, 0, match.index, params);
   }

@@ -424,6 +424,8 @@ class MagikVSCode {
 
   _findDefinition(fileName, word, kind) {
     const lines = this.getFileLines(fileName);
+    if (!lines) return;
+
     const lineCount = lines.length;
     let methodTest;
     let defineTest;
@@ -1195,71 +1197,73 @@ class MagikVSCode {
   _getMethodHelp(sym, paramIndex) {
     let help = sym._help;
 
-    if (!help) {
-      const fileLines = this.getFileLines(sym.location.uri.fsPath);
-      const startLine = sym.location.range.start.line;
-      const commentData = this._getMethodComment(fileLines, startLine);
-      const lines = [];
-
-      for (let row = startLine; row < commentData.lastRow + 1; row++) {
-        lines.push(fileLines[row]);
-      }
-
-      const methodParams = magikUtils.getMethodParams(lines, 0, false);
-      const params = [];
-      const paramNames = [];
-      let paramString = '';
-      let addOptional = true;
-
-      for (const [varName, data] of Object.entries(methodParams)) {
-        if (data.param) {
-          params.push(new vscode.ParameterInformation(varName));
-          paramNames.push(varName);
-
-          if (paramString !== '') {
-            paramString += ', ';
-          }
-          if (data.optional && addOptional) {
-            paramString += `_optional ${varName}`;
-            addOptional = false;
-          } else if (data.gather) {
-            paramString += `_gather ${varName}`;
-          } else {
-            paramString += varName;
-          }
-        }
-      }
-
-      const symName = sym.name;
-      let name = symName;
-
-      if (symName.endsWith(')')) {
-        name = `${symName.substring(0, symName.length - 1)}${paramString})`;
-
-        if (paramNames.length === 0) {
-          sym._completionText = sym._methodName;
-        }
-      } else if (symName.endsWith('<')) {
-        name = `${symName.substring(0, symName.length - 2)} << ${
-          paramNames[0]
-        }`;
-      }
-
-      const info = new vscode.SignatureInformation(name, commentData.comment);
-
-      info.parameters = params;
-      info._paramString = paramString;
-
-      help = new vscode.SignatureHelp();
-      help.signatures = [info];
-      help.activeSignature = 0;
-
-      sym._completionName = name;
-      sym._completionDocumentation = commentData.comment;
-      sym._help = help;
+    if (help) {
+      help.activeParameter = paramIndex;
+      return help;
     }
 
+    const fileLines = this.getFileLines(sym.location.uri.fsPath);
+    if (!fileLines) return;
+
+    const startLine = sym.location.range.start.line;
+    const commentData = this._getMethodComment(fileLines, startLine);
+    const lines = [];
+
+    for (let row = startLine; row < commentData.lastRow + 1; row++) {
+      lines.push(fileLines[row]);
+    }
+
+    const methodParams = magikUtils.getMethodParams(lines, 0, false);
+    const params = [];
+    const paramNames = [];
+    let paramString = '';
+    let addOptional = true;
+
+    for (const [varName, data] of Object.entries(methodParams)) {
+      if (data.param) {
+        params.push(new vscode.ParameterInformation(varName));
+        paramNames.push(varName);
+
+        if (paramString !== '') {
+          paramString += ', ';
+        }
+        if (data.optional && addOptional) {
+          paramString += `_optional ${varName}`;
+          addOptional = false;
+        } else if (data.gather) {
+          paramString += `_gather ${varName}`;
+        } else {
+          paramString += varName;
+        }
+      }
+    }
+
+    const symName = sym.name;
+    let name = symName;
+
+    if (symName.endsWith(')')) {
+      name = `${symName.substring(0, symName.length - 1)}${paramString})`;
+
+      if (paramNames.length === 0) {
+        sym._completionText = sym._methodName;
+      }
+    } else if (symName.endsWith('<')) {
+      name = `${symName.substring(0, symName.length - 2)} << ${paramNames[0]}`;
+    }
+
+    const info = new vscode.SignatureInformation(name, commentData.comment);
+
+    info.parameters = params;
+    info._paramString = paramString;
+
+    help = new vscode.SignatureHelp();
+    help.signatures = [info];
+    help.activeSignature = 0;
     help.activeParameter = paramIndex;
+
+    sym._completionName = name;
+    sym._completionDocumentation = commentData.comment;
+    sym._help = help;
 
     return help;
   }
@@ -1386,10 +1390,15 @@ class MagikVSCode {
     if (openDoc) {
       lines = this.getDocLines(openDoc);
     } else {
-      lines = fs
-        .readFileSync(fileName)
-        .toString()
-        .split('\n');
+      try {
+        lines = fs
+          .readFileSync(fileName)
+          .toString()
+          .split('\n');
+      } catch (err) {
+        vscode.window.showErrorMessage(`Cannot open file: ${fileName}`);
+        return;
+      }
     }
 
     this.fileCache.unshift([fileName, lines]);
