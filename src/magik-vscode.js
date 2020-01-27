@@ -396,7 +396,7 @@ class MagikVSCode {
       }
     }
 
-    const symbols = await this.symbolProvider.getSymbols(query, undefined, 1);
+    const symbols = await this.symbolProvider.getSymbols(query, undefined, 2);
 
     if (symbols.length === 1) {
       const resSymbol = this.resolveWorkspaceSymbol(symbols[0]);

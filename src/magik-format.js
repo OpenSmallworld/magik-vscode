@@ -122,7 +122,7 @@ async function addSpacesAroundOperators(firstRow, lastRow) {
     const text = magikUtils.stringBeforeComment(lineText);
     const firstChar = text.search(/\S/);
     const lastIndex = text.length;
-    const reg = /(?<!%)( *)(\^<<|\+<<|-?<<|\*?<<|\/?<<|<<|>>|\*\*|>=?|<=?|~=|<>|\+|-|\*|\/)(\s*)/g;
+    const reg = /(?<!%)( *)(\^<<|\+<<|-?<<|\*?<<|\/?<<|<<|>>|\*\*|~=|<>|>=?|<=?|\+|-|\*|\/)(\s*)/g;
     let match;
 
     while (match = reg.exec(text)) { // eslint-disable-line
