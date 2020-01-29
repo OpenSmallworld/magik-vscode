@@ -42,10 +42,16 @@ class MagikSession {
   }
 
   _readAliasFile(fileName) {
-    const lines = fs
-      .readFileSync(fileName)
-      .toString()
-      .split('\n');
+    let lines;
+    try {
+      lines = fs
+        .readFileSync(fileName)
+        .toString()
+        .split('\n');
+    } catch (err) {
+      return;
+    }
+
     const nLines = lines.length;
     const newAliases = [];
     let lastData = {};

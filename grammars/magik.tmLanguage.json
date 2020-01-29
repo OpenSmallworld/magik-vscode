@@ -224,7 +224,7 @@
 		"slot": {
 			"patterns": [
 				{
-					"match": "(?:\\s*[^#\"\\w!?])(\\.[\\w!?]+)(?=\\s*[^\\w!?])",
+					"match": "(?:\\s*[^#\"\\w!?)\\]])(\\.[\\w!?]+)(?=\\s*[^\\w!?])",
 					"captures": {
 							"1": {"name": "variable.other.object.property.magik"}
 					}

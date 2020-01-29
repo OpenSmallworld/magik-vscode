@@ -356,12 +356,14 @@ function currentRegion(methodOnly, startLine) {
 
   if (!startLine) {
     startLine = editor.selection.active.line || 0;
-    if (!startLine) startLine = 0;
-  } else if (startLine < 0) {
-    startLine = 0;
   }
 
   const lineCount = doc.lineCount;
+
+  if (startLine < 0 || startLine >= lineCount) {
+    return {};
+  }
+
   let firstRow;
   let lastRow;
 
@@ -688,9 +690,8 @@ function _findParams(lines, startLine, startRow, startRowIndex, params) {
 
 function getMethodParams(lines, startLine, procs) {
   const params = {};
-  const end = lines.length - 1;
 
-  if (end === -1) return params;
+  if (lines.length === 0) return params;
 
   let match = lines[0].match(/(\(|<<|\[|^<<)/);
   if (match) {
@@ -700,6 +701,7 @@ function getMethodParams(lines, startLine, procs) {
   if (procs !== false) {
     // Find internal proc params
     const procReg = /(\s+|\()_proc\s*[@\w!?]*\s*\(/;
+    const end = lines.length - 1;
 
     for (let i = 1; i < end; i++) {
       const line = stringBeforeComment(lines[i]);

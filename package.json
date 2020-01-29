@@ -15,7 +15,9 @@
     "activationEvents": [
         "onLanguage:magik",
         "onCommand:magik.refreshSymbols",
-        "onCommand:magik.compileExtensionMagik"
+        "onCommand:magik.compileExtensionMagik",
+        "onCommand:magik.startSession",
+        "onCommand:magik.startDebugSession"
     ],
     "main": "./src/magik",
     "contributes": {

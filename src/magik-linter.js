@@ -346,7 +346,8 @@ class MagikLinter {
 
       if (start === -1) start = textLength;
 
-      if (testString[0] !== '#') {
+      // Don't reduce indent when chaining method calls when line starts with ').'
+      if (testString[0] !== '#' && !/^\)\.\s*(#|$)/.test(testString)) {
         const decWordsLength = magikUtils.INDENT_DEC_WORDS.length;
         for (let i = 0; i < decWordsLength; i++) {
           if (testString.startsWith(magikUtils.INDENT_DEC_WORDS[i])) {
@@ -430,12 +431,14 @@ class MagikLinter {
           }
         }
 
-        if (tempIndent && !testString.endsWith(',')) {
+        if (tempIndent && !/[,(]$/.test(testString)) {
           indent--;
           tempIndent = false;
         }
 
-        if (this._methodStartTest(testString)) {
+        if (/^\)\.$/.test(testString)) {
+          // Don't increase indent when chaining method calls
+        } else if (this._methodStartTest(testString)) {
           indent++;
         } else {
           const statementAssignKeyword = this._statementAssignTest(testString);

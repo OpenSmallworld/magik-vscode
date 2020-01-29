@@ -1209,8 +1209,19 @@ class MagikVSCode {
     const commentData = this._getMethodComment(fileLines, startLine);
     const lines = [];
 
-    for (let row = startLine; row < commentData.lastRow + 1; row++) {
-      lines.push(fileLines[row]);
+    if (commentData.lastRow) {
+      for (let row = startLine; row < commentData.lastRow + 1; row++) {
+        lines.push(fileLines[row]);
+      }
+    } else {
+      const end = fileLines.length;
+      for (let row = startLine; row < end; row++) {
+        const line = fileLines[row];
+        if (row !== startLine && /^\s*(_|$)/.test(line)) {
+          break;
+        }
+        lines.push(line);
+      }
     }
 
     const methodParams = magikUtils.getMethodParams(lines, 0, false);
@@ -1280,7 +1291,6 @@ class MagikVSCode {
       const text = match[0];
       const newCol = match.index + text.indexOf('.') + 1;
       const newPos = new vscode.Position(pos.line, newCol);
-
       const def = await this._getCurrentDefinitionSymbol(doc, newPos);
 
       if (def.symbol) {
@@ -1359,6 +1369,14 @@ class MagikVSCode {
 
   getFileLines(fileName) {
     if (!fileName || fileName === '') return;
+
+    try {
+      if (!fs.existsSync(fileName)) {
+        return;
+      }
+    } catch (err) {
+      return;
+    }
 
     let openDoc;
 
