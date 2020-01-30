@@ -284,11 +284,13 @@ https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 ### 0.0.7
 
 * Added support for Smallworld 4.x development
+* Added Magik Start Session command (F2 z).
 * Improved auto completion for methods to include variable and comment help.
 * Improved formatting of Magik files.
 * Fixed some issues with Magik Goto.
 * Outline view can now show definitions defined over multiple lines.
 * Symbols for method search are refreshed when compiling code using F7, Ctrl+F7 etc.
+* Added rename variable support.
 
 ### 0.0.6
 
