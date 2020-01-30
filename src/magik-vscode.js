@@ -31,6 +31,7 @@ class MagikVSCode {
       ['gotoNextDefinition', this._gotoNextDefinition],
       ['selectRegion', this._selectRegion],
       ['runTest', this._runTest],
+      ['runTestClass', this._runTestClass],
       ['compileExtensionMagik', this._compileExtensionMagik],
       ['newBuffer', this._newMagikBuffer],
       ['gotoClipboardText', this._gotoClipboardText],
@@ -81,6 +82,10 @@ class MagikVSCode {
         ' ',
         ','
       )
+    );
+
+    context.subscriptions.push(
+      vscode.languages.registerRenameProvider(magikFile, this)
     );
 
     context.subscriptions.push(
@@ -1300,6 +1305,68 @@ class MagikVSCode {
     }
   }
 
+  prepareRename(doc, pos) {
+    const err = new Error('Cannot rename current word');
+
+    const currentWord = magikUtils.currentWord(doc, pos);
+    if (!currentWord) throw err;
+
+    const currentText = doc.lineAt(pos.line).text;
+    const currentIndex = currentText.indexOf(
+      currentWord,
+      pos.character - currentWord.length + 1
+    );
+
+    if (magikUtils.withinString(currentText, currentIndex)) throw err;
+
+    const ignorePrev = ['.', ':', '%'];
+    const previousChar = magikUtils.previousCharacter(
+      currentText,
+      currentIndex
+    );
+    if (ignorePrev.includes(previousChar)) throw err;
+
+    const region = magikUtils.currentRegion(true);
+    if (!region.lines) throw err;
+  }
+
+  provideRenameEdits(doc, pos, newName) {
+    const currentUri = doc.uri;
+    const currentWord = magikUtils.currentWord(doc, pos);
+    const region = magikUtils.currentRegion(true);
+    const lines = region.lines;
+    const firstRow = region.firstRow;
+    const end = lines.length;
+
+    const word = currentWord.replace(/\?/g, '\\?');
+    const wordLength = currentWord.length;
+    const wordTest = new RegExp(
+      `(?<=(^|[^.:%\\w!?]))${word}(?=($|[^:%\\w!?]))`,
+      'g'
+    );
+
+    const edit = new vscode.WorkspaceEdit();
+
+    for (let i = 0; i < end; i++) {
+      const row = i + firstRow;
+      const lineText = lines[i];
+      let match;
+
+      while (match = wordTest.exec(lineText)) { // eslint-disable-line
+        const index = match.index;
+
+        if (!magikUtils.withinString(lineText, index)) {
+          const range = new vscode.Range(row, index, row, index + wordLength);
+          edit.replace(currentUri, range, newName);
+        }
+      }
+    }
+
+    if (edit.size > 0) {
+      return edit;
+    }
+  }
+
   _parentClasses(className, parents) {
     const data = this.symbolProvider.classData[className];
     if (data) {
@@ -1331,6 +1398,37 @@ class MagikVSCode {
         await this._sendToTerminal(command);
       }
     }
+  }
+
+  async _runTestClass() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) return;
+
+    await this.symbolProvider.loadSymbols();
+
+    const doc = editor.document;
+    const classNames = magikUtils.allClassNames(doc);
+    const testClasses = [];
+
+    for (const className of classNames) {
+      const parents = [];
+
+      this._parentClasses(className, parents);
+
+      if (parents.includes('test_case')) {
+        testClasses.push(className);
+      }
+    }
+
+    if (testClasses.length === 0) return;
+
+    const command = `run_tests({${testClasses.join(', ')}})`;
+
+    if (this._usingIntegratedTerminal()) {
+      vscode.commands.executeCommand('workbench.action.terminal.focus', {});
+    }
+
+    await this._sendToTerminal(command);
   }
 
   _currentMagikFiles() {

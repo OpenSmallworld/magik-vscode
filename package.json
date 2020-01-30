@@ -177,6 +177,10 @@
                 "title": "Magik Run Test"
             },
             {
+                "command": "magik.runTestClass",
+                "title": "Magik Run Test Class"
+            },
+            {
                 "command": "magik.compileExtensionMagik",
                 "title": "Magik Compile Extension Code"
             },
@@ -275,6 +279,11 @@
             {
                 "command": "magik.runTest",
                 "key": "alt+f7",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "magik.runTestClass",
+                "key": "ctrl+alt+f7",
                 "when": "editorTextFocus"
             },
             {

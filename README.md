@@ -63,6 +63,7 @@ Adds the following features to VS Code:
 
 * Testing:
     * Command `Magik Run Test` to run the current test method (**Alt+F7**)
+    * Command `Magik Run Test Class` to run the current test class (**Ctrl+Alt+F7**)
 
 * Other:
     * Displays method help for indentified method calls.

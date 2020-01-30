@@ -121,7 +121,7 @@ class MagikSession {
   }
 
   async _selectFolder(defaultDir, searchString) {
-    const defaultUri = defaultDir ? vscode.Uri.parse(defaultDir) : undefined;
+    const defaultUri = defaultDir ? vscode.Uri.file(defaultDir) : undefined;
 
     const target = await vscode.window.showOpenDialog({
       canSelectFiles: false,
@@ -140,6 +140,19 @@ class MagikSession {
   }
 
   async _findRunAlias(defaultDir, debug) {
+    // Try and find core directory
+    if (defaultDir && fs.existsSync(defaultDir)) {
+      let tempDir = defaultDir;
+      do {
+        tempDir = path.dirname(tempDir);
+        const testDir = path.join(tempDir, 'core');
+        if (fs.existsSync(testDir)) {
+          defaultDir = testDir;
+          break;
+        }
+      } while (!/[/\\]$/.test(tempDir));
+    }
+
     const searchDir = await this._selectFolder(
       defaultDir,
       'Search for runalias.exe'
