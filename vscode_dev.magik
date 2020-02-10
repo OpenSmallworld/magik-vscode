@@ -487,7 +487,11 @@ _global _constant vs_save_symbols <<
 			_if output _isnt _unset
 			_then
 				output.close()
-				system.rename(temp_output_name, output_name)
+				_try
+					system.rename(temp_output_name, output_name)
+				_when error
+					write("Cannot save symbols file")
+				_endtry
 			_endif
 		_endprotect
 
@@ -533,6 +537,30 @@ _proc @vs_run_test(class_name, method_name)
 				_leave
 			_endif
 		_endloop
+	_endif
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+## Compiles the messages for the module containing the specified message file.
+_global _constant vs_compile_messages <<
+_proc @vs_compile_messages( msg_file )
+
+	(filename, dir) << system.pathname_components( msg_file )
+	dir << system.locate_file( dir, "module.def" )
+	_if dir _isnt _unset
+	_then
+		res << sw_module_manager.module_roots( dir, _false )
+		_if _not res.empty?
+		_then
+			a_module << sw_module_manager.module( res.a_key()[1] )
+			_if a_module _isnt _unset
+			_then
+				a_module.compile_messages()
+			_endif
+		_endif
 	_endif
 
 _endproc

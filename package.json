@@ -181,6 +181,11 @@
                 "title": "Magik Run Test Class"
             },
             {
+                "command": "magik.compileMessages",
+                "title": "Magik Compile Module Messages",
+                "enablement": "editorTextFocus && editorLangId == message"
+            },
+            {
                 "command": "magik.compileExtensionMagik",
                 "title": "Magik Compile Extension Code"
             },
@@ -287,6 +292,11 @@
                 "when": "editorTextFocus"
             },
             {
+                "command": "magik.compileMessages",
+                "key": "f7",
+                "when": "editorTextFocus && editorLangId == message"
+            },
+            {
                 "command": "magik.compileExtensionMagik",
                 "key": "alt+m"
             },
@@ -336,6 +346,11 @@
                     "type": "integer",
                     "default": 80,
                     "description": "Maximum amount of characters per comment line (0 = disable)."
+                },
+                "magik-vscode.enableHoverActions": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable Magik actions in hover tooltip."
                 },
                 "magik-vscode.enableAutoScrollToPrompt": {
                     "type": "boolean",

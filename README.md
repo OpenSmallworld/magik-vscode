@@ -15,6 +15,7 @@ Adds the following features to VS Code:
     * `Magik Compile File` (**Ctrl+F7**)
     * `Magik Load Module` (**Ctrl+Shift+F7**)
     * `Magik Compile Selection` (**F8**)
+    * `Magik Compile Module Messages` (**F7**) compile messages for the current module (from a message file)
 
 * Code Navigation Commands:
     * `Magik Goto` (**F3**) to jump to source.<br>
@@ -241,6 +242,11 @@ I would recommend using these other extensions:
 * Maximum amount of characters per comment line (0 = disable) (80 by default)
     ```json
     "magik-vscode.wrapCommentLineLength": 80
+    ```
+
+* Enable Magik actions in hover tooltip (Search, Go To, Run Test...).
+    ```json
+    "magik-vscode.enableHoverActions": true
     ```
 
 * Enable auto scroll to the Magik prompt when sending commands to the terminal (`true` by default)
