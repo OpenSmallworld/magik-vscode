@@ -204,6 +204,10 @@
             {
                 "command": "magik.startDebugSession",
                 "title": "Magik Start Debug Session"
+            },
+            {
+                "command": "magik.smallworldNinja",
+                "title": "Smallworld Ninja"
             }
         ],
         "keybindings": [

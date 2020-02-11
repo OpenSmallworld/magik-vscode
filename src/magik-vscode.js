@@ -36,6 +36,7 @@ class MagikVSCode {
       ['compileExtensionMagik', this._compileExtensionMagik],
       ['newBuffer', this._newMagikBuffer],
       ['gotoClipboardText', this._gotoClipboardText],
+      ['smallworldNinja', this._startSmallworldNinja],
     ];
 
     for (const [name, func] of commandConfig) {
@@ -409,17 +410,10 @@ class MagikVSCode {
     if (symbols.length === 1) {
       const resSymbol = this.resolveWorkspaceSymbol(symbols[0]);
       if (resSymbol) {
-        await vscode.commands.executeCommand(
-          'vscode.open',
-          resSymbol.location.uri
-        );
-
         const range = resSymbol.location.range;
-        if (range) {
-          const editor = vscode.window.activeTextEditor;
-          editor.selection = new vscode.Selection(range.start, range.end);
-          editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
-        }
+        vscode.window.showTextDocument(resSymbol.location.uri, {
+          selection: range,
+        });
         return;
       }
     }
@@ -816,7 +810,7 @@ class MagikVSCode {
   }
 
   async _goto(args) {
-    let editor = vscode.window.activeTextEditor;
+    const editor = vscode.window.activeTextEditor;
     if (!editor) return;
 
     const doc = editor.document;
@@ -844,13 +838,9 @@ class MagikVSCode {
 
     if (def.symbol) {
       const range = def.symbol.location.range;
-      await vscode.commands.executeCommand(
-        'vscode.open',
-        def.symbol.location.uri
-      );
-      editor = vscode.window.activeTextEditor;
-      editor.selection = new vscode.Selection(range.start, range.end);
-      editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+      vscode.window.showTextDocument(def.symbol.location.uri, {
+        selection: range,
+      });
       return;
     }
 
@@ -1657,6 +1647,17 @@ class MagikVSCode {
     const doc = editor.document;
     const fileName = doc.fileName;
     const command = `vs_compile_messages("${fileName}")`;
+
+    if (this._usingIntegratedTerminal()) {
+      vscode.commands.executeCommand('workbench.action.terminal.focus', {});
+    }
+
+    await this._sendToTerminal(command);
+  }
+
+  async _startSmallworldNinja() {
+    const ext = vscode.extensions.getExtension('GE-Smallworld.magik-vscode');
+    const command = `start_ninja("${ext.extensionPath}")`;
 
     if (this._usingIntegratedTerminal()) {
       vscode.commands.executeCommand('workbench.action.terminal.focus', {});

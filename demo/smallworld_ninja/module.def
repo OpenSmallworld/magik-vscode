@@ -1,0 +1,9 @@
+smallworld_ninja	1
+
+description
+	Smallworld Ninja Game
+end
+
+requires
+	magik_gui_components
+end 

@@ -602,6 +602,26 @@ _endmethod
 $
 
 
+_pragma(classify_level=debug)
+_global _constant start_ninja <<
+	_proc @start_ninja(extension_path)
+		_global smallworld_ninja
+
+		_if _not sw_module_manager.module_is_loaded?(:smallworld_ninja)
+		_then
+			demo_dir << system.pathname_down(extension_path, "demo")
+			smallworld_product.add_product(demo_dir)
+			sw_module_manager.load_module(:smallworld_ninja)
+		_endif
+
+		_if smallworld_ninja _isnt _unset
+		_then
+			smallworld_ninja.open()
+		_endif
+	_endproc
+$
+
+
 # ---------------------------------------------------------------------------------------
 # The procs below are a copy from magik_tools
 

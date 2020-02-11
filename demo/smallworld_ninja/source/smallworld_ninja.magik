@@ -1,0 +1,1695 @@
+#% text_encoding = iso8859_1
+_package sw
+$
+
+#remex( :smallworld_ninja )
+#$
+
+_pragma(classify_level=restricted)
+def_slotted_exemplar( :smallworld_ninja,
+	              {
+			      { :items,             _unset },
+
+			      { :mode,              _unset },
+			      { :game_thread,       _unset },
+			      { :objects,           _unset },
+			      { :random,            _unset },
+
+			      { :start_time,        _unset },
+			      { :score,             _unset },
+			      { :misses,            _unset },
+			      { :hit_list,          _unset },
+
+			      { :geometry_data,     _unset },
+			      { :image_data,        _unset }
+		      },
+		      :model )
+$
+
+
+_pragma(classify_level=restricted)
+smallworld_ninja.define_shared_constant( :soc_name, :gis, :private )
+$
+
+_pragma(classify_level=restricted)
+smallworld_ninja.define_shared_constant( :ace_name, "default", :private )
+$
+
+_pragma(classify_level=restricted)
+smallworld_ninja.define_shared_constant( :max_misses, 3, :private )
+$
+
+_pragma(classify_level=restricted)
+smallworld_ninja.define_shared_constant( :background_colour,
+	colour.new_with_properties(:value, "2B2B2D"),
+	:private )
+$
+
+_pragma(classify_level=restricted)
+smallworld_ninja.define_shared_constant( :click_glow_colour, colour.called(:white), :private )
+$
+
+_pragma(classify_level=restricted)
+smallworld_ninja.define_shared_constant( :hit_glow_colours,
+	{ colour.new_with_properties( :value, "FF0000" ),
+	  colour.new_with_properties( :value, "C00000" ),
+	  colour.new_with_properties( :value, "FF7F00" ),
+	  colour.new_with_properties( :value, "C06000" ),
+	  colour.new_with_properties( :value, "FFFF00" ),
+	  colour.new_with_properties( :value, "C0C000" ) },
+	:private )
+$
+
+_pragma(classify_level=restricted)
+smallworld_ninja.define_shared_constant( :gc_properties,
+	property_list.new_with( :classic_drawing?, _false,
+				:text_anti_alias, _true ),
+	:private )
+$
+
+_pragma(classify_level=restricted)
+smallworld_ninja.define_shared_constant( :bold_text_style,
+	text_style.new_with_properties( :colour, colour.called(:black),
+					:font, font.new_with_properties( :type, :logical,
+									 :name, :plain,
+									 :point_size, 20 ) ),
+	:private )
+$
+
+_pragma(classify_level=restricted)
+smallworld_ninja.define_shared_constant( :info_text_style,
+	text_style.new_with_properties( :colour, colour.called(:white),
+					:font, font.new_with_properties( :type, :logical,
+									 :name, :fancy,
+									 :point_size, 20 ) ),
+	:private )
+$
+
+_pragma(classify_level=restricted)
+smallworld_ninja.define_shared_constant( :bonus_text_style,
+	text_style.new_with_properties( :colour, colour.new_with_properties( :value, "B00000" ),
+					:font, font.new_with_properties( :type, :logical,
+									 :name, :fancy,
+									 :point_size, 20 ) ),
+	:private )
+$
+
+
+#--------------------------------------------------------------------------
+# GUI
+
+_pragma(classify_level=restricted, usage={subclassable})
+_private _method smallworld_ninja.init()
+	##
+	##
+
+	_super.init()
+
+	.items << property_list.new()
+	.objects << rope.new()
+	.hit_list << rope.new()
+
+	.score << 0
+
+	_self.setup_geometry()
+	_self.setup_images()
+
+	.message_accessor << message_handler.new(:smallworld_ninja)
+
+	>> _self
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.setup_geometry()
+	##
+	##
+
+	ace_name << _self.ace_name
+	an_ace << gis_program_manager.ace( ace_name )
+	_if an_ace _is _unset
+	_then
+		an_ace << gis_program_manager.ace( smallworld_product.get_option(:ace) )
+	_endif
+
+	soc_name << _self.soc_name
+	a_soc << gis_program_manager.spatial_object_controller( soc_name )
+	_if a_soc _is _unset
+	_then
+		a_soc << _for s _over gis_program_manager.spatial_object_controllers()
+		         _loop
+				 _leave _with s
+			 _endloop
+	_endif
+
+	ace_ctrl << ace_control.new( an_ace, a_soc )
+	my_sts << ace_ctrl.style_system_for_name( :auto )
+	sts << transient_style_system.new_from( my_sts )
+
+	.geometry_data << rope.new()
+
+	_for a_dataset _over gis_program_manager.cached_datasets()
+	_loop
+		_self.add_geometry_data( a_dataset, sts )
+	_endloop
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.add_geometry_data( a_dataset, sts )
+	##
+	##
+
+	_dynamic !current_dsview! << a_dataset
+
+	data << .geometry_data
+
+	_for a_col _over a_dataset.collections.fast_elements()
+	_loop
+		det_rec << a_col.new_detached_record()
+		_if _not det_rec.is_rwo?
+		_then
+			_continue
+		_endif
+
+		_for geom_field _over det_rec.geometry_fields()
+		_loop
+			_if geom_field.geom_type _is :point
+			_then
+				_try
+					a_style << _self.get_style( det_rec, geom_field, sts )
+				_when error
+					_continue
+				_endtry
+
+				_if a_style _isnt _unset
+				_then
+					a_gis_style << a_style.actual_gis_style
+
+					geoms << rope.new()
+					styles << rope.new()
+
+					all_geoms << a_gis_style.actual_geoms
+					all_styles << a_gis_style.actual_styles
+					start_index << _if a_gis_style.responds_to?(:start_seq)
+						       _then
+							       >> a_gis_style.start_seq
+						       _else
+							       >> symbol_component.start_seq
+						       _endif
+
+					bounds << _unset
+					_for i _over range( start_index, all_geoms.size )
+					_loop
+						g << all_geoms[i]
+						g_style << all_styles[i]
+						_if g _isnt _unset _andif g_style _isnt _unset
+						_then
+							geoms.add_last( g )
+							styles.add_last( g_style )
+							bounds << g.bounds.union( bounds )
+						_endif
+					_endloop
+
+					geom_args << {:styles, styles,
+						      :geoms, geoms,
+						      :centre, bounds.centre,
+						      :width, bounds.width,
+						      :height, bounds.height }
+
+					data.add_last( {a_col.external_name, a_col.name, geom_field.name, geom_args, 1} )
+				_endif
+			_endif
+		_endloop
+	_endloop
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.get_style( obj, geom_field, a_style_system,
+						    _optional a_style_category, sub_code, type )
+	##
+	##
+
+        _if geom_field.mapped? _is _true
+        _then
+                geom_name << obj.perform( geom_field.map_discriminator_method )
+	_else
+		geom_name << geom_field.name
+        _endif
+
+	rwo_type << geom_field.rwo_type
+
+        a_style << a_style_system.get_classification_style( rwo_type,
+							    geom_name,
+							    a_style_category,
+							    sub_code,
+							    type )
+
+        _if a_style _is _unset _andif a_style_category _is _unset
+        _then
+		a_style << a_style_system.get_classification_style( rwo_type,
+								    geom_name,
+								    geom_field.style_category )
+
+        _elif a_style.custom_style? _is _true
+        _then
+		_try
+			sub_code << obj.perform( a_style.actual_custom_style_method )
+
+			sub_style << a_style_system.get_classification_style( rwo_type,
+									      geom_name,
+									      a_style_category,
+									      sub_code,
+									      type )
+
+			_if sub_style _isnt _unset _andif
+			    ( sub_style.style_name <> rwo_style_system.style_name _orif
+			      sub_style.rwo_name <> rwo_style_system.system_rwo_name )
+			_then
+				a_style << sub_style
+			_endif
+
+		_when does_not_understand, dd_mandatory_field,
+		      style_warn_using_default_style
+		      # do nothing and return the basic a_style
+		_endtry
+        _endif
+
+        _return a_style
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.setup_images()
+	##
+	##
+
+	.image_data << { {"Muffin", :muffin, _self.get_image_path("muffin.png"), 5},
+			 {"Goat", :goat, _self.get_image_path("goat.png"), 5},
+			 {"Smallworld", :target, _self.get_image_path("new_target.png"), -10} }
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_method smallworld_ninja.activate_in( a_frame )
+	##
+	##
+
+	a_frame.title << _self.message(:title)
+
+	.items[:top_container] << top_con << sw_canvas_container.new( a_frame, 1, 1,
+								      :width, 1000,
+								      :height, 600,
+								      :colour, _self.background_colour )
+
+	.items[:background_image] << raster_image.new_from_file( _self.get_image_path("background.png") )
+	.items[:background_container] << background_con << sw_container.new( top_con, 1, 1 )
+	background_con.pre_draw_handler << handler.new( _self, :draw_background|()| )
+
+
+	.items[:layered_container] << layered_con << sw_layered_container.new( background_con,
+									       :colour, _unset )
+
+	.items[:object_container] << object_con << sw_container.new( layered_con, 1, _unset )
+	object_con.pre_draw_handler << handler.new( _self, :draw_objects|()| )
+
+	e_handler << sw_event_handler.new()
+	a_handler << handler.new( _self, :handle_event|()| )
+	e_handler.primary_press_handler << a_handler
+	e_handler.primary_drag_handler << a_handler
+	e_handler.primary_release_handler << a_handler
+	object_con.add_event_handler( e_handler )
+
+	.items[:info_container] << info_con << sw_container.new( layered_con, 2, 2,
+								 :outer_spacing, 8 )
+
+	top_left_con << sw_container.new( info_con, 1, _unset,
+					  :col_spacing, 8,
+					  :row, 1, :col, 1,
+					  :row_alignment, :top,
+					  :col_alignment, :left )
+
+	quit_image << sw_image_item.new( top_left_con, _unset,
+					 :filename, _self.get_image_path("shutdown.png"),
+					 :mode, :stretch,
+					 :min_width, 36,
+					 :min_height, 36,
+					 :tooltip, _self.message(:quit) )
+
+	e_handler << sw_event_handler.new()
+	e_handler.primary_release_handler << handler.new( _self, :stop_game|()| )
+	quit_image.add_event_handler( e_handler )
+
+	.items[:score_label] << sw_label_item.new( top_left_con, _self.message(:score, _unset, 0),
+						   :text_style, _self.info_text_style,
+						   :min_width, 100 )
+
+
+	top_right_con << sw_container.new( info_con, _unset, 1,
+					   :row_spacing, 2,
+					   :row, 1, :col, 2,
+					   :row_alignment, :top,
+					   :col_alignment, :right,
+					   :default_col_alignment, :right )
+
+	.items[:misses_container] << misses_con << sw_container.new( top_right_con, 1, _unset,
+								     :row_spacing, 1,
+								     :default_row_alignment, :top )
+
+	w << 32
+	_over range( 1, _self.max_misses )
+	_loop
+		sw_image_item.new( misses_con, _unset,
+				   :filename, _self.get_image_path("cross_grey.png"),
+				   :mode, :stretch,
+				   :min_width, w,
+				   :min_height, w )
+		w +<< 6
+	_endloop
+	misses_con.items[1].right_spacing << 1
+
+	.items[:miss_image] << _self.create_image( _self.get_image_path("cross.png"), 40 )
+
+	.items[:time_label] << sw_label_item.new( top_right_con, _self.message(:start_time),
+						  :text_style, _self.info_text_style,
+						  :right_spacing, 6 )
+
+	.items[:fps_label] << sw_label_item.new( top_right_con, _self.message(:fps, _unset, "0.0"),
+						 :text_style, _self.info_text_style,
+						 :right_spacing, 6 )
+
+	.items[:fps_format] << float_format.new_with_properties( :float_decimal_places, 1 )
+
+	info_con.distribute_message( :|enable_background_copy?<<|, _false )
+
+	_self.build_start_menu()
+	_self.build_game_over_menu()
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.build_start_menu()
+	##
+	##
+
+	background_colour << colour.new_with_properties(:value, "9597A6")
+
+	parent << .items[:layered_container]
+
+	.items[:start_menu] << a_menu <<
+		sw_container.new( parent, 1, _unset,
+				  :row_alignment, :centre,
+				  :col_alignment, :centre,
+			:managed?, _false )
+
+	spacing << parent.get_theme_property(:default_outer_border_spacing)
+
+	con << sw_container.new( a_menu, _unset, 1,
+				 :outer_spacing, spacing,
+				 :row_spacing, 8,
+				 :default_col_alignment, :centre,
+				 :row_resize_values, {0,0,0},
+				 :colour, background_colour )
+
+
+	sw_image_item.new( con, _unset,
+			   :filename, _self.get_image_path("ninja_goat.png") )
+
+	button_con << sw_container.new( con, 1, _unset,
+					:col_spacing, 24 )
+
+
+	classic_con << sw_layered_container.new( button_con,
+						 :colour, _unset,
+						 :tooltip, _self.message(:classic_mode),
+						 :short_help_text, _self.message(:classic_help) )
+
+	classic_image << sw_image_item.new( classic_con, _unset,
+					    :filename, _self.get_image_path("circle_green.png"),
+					    :mode, :stretch,
+					    :min_width, 100,
+					    :min_height, 100 )
+
+	label_con << sw_container.new( classic_con, _unset, 1,
+				       :bottom_spacing, 1,
+				       :row_alignment, :centre )
+	sw_label_item.new( label_con, _self.message(:start),
+			   :text_style, _self.info_text_style,
+			   :right_spacing, 1,
+			   :row_alignment, :centre,
+			   :col_alignment, :centre )
+	sw_label_item.new( label_con, _self.message(:classic),
+			   :text_style, _self.info_text_style,
+			   :right_spacing, 1,
+			   :row_alignment, :centre,
+			   :col_alignment, :centre )
+
+	e_handler << sw_event_handler.new()
+	e_handler.primary_release_handler << handler.new( _self, :start_game|()|, :classic )
+	classic_image.add_event_handler( e_handler )
+
+
+	fury_con << sw_layered_container.new( button_con,
+					      :colour, _unset,
+					      :tooltip, _self.message(:fury_mode),
+					      :short_help_text, _self.message(:fury_help) )
+
+	fury_image << sw_image_item.new( fury_con, _unset,
+					 :filename, _self.get_image_path("circle_green.png"),
+					 :mode, :stretch,
+					 :min_width, 100,
+					 :min_height, 100 )
+
+	label_con << sw_container.new( fury_con, _unset, 1,
+				       :bottom_spacing, 1,
+				       :row_alignment, :centre )
+	sw_label_item.new( label_con, _self.message(:start),
+			   :text_style, _self.info_text_style,
+			   :right_spacing, 1,
+			   :row_alignment, :centre,
+			   :col_alignment, :centre )
+	sw_label_item.new( label_con, _self.message(:fury),
+			   :text_style, _self.info_text_style,
+			   :right_spacing, 1,
+			   :row_alignment, :centre,
+			   :col_alignment, :centre )
+
+	e_handler << sw_event_handler.new()
+	e_handler.primary_release_handler << handler.new( _self, :start_game|()|, :fury )
+	fury_image.add_event_handler( e_handler )
+
+
+	tw << sw_text_window.new( con,
+				  :show_border?, _false,
+				  :min_width, 450,
+				  :min_height, 110,
+				  :colour, _unset )
+	tw.text << _self.message(:terms)
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_method smallworld_ninja.build_game_over_menu()
+	##
+	##
+
+	background_colour << colour.new_with_properties(:value, "9597A6")
+
+	parent << .items[:layered_container]
+
+	.items[:game_over_menu] << a_menu <<
+		sw_container.new( parent, 1, _unset,
+				  :row_alignment, :centre,
+				  :col_alignment, :centre )
+
+	con << sw_container.new( a_menu, _unset, 1,
+				 :outer_spacing, 12,
+				 :row_spacing, 8,
+				 :default_col_alignment, :centre,
+				 :row_resize_values, {0,0,0},
+				 :min_width, 300,
+				 :colour, background_colour )
+
+	.items[:game_over_label] << sw_label_item.new( con, _self.message(:game_over),
+						       :text_style, _self.bold_text_style )
+
+	.items[:final_score_label] << sw_label_item.new( con, "",
+							 :bottom_spacing, 4 )
+
+
+	continue_con << sw_layered_container.new( con, :colour, _unset )
+
+	continue_image << sw_image_item.new( continue_con, _unset,
+					     :filename, _self.get_image_path("circle_green.png"),
+					     :mode, :stretch,
+					     :min_width, 100,
+					     :min_height, 100 )
+
+	sw_label_item.new( continue_con, _self.message(:continue),
+			   :text_style, _self.info_text_style,
+			   :right_spacing, 1,
+			   :bottom_spacing, 1,
+			   :row_alignment, :centre,
+			   :col_alignment, :centre )
+
+	e_handler << sw_event_handler.new()
+	e_handler.primary_release_handler << handler.new( _self, :activate_start_menu|()| )
+	continue_image.add_event_handler( e_handler )
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_method smallworld_ninja.activate_start_menu()
+	##
+	##
+
+	.items[:game_over_menu].managed? << _false
+	_thisthread.sleep( 200 )
+	.items[:start_menu].managed? << _true
+	.items[:start_menu].refresh()
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.activate_game_over_menu()
+	##
+	##
+
+	_self.clear_objects()
+
+	time << system.elapsed_seconds() * 1000.0
+
+	_self.update_time_label( time, .start_time.default(time) )
+
+	_if .mode _is :classic
+	_then
+		level << _self.get_level( time )
+
+		rank << _if level < 5
+			_then
+				>> _self.message(:beginner)
+			_elif level < 7
+			_then
+				>> _self.message(:intermediate)
+			_elif level < 9
+			_then
+				>> _self.message(:advanced)
+			_elif level < 11
+			_then
+				>> _self.message(:expert)
+			_elif level < 13
+			_then
+				>> _self.message(:master)
+			_else
+				>> _self.message(:legend)
+			_endif
+
+		.items[:game_over_label].int!label << _self.message(:game_over)
+	_else
+		rank << _if .score < 150
+			_then
+				>> _self.message(:beginner)
+			_elif .score < 225
+			_then
+				>> _self.message(:intermediate)
+			_elif .score < 300
+			_then
+				>> _self.message(:advanced)
+			_elif .score < 375
+			_then
+				>> _self.message(:expert)
+			_elif .score < 450
+			_then
+				>> _self.message(:master)
+			_else
+				>> _self.message(:legend)
+			_endif
+
+		.items[:game_over_label].int!label << _self.message(:time_up)
+	_endif
+
+	.items[:final_score_label].int!label << _self.message(:final_score, _unset, .score, rank)
+
+	.items[:game_over_menu].managed? << _true
+	.items[:game_over_menu].refresh()
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_method smallworld_ninja.draw_background( background_con, a_window, x, y, clip_bounds )
+	##
+	##
+
+	gc << background_con.top_container.get_graphics_context( a_window, _false )
+	background_con.background_image_render_proc.invoke( gc, x, y,
+							    x + background_con.width - 1, y + background_con.height - 1,
+							    .items[:background_image], :stretch )
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.update_time_label( time, start_time )
+	##
+	##
+
+	elapsed_time << time - start_time
+	mins << (elapsed_time / 60000.0).floor
+	secs << ((elapsed_time - (mins * 60000.0)) / 1000.0).floor
+	_if secs < 10
+	_then
+		.items[:time_label].int!label << _self.message(:time_0, _unset, mins, secs)
+	_else
+		.items[:time_label].int!label << _self.message(:time, _unset, mins, secs)
+	_endif
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.update_fps_label( elapsed_time, redraws )
+	##
+	##
+
+	fps << .items[:fps_format].format( elapsed_time/500.0 * redraws )
+	.items[:fps_label].int!label << _self.message(:fps, _unset, fps )
+	.items[:fps_label].parent.layout()
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_method smallworld_ninja.on_activation()
+	##
+	##
+
+	_proc( this_plugin )
+		this_plugin.activate_start_menu()
+	_endproc.fork_at( _thisthread.background_priority, _self )
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_method smallworld_ninja.on_deactivation()
+	##
+	##
+
+	_if .game_thread _isnt _unset
+	_then
+		_try
+			.game_thread.kill_and_wait()
+		_when error
+		_endtry
+		.game_thread << _unset
+	_endif
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_method smallworld_ninja.get_image_path( filename )
+	##
+	##
+
+	_for a_dir _over smallworld_product.full_resource_directories( _self.module_name )
+	_loop
+		image_file << system.pathname_down( a_dir, "bitmaps", filename )
+		_if system.file_exists?( image_file )
+		_then
+			_return image_file
+		_endif
+	_endloop
+
+_endmethod
+$
+
+
+#--------------------------------------------------------------------------
+# GAME
+
+_pragma(classify_level=restricted)
+_method smallworld_ninja.start_game( mode )
+	##
+	##
+
+	.items[:top_container].close_tooltip()
+	.items[:start_menu].managed? << _false
+	.items[:start_menu].refresh()
+
+	_self.setup_game( mode )
+
+	.game_thread << _proc @smallworld_ninja( this_dialog )
+				this_dialog.control_game()
+			_endproc.fork_at( 1, _self )
+
+	_if system.vm_version <> 3
+	_then
+		.game_thread.name << sw_canvas_container.serialisation_thread_name
+	_endif
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_method smallworld_ninja.stop_game()
+	##
+	##
+
+	_if .game_thread _isnt _unset
+	_then
+		_try
+			.game_thread.kill_and_wait()
+		_when error
+		_endtry
+		.game_thread << _unset
+
+		_self.activate_game_over_menu()
+	_endif
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.setup_game( mode )
+	##
+	##
+
+	_self.clear_objects()
+
+	.mode << mode.default( :classic )
+
+	.objects.empty()
+	.hit_list.empty()
+
+	.score << 0
+	.misses << 0
+
+	.items[:score_label].int!label << _self.message(:score, _unset, 0)
+
+	_for an_image _over .items[:misses_container].items.fast_elements()
+	_loop
+		an_image.filename << _self.get_image_path("cross_grey.png")
+	_endloop
+
+	.items[:time_label].int!label << _self.message(:start_time)
+	.items[:fps_label].int!label << _self.message(:fps, _unset, "0.0")
+
+	.items[:layered_container].redraw()
+
+	.start_time << system.elapsed_seconds() * 1000.0
+
+	.random << random.new( 1000000, .start_time.floor )
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.game_over?( time )
+	##
+	##
+
+	>> .game_thread _is _unset _orif
+		( .mode _is :classic _andif .misses >= _self.max_misses ) _orif
+		( .mode _is :fury _andif (time - .start_time) > 90000.0 )
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.get_level( time )
+	##
+	##
+
+	level << ((time - .start_time) / 20000.0).floor.max(1)
+	_if .mode _is :fury
+	_then
+		level +<< 7
+	_endif
+	>> level
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.random_number( range )
+	##
+	## Returns a random number between 0 and range - 1.
+
+	>> (.random.get() * range / 1000000).floor
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.random_boolean?
+	##
+	##
+
+	>> .random.get() > 499999
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_method smallworld_ninja.control_game()
+	##
+	##
+
+	last_time << start_time << .start_time
+
+	top_con << .items[:top_container]
+	layered_con << .items[:layered_container]
+
+	gc << _unset
+	_protect
+
+		gc << graphics_context.new( top_con, _unset, _self.gc_properties )
+		gc.override_retained? << _true
+
+		n << 0
+		_loop
+			time << system.elapsed_seconds() * 1000.0
+
+			_if time - last_time >= 500.0
+			_then
+				_self.update_time_label( time, start_time )
+				_self.update_fps_label( time - last_time, n )
+				last_time << time
+				n << 0
+			_endif
+
+			_lock _self
+
+			      _self.update_objects( time )
+
+			      _lock top_con
+				    w << layered_con.width
+				    h << layered_con.height
+				    clip_bounds << pixel_bounding_box.new( 0, 0, w, h )
+				    buffer_window << top_con.buffer_window
+				    layered_con.draw( buffer_window, 0, 0, clip_bounds )
+				    gc.copy_area( 0, 0, w, h, buffer_window, 0, 0 )
+			      _endlock
+
+			_endlock
+
+			_if _self.game_over?( time ) _then _leave _endif
+
+			n +<< 1
+		_endloop
+
+	_protection
+		_if gc _isnt _unset
+		_then
+			gc.dispose()
+		_endif
+	_endprotect
+
+	_self.activate_game_over_menu()
+
+_endmethod
+$
+
+
+#--------------------------------------------------------------------------
+# OBJECT
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.clear_objects()
+	##
+	##
+
+	_for props _over .objects.fast_elements()
+	_loop
+		_if props[:type] _is :image_projectile
+		_then
+			props[:image].destroy()
+			props[:scaled_window].destroy()
+		_endif
+	_endloop
+
+	.objects.empty()
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.update_objects( time )
+	##
+	##
+
+	new_objects << rope.new()
+
+	object_con << .items[:object_container]
+	xmin << 0
+	ymin << 0
+	xmax << object_con.width - 1
+	ymax << object_con.height - 1
+
+	projectiles_visible? << _false
+	last_time << 0.0
+
+	miss_info_bounds << pixel_bounding_box.new( 25, 25, xmax - 25, ymax - 25 )
+
+	# Check for misses and expired objects
+	_for props _over .objects.fast_elements()
+	_loop
+		type << props[:type]
+		_if type _is :geom_projectile _orif type _is :image_projectile
+		_then
+			last_time << props[:start_time].max( last_time )
+
+			visible? << _if ( limits << props[:limits] ) _is _unset
+				    _then
+					    >> _false
+				    _else
+					    (x1,y1,x2,y2) << (_scatter limits)
+					    >> _not ( x2 < xmin _orif
+						      x1 > xmax _orif
+						      y2 < ymin _orif
+						      y1 > ymax )
+				    _endif
+
+			_if props[:visible?] _andif _not visible?
+			_then
+				_if type _is :geom_projectile
+				_then
+					_if .mode _is :classic
+					_then
+						.misses +<< 1
+						images << .items[:misses_container].items
+						_for i _over range( 1, .misses.min(_self.max_misses) )
+						_loop
+							images[i].filename << _self.get_image_path("cross.png")
+						_endloop
+					_endif
+
+					c << miss_info_bounds.segpoint_near( coordinate(props[:x], props[:y]) )
+
+					image_props << property_list.new_with( :type, :image,
+									       :start_time, time,
+									       :max_time, 1000.0,
+									       :image, .items[:miss_image],
+									       :x, c.x.rounded,
+									       :y, c.y.rounded,
+									       :size, 40 )
+					new_objects.add_last( image_props )
+				_else
+					props[:image].destroy()
+					props[:scaled_window].destroy()
+				_endif
+			_else
+				props[:visible?] << visible?
+				new_objects.add_last( props )
+				_if visible?
+				_then
+					projectiles_visible? << _true
+				_endif
+			_endif
+		_else
+			_if time - props[:start_time] < props[:max_time]
+			_then
+				new_objects.add_last( props )
+
+			_elif props[:expire_handler] _isnt _unset
+			_then
+				props[:expire_handler].invoke( time, new_objects )
+			_endif
+		_endif
+	_endloop
+
+	.objects << new_objects
+
+	_self.add_projectiles( time, last_time, _not projectiles_visible? )
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.add_projectiles( time, last_time, garbage_collect? )
+	##
+	##
+
+	level << _self.get_level( time )
+
+	max_time << (2500 - (level - 1) * 100).max( 800 )
+	min_time << (max_time - 1000).max( 400 )
+	interval << min_time + _self.random_number( max_time - min_time + 1 )
+
+	_if time - last_time > interval
+	_then
+		_if garbage_collect? _andif system.vm_version = 3
+		_then
+			system.gc()
+		_endif
+
+		val << _self.random_number( 31 )
+		n << _if val < 16
+		     _then
+			     >> 1
+		     _elif val < 24
+		     _then
+			     >> 2
+		     _elif val < 28
+		     _then
+			     >> 3
+		     _elif val < 30
+		     _then
+			     >> 4
+		     _else
+			     >> 5
+		     _endif
+
+		new_objects << rope.new()
+
+		_for i _over range( 1, n )
+		_loop
+			new_objects.add_last( _self.new_geom_projectile( time, level ) )
+		_endloop
+
+		_if n > 1 _andif _self.random_boolean?
+		_then
+			first_props << new_objects[1]
+			styles << first_props[:styles]
+			geoms << first_props[:geoms]
+			centre << first_props[:centre]
+			w << first_props[:width]
+			h << first_props[:height]
+			_for i _over range( 2, n )
+			_loop
+				new_props << new_objects[i]
+				s << new_props[:size]
+				scale << ( s/w ).min( s/h )
+				new_props[:styles] << styles
+				new_props[:geoms] << geoms
+				new_props[:centre] << centre
+				new_props[:scale] << scale
+			_endloop
+		_endif
+
+		_if n > 1 _andif _self.random_boolean?
+		_then
+			first_props << new_objects[1]
+			x_offset << first_props[:x_offset]
+			left? << first_props[:left?]
+			_for i _over range( 2, n )
+			_loop
+				new_props << new_objects[i]
+				new_props[:x_offset] << x_offset
+				new_props[:left?] << left?
+			_endloop
+		_endif
+
+		_if _self.random_number( 8 ) _is 0
+		_then
+			new_objects.add_last( _self.new_image_projectile( time, level ) )
+		_endif
+
+		.objects.add_all_last( new_objects )
+	_endif
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.new_projectile( time, level )
+	##
+	##
+
+	obj_con << .items[:object_container]
+	w << obj_con.width
+	h << obj_con.height
+
+	min_s << w / 30.0
+	max_s << w / 10.0
+
+	max_size << max_s.rounded
+	# min_size available from level 7 - start of fury game
+	min_size << (min_s + ((max_s - min_s) / 14.0) * (7 - level).max(0)).rounded
+
+	size << min_size + _self.random_number( max_size - min_size + 1 )
+
+	g << (45.0 + _self.random_number( level * 2 )).min( 65.0 )
+
+	m << 0.5
+	drag << 0.1
+	c << drag / m
+
+	v0 << ((h * 0.4) + _self.random_number( 100 + level * 10 )).min( h )
+
+	r << (_self.random_number( 361 ) - 180).degrees_to_radians
+
+	quarter_w << w _div 4
+	x_offset << _self.random_number( w + 1 ) - quarter_w
+	y_offset << size + 1
+
+	max_delta_ang << _if x_offset > 2 * quarter_w
+			 _then
+				 >> 40
+			 _else
+				 >> 60
+			 _endif
+	max_ang << _if x_offset < 0
+		   _then
+			   >> 75
+		   _else
+			   >> 85
+		   _endif
+	delta_ang << _self.random_number( (20 + level * 2).min(max_delta_ang + 1) )
+	ang << (max_ang - delta_ang).degrees_to_radians
+
+	left? << _self.random_boolean?
+
+	props << property_list.new_with( :start_time, time,
+					 :value, 1,
+					 :size, size,
+					 :x_offset, x_offset,
+					 :y_offset, y_offset,
+					 :variables, {g, c, v0, ang, r},
+					 :left?, left?,
+					 :visible?, _false )
+	>> props
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.new_geom_projectile( time, level )
+	##
+	##
+
+	props << _self.new_projectile( time, level )
+
+	val << _self.random_number( .geometry_data.size )
+	(ext_name, int_name, geom_name, geom_args, value) << (_scatter .geometry_data[ val + 1 ])
+
+	_for k, v _over geom_args.fast_elements_in_pairs()
+	_loop
+		props[ k ] << v
+	_endloop
+
+	size << props[:size]
+	scale << ( size/props[:width] ).min( size/props[:height] )
+
+	props[:type] << :geom_projectile
+
+	props[:scale] << scale
+
+	props[:ext_name] << ext_name
+	props[:int_name] << int_name
+	props[:value] << value
+
+	>> props
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.new_image_projectile( time, level )
+	##
+	##
+
+	props << _self.new_projectile( time, level )
+
+	val << _self.random_number( .image_data.size )
+	(ext_name, int_name, filename, value) << (_scatter .image_data[ val + 1 ])
+
+	(an_image, scaled_win) << _self.create_image( filename, props[:size] )
+
+	props[:type] << :image_projectile
+	props[:image] << an_image
+	props[:scaled_window] << scaled_win
+
+	props[:ext_name] << ext_name
+	props[:int_name] << int_name
+	props[:value] << value
+
+	props[:variables][3] << 1.5 * props[:variables][3]
+
+	>> props
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.new_glow_projectile( time, x, y, hit_props, a_colour, depth )
+	##
+	##
+
+	max_depth << 3
+
+	hit_v0 << hit_props[:variables][3]
+	v0 << hit_v0 * 0.75
+
+	ang << _self.random_number(360).degrees_to_radians
+	g << _if ang < float.pi
+	     _then
+		     # Up
+		     >> 85.0
+	     _else
+		     # Down
+		     >> 65.0
+	     _endif
+
+	size << hit_props[:size] * 0.75
+	max_time << _self.random_number( (max_depth + 1 - depth) * 250 ) + 250
+	max_radius << (size * hit_v0 / 1000.0).floor
+	left? << _self.random_boolean?
+
+	props << property_list.new_with( :type, :glow_projectile,
+					 :start_time, time,
+					 :x, x,
+					 :y, y,
+					 :size, size,
+					 :variables, {g, 0.4, v0, ang, 0},
+					 :left?, left?,
+					 :max_time, max_time,
+					 :max_radius, max_radius,
+					 :colour, a_colour,
+					 :depth, depth,
+					 :visible?, _false )
+
+	_if left?
+	_then
+		props[:x_offset] << x
+	_else
+		props[:x_offset] << .items[:object_container].width - x
+	_endif
+	props[:y_offset] << y - .items[:object_container].height
+
+	_if depth <= max_depth _andif _self.random_number(5) _is 4
+	_then
+		props[:expire_handler] << handler.new( _self, :new_glow_projectiles|()|, props )
+	_endif
+
+	>> props
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_method smallworld_ninja.new_glow_projectiles( props, time, objects )
+	##
+	##
+
+	max_depth << 3
+
+	x << props[:x]
+	y << props[:y]
+	a_colour << props[:colour]
+	depth << props[:depth] + 1
+
+	_over 1.upto( _self.random_number( (max_depth + 1 - depth) * 3 ) + 3 )
+	_loop
+		glow_props << _self.new_glow_projectile( time, x, y, props, a_colour, depth )
+		objects.add_last( glow_props )
+	_endloop
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.create_image( filename, size )
+	##
+	##
+
+	a_raster << raster_image.new_from_file( filename )
+	(w, h) << a_raster.size()
+
+	temp_win << memory_canvas.new( w, h )
+	temp_win.background_colour << _self.background_colour
+	temp_win.clear()
+	temp_win.render_raster( a_raster, 0, 0, _true )
+
+	scaled_win << memory_canvas.new( size, size )
+	scaled_win.background_colour << _self.background_colour
+	scaled_win.clear()
+	scaled_win.copy_area( 0, 0, size, size, temp_win, 0, 0, w, h, _true )
+
+	temp_win.destroy()
+
+	an_image << image.new_for_window( scaled_win, _false, size, size )
+	an_image.copy_from_canvas( 0, 0 )
+
+	>> an_image, scaled_win
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_method smallworld_ninja.draw_objects( object_con, a_window, x, y, clip_bounds )
+	##
+	##
+
+	gc << _unset
+	_protect
+		time << system.elapsed_seconds() * 1000.0
+
+		gc << graphics_context.new( a_window, _unset, _self.gc_properties )
+		gc.window_clip_bounds << pixel_bounding_box.new( x, y, x + object_con.width, y + object_con.height )
+
+		_for props _over .objects.fast_elements()
+		_loop
+			type << props[:type]
+			_if type _is :glow
+			_then
+				_self.draw_glow( gc, time, props )
+
+			_elif type _is :glow_projectile _orif
+			      type _is :geom_projectile _orif
+			      type _is :image_projectile
+			_then
+				_self.draw_projectile( gc, time, props )
+
+			_elif type _is :info
+			_then
+				_self.draw_info( gc, time, props )
+
+			_elif type _is :image
+			_then
+				_self.draw_image( gc, props[:image], props[:x], props[:y], props[:size] _div 2 )
+			_endif
+		_endloop
+	_protection
+		_if gc _isnt _unset
+		_then
+			gc.dispose()
+		_endif
+	_endprotect
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.draw_glow( gc, time, props )
+	##
+	##
+
+	f_style << _unset
+	_protect
+		t << ((time - props[:start_time]) / props[:max_time]).min(1.0)
+		f1 << ((2.0*t - t*t) * float.pi).sin
+
+		t << 1.0 - t
+		f2 << 2.0*t - t*t
+
+		f_style << fill_style.new_with_properties( :foreground_colour, props[:colour],
+							   :wash_percent, (f2 * 100.0).min(60.0) )
+		x << props[:x]
+		y << props[:y]
+
+		r << (props[:max_radius] * f1).floor
+
+		gc.fill_ellipse( f_style, x - r, y - r, x + r, y + r )
+
+	_protection
+		_if f_style _isnt _unset
+		_then
+			f_style.destroy()
+		_endif
+	_endprotect
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.draw_projectile( gc, time, props )
+	##
+	##
+
+	(g, c, v0, ang, r) << (_scatter props[:variables])
+
+	t << (time - props[:start_time]) / 1000.0
+
+	a << 1.0 - (-c * t).exp
+
+	x << (((v0 * ang.cos) / c) * a).floor
+	y << (-((g * t) / c) + (((v0 * ang.sin) / c) + (g / (c*c))) * a).floor
+
+	object_con << .items[:object_container]
+	_if props[:left?]
+	_then
+		x +<< props[:x_offset]
+	_else
+		x << object_con.width - props[:x_offset] - x
+	_endif
+	y << object_con.height + props[:y_offset] - y
+
+	props[:x] << x
+	props[:y] << y
+
+	type << props[:type]
+	_if type _is :glow_projectile
+	_then
+		_if _self.random_number( 10 ) _isnt 0
+		_then
+			_self.draw_glow( gc, time, props )
+		_endif
+	_else
+		half_size << props[:size] _div 2
+		props[:limits] << {x - half_size, y - half_size, x + half_size, y + half_size}
+
+		_if type _is :geom_projectile
+		_then
+			angle << r * t
+			_self.draw_geometry( gc, x, y, angle, props )
+		_else
+			_self.draw_image( gc, props[:image], x, y, half_size )
+		_endif
+	_endif
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.draw_geometry( gc, x, y, angle, props )
+	##
+	##
+
+	c << props[:centre]
+	s << props[:scale]
+
+	xform << transform.new().translate( -c.x, -c.y ).rotate( angle ).scalexy( s, -s ).translate( x, y )
+
+	_dynamic !point_draw_transform_call_level!
+    !point_draw_transform_call_level! << :not_top_level
+
+	_protect
+		orig_xform << gc.transform
+		gc.transform << xform.multiply( orig_xform )
+		geoms << props[:geoms]
+		styles << props[:styles]
+		_for i _over range( 1, geoms.size )
+		_loop
+			geoms[i].draw_physically( gc, styles[i] )
+		_endloop
+	_protection
+		gc.transform << orig_xform
+	_endprotect
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.hit_glow_colour
+	##
+	##
+
+	colours << _self.hit_glow_colours
+	>> colours[ _self.random_number(colours.size) + 1 ]
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.draw_image( gc, an_image, x, y, half_size )
+	##
+	##
+
+	gc.render_image( an_image, x - half_size, y - half_size, _true )
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.draw_info( gc, time, props )
+	##
+	##
+
+	gc.draw_text( props[:text_style], props[:x], props[:y],
+		      props[:string], _unset, _unset, :centre_centre )
+
+_endmethod
+$
+
+
+#--------------------------------------------------------------------------
+# INTERACTION
+
+_pragma(classify_level=restricted)
+_method smallworld_ninja.handle_event( an_event, x, y, a_window, handled? )
+	##
+	##
+
+	_lock _self
+	      _self.int!handle_event( an_event, x, y, a_window, handled? )
+	_endlock
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method smallworld_ninja.int!handle_event( an_event, x, y, a_window, handled? )
+	##
+	##
+
+	time << system.elapsed_seconds() * 1000.0
+
+	_if _self.game_over?( time ) _then _return _endif
+
+	new_objects << rope.new()
+	hit? << _false
+
+	_for props _over .objects.fast_elements()
+	_loop
+		type << props[:type]
+		_if type _is :geom_projectile _orif type _is :image_projectile
+		_then
+			(xmin, ymin, xmax, ymax) << (_scatter props[:limits])
+
+			_if _not ( x < xmin _orif
+				   x > xmax _orif
+				   y < ymin _orif
+				   y > ymax )
+			_then
+				hit? << _true
+
+				value << props[:value]
+				.score +<< value
+
+				glow_x << x + (props[:x] - x) _div 2
+				glow_y << y + (props[:y] - y) _div 2
+
+				glow_colour << _self.hit_glow_colour
+				_over 1.upto( _self.random_number(9) + 5 )
+				_loop
+					glow_props << _self.new_glow_projectile( time, glow_x, glow_y,
+										 props, glow_colour, 1 )
+					new_objects.add_last( glow_props )
+				_endloop
+
+				value_str << _if value > -1
+					     _then
+						     >> write_string( "+", value )
+					     _else
+						     >> value.write_string
+					     _endif
+
+				info_props << property_list.new_with( :type, :info,
+								      :start_time, time,
+								      :max_time, 750.0,
+								      :text_style, _self.info_text_style,
+								      :x, x,
+								      :y, y - 25,
+								      :string, value_str )
+				new_objects.add_last( info_props )
+
+
+				.hit_list.add_last( {time, x, y, props[:int_name], props[:ext_name]} )
+			_else
+				new_objects.add_last( props )
+			_endif
+		_else
+			new_objects.add_last( props )
+		_endif
+	_endloop
+
+	new_hit_list << rope.new()
+
+	combo << 0
+	combo_table << hash_table.new()
+
+	_for vec _over .hit_list.fast_elements()
+	_loop
+		_if time - vec[1] < 500.0
+		_then
+			combo +<< 1
+
+			int_name << vec[4]
+			_if ( args << combo_table[ int_name ] ) _is _unset
+			_then
+				combo_table[ int_name ] << {1, vec[5]}
+			_else
+				args[1] << args[1] + 1
+			_endif
+
+			new_hit_list.add_last( vec )
+		_endif
+	_endloop
+
+	_if hit?
+	_then
+		_if combo > 2
+		_then
+			.score +<< combo
+
+			info_props << property_list.new_with( :type, :info,
+							      :start_time, time,
+							      :max_time, 1000.0,
+							      :text_style, _self.bonus_text_style,
+							      :x, x,
+							      :y, y - 25,
+							      :string, _self.message(:combo, _unset, combo) )
+			new_objects.add_last( info_props )
+		_endif
+
+		_for vec _over combo_table.fast_elements()
+		_loop
+			_if vec[1] > 2
+			_then
+				.score +<< vec[1]
+
+				info_props << property_list.new_with( :type, :info,
+								      :start_time, time,
+								      :max_time, 1250.0,
+								      :text_style, _self.bonus_text_style,
+								      :x, x,
+								      :y, y - 45,
+								      :string, _self.message(:combo_collection, _unset,
+											     vec[2], vec[1]) )
+				new_objects.add_last( info_props )
+			_endif
+		_endloop
+
+		.items[:score_label].int!label << _self.message(:score, _unset, .score)
+	_endif
+
+	glow_props << property_list.new_with( :type, :glow,
+					      :start_time, time,
+					      :max_time, 750.0,
+					      :x, x,
+					      :y, y,
+					      :colour, _self.click_glow_colour,
+					      :max_radius, 5 )
+	new_objects.add_last( glow_props )
+
+	.objects << new_objects
+	.hit_list << new_hit_list
+
+_endmethod
+$
