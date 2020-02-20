@@ -157,6 +157,10 @@
                 "title": "Magik Check File"
             },
             {
+                "command": "magik.showSymbols",
+                "title": "Magik Show Symbols"
+            },
+            {
                 "command": "magik.refreshSymbols",
                 "title": "Magik Refresh Symbols"
             },
@@ -265,6 +269,11 @@
                 "command": "magik.checkFile",
                 "key": "ctrl+shift+c",
                 "when": "editorTextFocus"
+            },
+            {
+                "command": "magik.showSymbols",
+                "key": "ctrl+t",
+                "when": "editorTextFocus && editorLangId == magik"
             },
             {
                 "command": "magik.refreshSymbols",

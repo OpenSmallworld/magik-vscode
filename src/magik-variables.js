@@ -100,7 +100,7 @@ function findAssignedVariables(lines, firstRow, lineCount, assignedVars) {
 
   const row = lineCount + firstRow;
   const multiLine = /<<\s*$/.test(text);
-  let lastText = text;
+  let lastText = lineText;
   if (multiLine) {
     const ignoreReg = /^\s*(#|$|([\w!?]+\s*<<\s*)+$)/;
     const max = lines.length;

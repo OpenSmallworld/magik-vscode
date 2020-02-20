@@ -325,9 +325,12 @@ _global _constant vs_save_symbols <<
 						_if _not m.slot_accessor?
 						_then
 							_try
-								source_file << m.source_file
-								n << methods[ source_file ].default(0)
-								methods[ source_file ] << n + 1
+								m_source_file << m.source_file
+								_if m_source_file <> "Evaluated-inline"
+								_then
+									n << methods[ m_source_file ].default(0)
+									methods[ m_source_file ] << n + 1
+								_endif
 							_when error
 							_endtry
 						_endif
@@ -393,6 +396,7 @@ _global _constant vs_save_symbols <<
 						_try
 							m_file << m.source_file
 							_if m_file _isnt _unset _andif
+								m_file <> "Evaluated-inline" _andif
 								m_file.index_of_seq("load_mutated_methods.magik") _is _unset _andif
 								(c_name _is :sw_component _orif m_file.index_of_seq("sw_component.magik") _is _unset) # component properties
 							_then
@@ -910,9 +914,12 @@ _proc ( class_or_name, _optional prompt_string )
 		_loop
 			_if _not m.slot_accessor?
 			_then
-				source_file << m.source_file
-				n << methods[ source_file ].default(0)
-				methods[ source_file ] << n + 1
+				m_source_file << m.source_file
+				_if m_source_file <> "Evaluated-inline"
+				_then
+					n << methods[ m_source_file ].default(0)
+					methods[ m_source_file ] << n + 1
+				_endif
 			_endif
 		_endloop
 		max << 0
@@ -1279,6 +1286,7 @@ _proc ( a_method, _optional source_file )
 	_if source_file _is _unset
 	_then
 		_if ( source_file << check_source( a_method.source_file ) ) _is _unset _orif
+			source_file = "Evaluated-inline" _orif
 		    source_file.index_of_seq( "register_mutating_methods.magik" ) _isnt _unset _orif
 		    source_file.index_of_seq( "load_mutated_methods.magik" ) _isnt _unset
 		_then
@@ -1408,7 +1416,8 @@ _proc ( results_index, _optional results )
 	    source_file _is _unset
 	_then
 		_if a_method.slot_accessor? _orif
-		    ( source_file << check_source( a_method.source_file ) ) _is _unset _orif
+			( source_file << check_source( a_method.source_file ) ) _is _unset _orif
+			source_file = "Evaluated-inline" _orif
 		    source_file.index_of_seq( "register_mutating_methods.magik" ) _isnt _unset _orif
 		    source_file.index_of_seq( "load_mutated_methods.magik" ) _isnt _unset
 		_then
@@ -2083,7 +2092,8 @@ _proc ( _optional method_string, class_string, mode, max,
 			_for sm _over supers.fast_elements()
 			_loop
 				_if sm.slot_accessor? _orif
-				    ( source_file << check_source( sm.source_file ) ) _is _unset _orif
+					( source_file << check_source( sm.source_file ) ) _is _unset _orif
+					source_file = "Evaluated-inline" _orif
 				    source_file.index_of_seq( "register_mutating_methods.magik" ) _isnt _unset _orif
 				    source_file.index_of_seq( "load_mutated_methods.magik" ) _isnt _unset
 				_then

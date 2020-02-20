@@ -67,6 +67,11 @@ Adds the following features to VS Code:
     * Command `Magik Run Test Class` to run the current test class (**Ctrl+Alt+F7**)
 
 * Other:
+    * Display hover actions for the current word or selection.
+        - Search - allows a quick search in the folder, module, product, repo or workspace (if found)
+        - Show Symbols for methods
+        - Go To Definition
+        - Run Test (available if the cursor points to a test method name and the code is loaded)
     * Displays method help for indentified method calls.
     * Command `Magik New Buffer` to create a new Magik file in the temp directory (**Alt+N**)
     * Command `Magik Go To Previous Definition` (**Alt+PageUp**)
@@ -213,7 +218,7 @@ I would recommend using these other extensions:
         ```
     * To add an icon for Magik files with vscode-icons add the following to the settings (adding your user name):
         ```
-        "vsicons.customIconFolderPath": "C:/Users/<user_name>/.vscode/extensions/magik-vscode/icons",
+        "vsicons.customIconFolderPath": "C:/Users/<user_name>/.vscode/extensions/magik-vscode/icons/",
         "vsicons.associations.files": [
             { "icon": "magik", "extensions": ["magik"], "format": "png" }
         ],

@@ -93,13 +93,21 @@ class MagikLinter {
 
     vscode.workspace.onDidOpenTextDocument(async (doc) => {
       if (doc.languageId === 'magik') {
-        await this._checkMagik(doc);
+        try {
+          await this._checkMagik(doc);
+        } catch (error) {
+          console.error(error);
+        }
       }
     });
 
     vscode.workspace.onDidSaveTextDocument(async (doc) => {
       if (doc.languageId === 'magik') {
-        await this._checkMagik(doc);
+        try {
+          await this._checkMagik(doc);
+        } catch (error) {
+          console.error(error);
+        }
       }
     });
 
@@ -579,26 +587,30 @@ class MagikLinter {
   // }
 
   async provideOnTypeFormattingEdits(doc, pos, ch) {
-    if (ch === '\n') {
-      await magikFormat.wrapComment(pos.line - 1, ch);
-      if (
-        vscode.workspace.getConfiguration('magik-vscode').enableAutoIndentation
-      ) {
-        const row = pos.line;
-        const lastCol = doc.lineAt(row - 1).text.length;
-        const lastPos = new vscode.Position(row - 1, lastCol);
-        await this._addUnderscore(doc, lastPos, '');
-        await this._indentRegion(row - 1);
-        await this._indentRegion(row);
+    try {
+      if (ch === '\n') {
+        await magikFormat.wrapComment(pos.line - 1, ch);
+        if (
+          vscode.workspace.getConfiguration('magik-vscode').enableAutoIndentation
+        ) {
+          const row = pos.line;
+          const lastCol = doc.lineAt(row - 1).text.length;
+          const lastPos = new vscode.Position(row - 1, lastCol);
+          await this._addUnderscore(doc, lastPos, '');
+          await this._indentRegion(row - 1);
+          await this._indentRegion(row);
+        }
+      } else {
+        if (ch === ' ') {
+          await magikFormat.wrapComment(pos.line, ch);
+        }
+        const edit = await this._addUnderscore(doc, pos, ch);
+        if (edit) {
+          return [edit];
+        }
       }
-    } else {
-      if (ch === ' ') {
-        await magikFormat.wrapComment(pos.line, ch);
-      }
-      const edit = await this._addUnderscore(doc, pos, ch);
-      if (edit) {
-        return [edit];
-      }
+    } catch (error) {
+      console.error(error);
     }
   }
 

@@ -35,6 +35,7 @@ class MagikVSCode {
       ['compileMessages', this._compileMessages],
       ['compileExtensionMagik', this._compileExtensionMagik],
       ['newBuffer', this._newMagikBuffer],
+      ['showSymbols', this._showSymbols],
       ['gotoClipboardText', this._gotoClipboardText],
       ['smallworldNinja', this._startSmallworldNinja],
     ];
@@ -97,7 +98,11 @@ class MagikVSCode {
 
     context.subscriptions.push(
       vscode.workspace.onDidSaveTextDocument((doc) => {
-        this._updateFileCache(doc);
+        try {
+          this._updateFileCache(doc);
+        } catch (error) {
+          console.error(error);
+        }
       })
     );
   }
@@ -874,6 +879,45 @@ class MagikVSCode {
     await this._sendToTerminal(command);
   }
 
+  _showSymbols(args) {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) return;
+
+    let pos;
+    if (args) {
+      pos = args.position;
+    }
+    if (!pos) {
+      pos = editor.selection.active;
+    }
+
+    const selectedText = this._selectedText();
+
+    if (!selectedText || !this._posInSelection(pos)) {
+      const doc = editor.document;
+      const currentWord = magikUtils.currentWord(doc, pos);
+
+      if (currentWord) {
+        const row = pos.line;
+        const text = doc.lineAt(row).text;
+        const start = text.indexOf(
+          currentWord,
+          pos.character - currentWord.length
+        );
+        const range = new vscode.Range(
+          row,
+          start,
+          row,
+          start + currentWord.length
+        );
+
+        editor.selection = new vscode.Selection(range.start, range.end);
+      }
+    }
+
+    vscode.commands.executeCommand('workbench.action.showAllSymbols', {});
+  }
+
   async _refreshSymbols() {
     await this._sendToTerminal('vs_save_symbols()');
   }
@@ -938,11 +982,15 @@ class MagikVSCode {
   }
 
   resolveSymbolCompletion(sym) {
-    if (!sym._completionDocumentation) {
-      this.resolveWorkspaceSymbol(sym);
-      if (sym.location.range) {
-        this._getMethodHelp(sym, 0);
+    try {
+      if (!sym._completionDocumentation) {
+        this.resolveWorkspaceSymbol(sym);
+        if (sym.location.range) {
+          this._getMethodHelp(sym, 0);
+        }
       }
+    } catch (error) {
+      console.error(error);
     }
   }
 
@@ -1027,7 +1075,7 @@ class MagikVSCode {
     return items;
   }
 
-  async provideCompletionItems(doc, pos) {
+  async _getCompletionItems(doc, pos) {
     const currentWord = magikUtils.currentWord(doc, pos);
     if (!currentWord) return;
 
@@ -1136,6 +1184,14 @@ class MagikVSCode {
       }
 
       return items;
+    }
+  }
+
+  async provideCompletionItems(doc, pos) {
+    try {
+      return this._getCompletionItems(doc, pos);
+    } catch (error) {
+      console.error(error);
     }
   }
 
@@ -1284,23 +1340,27 @@ class MagikVSCode {
   }
 
   async provideSignatureHelp(doc, pos) {
-    let lineText = doc.lineAt(pos.line).text;
-    lineText = lineText.substring(0, pos.character);
+    try {
+      let lineText = doc.lineAt(pos.line).text;
+      lineText = lineText.substring(0, pos.character);
 
-    const match = /[\w!?]+\.[\w!?]+\s*(\(|<<|^<<)\s*([\w!?]+\s*,?\s*)*$/.exec(
-      lineText
-    );
+      const match = /[\w!?]+\.[\w!?]+\s*(\(|<<|^<<)\s*([\w!?]+\s*,?\s*)*$/.exec(
+        lineText
+      );
 
-    if (match) {
-      const text = match[0];
-      const newCol = match.index + text.indexOf('.') + 1;
-      const newPos = new vscode.Position(pos.line, newCol);
-      const def = await this._getCurrentDefinitionSymbol(doc, newPos);
+      if (match) {
+        const text = match[0];
+        const newCol = match.index + text.indexOf('.') + 1;
+        const newPos = new vscode.Position(pos.line, newCol);
+        const def = await this._getCurrentDefinitionSymbol(doc, newPos);
 
-      if (def.symbol) {
-        const paramIndex = (text.match(/,/g) || []).length;
-        return this._getMethodHelp(def.symbol, paramIndex);
+        if (def.symbol) {
+          const paramIndex = (text.match(/,/g) || []).length;
+          return this._getMethodHelp(def.symbol, paramIndex);
+        }
       }
+    } catch (error) {
+      console.error(error);
     }
   }
 
@@ -1419,83 +1479,146 @@ class MagikVSCode {
     return pos.character > text.length;
   }
 
-  async provideHover(doc, pos) {
-    if (!vscode.workspace.getConfiguration('magik-vscode').enableHoverActions)
-      return;
+  _getSearchHoverString(doc, currentText) {
+    const rootPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+    const searchStrings = [];
 
+    const defaultArgs = [{query: currentText, triggerSearch: true}];
+    const defaultCommand = vscode.Uri.parse(
+      `command:workbench.action.findInFiles?${encodeURIComponent(
+        JSON.stringify(defaultArgs)
+      )}`
+    );
+    searchStrings.push(`[Search](${defaultCommand} "Search")`);
+
+    const searchFiles = [
+      [undefined, 'Folder'],
+      ['module.def', 'Module'],
+      ['product.def', 'Product'],
+      ['.git', 'Repo'],
+      ['.vscode', 'Workspace'],
+    ];
+
+    let dir = doc.fileName;
+    let lastCommand;
+
+    do {
+      dir = path.dirname(dir);
+
+      for (const data of searchFiles) {
+        const fileName = data[0];
+        const commandName = data[1];
+
+        if (!fileName || fs.existsSync(path.join(dir, fileName))) {
+          let searchPath = path.relative(rootPath, dir);
+          if (searchPath && searchPath !== dir) {
+            searchPath = `.${path.sep}${searchPath}`;
+          } else {
+            searchPath = dir;
+          }
+          const args = [
+            {
+              query: currentText,
+              filesToInclude: searchPath,
+              triggerSearch: true,
+            },
+          ];
+          const command = vscode.Uri.parse(
+            `command:workbench.action.findInFiles?${encodeURIComponent(
+              JSON.stringify(args)
+            )}`
+          );
+
+          searchStrings.push(
+            `[${commandName}](${command} "Search in ${commandName}")`
+          );
+          searchFiles.shift();
+
+          lastCommand = commandName;
+          break;
+        }
+      }
+    } while (dir !== rootPath && !/[/\\]$/.test(dir));
+
+    if (lastCommand !== 'Workspace') {
+      // Add 'search in workspace' if file is outside current workspace
+      const args = [
+        {
+          query: currentText,
+          filesToInclude: './',
+          triggerSearch: true,
+        },
+      ];
+      const command = vscode.Uri.parse(
+        `command:workbench.action.findInFiles?${encodeURIComponent(
+          JSON.stringify(args)
+        )}`
+      );
+      searchStrings.push(`[Workspace](${command} "Search in Workspace")`);
+    }
+
+    return searchStrings.join(' | ');
+  }
+
+  async _getHoverString(doc, pos) {
     let hoverString = '';
 
     const useSelection = this._posInSelection(pos);
     const lineText = doc.lineAt(pos.line).text;
+    const methodDef = /(^|\s)_method\s/.test(lineText);
     const currentText = useSelection
       ? this._selectedText()
       : magikUtils.currentWord(doc, pos);
 
     if (currentText) {
       const truncatedText =
-        currentText.length > 40
-          ? `${currentText.substring(0, 40)}..`
+        currentText.length > 80
+          ? `${currentText.substring(0, 78)}..`
           : currentText;
       hoverString += `\`\`\`'${truncatedText}'\`\`\``;
 
-      const rootPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-      const searchStrings = [];
+      // Check for unique definition and add comment if available.
+      // if (!methodDef) {
+      //   const def = await this._getCurrentDefinitionSymbol(doc, pos);
+      //   const sym = def.symbol;
 
-      const defaultArgs = [{query: currentText, triggerSearch: true}];
-      const defaultCommand = vscode.Uri.parse(
-        `command:workbench.action.findInFiles?${encodeURIComponent(
-          JSON.stringify(defaultArgs)
-        )}`
-      );
-      searchStrings.push(`[Search](${defaultCommand} "Search")`);
+      //   if (sym) {
+      //     this.resolveSymbolCompletion(sym);
+      //     const methodName = sym._completionName;
+      //     if (methodName) {
+      //       let wrappedMethodName = methodName.replace(
+      //         /(.{1,80}})( +|$\n?)|(.{1,80})/g,
+      //         '$1$3  \n  '
+      //       );
+      //       wrappedMethodName = wrappedMethodName.substring(
+      //         0,
+      //         wrappedMethodName.length - 2
+      //       );
+      //       const comment = sym._completionDocumentation;
+      //       if (comment) {
+      //         hoverString += `  \n\`\`\`  \n${wrappedMethodName}  \n${comment}  \n\`\`\``;
+      //       } else {
+      //         hoverString += `  \n\`\`\`${wrappedMethodName}\`\`\``;
+      //       }
+      //     }
+      //   }
+      // }
 
-      const searchFiles = [
-        [undefined, 'Folder'],
-        ['module.def', 'Module'],
-        ['product.def', 'Product'],
-        ['.git', 'Repo'],
-        ['.vscode', 'Workspace'],
-      ];
-
-      let dir = doc.fileName;
-      do {
-        dir = path.dirname(dir);
-        for (const data of searchFiles) {
-          const fileName = data[0];
-          const commandName = data[1];
-
-          if (!fileName || fs.existsSync(path.join(dir, fileName))) {
-            let searchPath = path.relative(rootPath, dir);
-            if (searchPath) {
-              searchPath = `.${path.sep}${searchPath}`;
-            } else {
-              searchPath = dir;
-            }
-            const args = [
-              {
-                query: currentText,
-                filesToInclude: searchPath,
-                triggerSearch: true,
-              },
-            ];
-            const command = vscode.Uri.parse(
-              `command:workbench.action.findInFiles?${encodeURIComponent(
-                JSON.stringify(args)
-              )}`
-            );
-            searchStrings.push(
-              `[${commandName}](${command} "Search in ${commandName}")`
-            );
-            searchFiles.shift();
-            break;
-          }
-        }
-      } while (dir !== rootPath && !/[/\\]$/.test(dir));
-
-      hoverString += `  \n  \n${searchStrings.join(' | ')}`;
+      const searchString = this._getSearchHoverString(doc, currentText);
+      if (searchString) {
+        hoverString += `  \n  \n${searchString}`;
+      }
 
       if (!/^(\d|_)/.test(currentText) && !this._posInComment(pos)) {
+        const gotoArgs = [{position: pos}];
         let addGoto = true;
+
+        const symbolsCommand = vscode.Uri.parse(
+          `command:magik.showSymbols?${encodeURIComponent(
+            JSON.stringify(gotoArgs)
+          )}`
+        );
+        hoverString += `  \n  \n[Show Symbols](${symbolsCommand} "Show method symbols for current text")`;
 
         if (!useSelection) {
           const startTest = new RegExp(`^\\s*${currentText}`);
@@ -1503,6 +1626,7 @@ class MagikVSCode {
             currentText,
             pos.character - currentText.length + 1
           );
+          addGoto = false;
 
           if (
             magikUtils.previousCharacter(lineText, currentIndex) === '.' ||
@@ -1515,7 +1639,6 @@ class MagikVSCode {
         }
 
         if (addGoto) {
-          const gotoArgs = [{position: pos}];
           const gotoCommand = vscode.Uri.parse(
             `command:magik.goto?${encodeURIComponent(JSON.stringify(gotoArgs))}`
           );
@@ -1525,7 +1648,7 @@ class MagikVSCode {
     }
 
     // Check if pointing at test method name
-    if (/(^|\s)_method\s/.test(lineText)) {
+    if (methodDef) {
       const lines = magikUtils.currentRegion(true, pos.line).lines;
 
       if (lines) {
@@ -1555,16 +1678,29 @@ class MagikVSCode {
       }
     }
 
-    if (hoverString.length > 0) {
-      const range = new vscode.Range(
-        pos.line,
-        pos.character,
-        pos.line,
-        pos.character
-      );
-      const mdString = new vscode.MarkdownString(hoverString, true);
-      mdString.isTrusted = true;
-      return new vscode.Hover(mdString, range);
+    return hoverString;
+  }
+
+  async provideHover(doc, pos) {
+    if (!vscode.workspace.getConfiguration('magik-vscode').enableHoverActions)
+      return;
+
+    try {
+      const hoverString = await this._getHoverString(doc, pos);
+
+      if (hoverString.length > 0) {
+        const range = new vscode.Range(
+          pos.line,
+          pos.character,
+          pos.line,
+          pos.character
+        );
+        const mdString = new vscode.MarkdownString(hoverString, true);
+        mdString.isTrusted = true;
+        return new vscode.Hover(mdString, range);
+      }
+    } catch (error) {
+      console.error(error);
     }
   }
 
