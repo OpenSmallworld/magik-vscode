@@ -1064,6 +1064,19 @@ _proc ( module_name, _optional force_reload? )
 	_if _not sw_module_manager.module_is_loaded?( module_name ) _orif
 	    force_reload? _isnt _unset
 	_then
+		_if _not load_prerequisites?
+		_then
+			a_module << sw_module_manager.module( module_name )
+			_for data _over a_module.prerequisites.fast_elements()
+			_loop
+				_if _not sw_module_manager.module_is_defined?( data.an_element() )
+				_then
+					load_prerequisites? << _true
+					_leave
+				_endif
+			_endloop
+		_endif
+
 		_if load_prerequisites?
 		_then
 			a_module << sw_module_manager.module( module_name )

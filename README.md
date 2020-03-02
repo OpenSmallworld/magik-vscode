@@ -120,13 +120,7 @@ Warning: There are some performance issues with stepping!
 
     cd %USERPROFILE%\\.vscode\extensions\magik-vscode<br>
     npm install
-    
-    If you encounter network connectivity problems when installing, then you need to change some proxy settings in your shell:<br>
-    set HTTP_PROXY=http://iss-emea-pitc-londonz.proxy.corporate.ge.com:80<br>
-    set HTTPS_PROXY=%HTTP_PROXY%<br>
-    set http_proxy=%HTTP_PROXY%<br>
-    set https_proxy=%HTTP_PROXY%<br>
-    set no_proxy=github.build.ge.com,openge.ge.com,devcloud.swcoe.ge.com,sw.ge.com,ge.com,cbgec01,.uaa,.localhost,localhost,127.0.0.1
+
 3. VS Code Settings:
     * Enable `Editor: Format on Type` in the VS Code settings to allow adding _ and auto indentation.
     * Add the command `magik.gotoClipboardText` to `Terminal > Integrated: Commands To Skip Shell`.
