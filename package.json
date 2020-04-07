@@ -341,6 +341,20 @@
                 "command": "magik.startSession"
             }
         ],
+        "menus": {
+            "editor/context": [
+                {
+                    "command": "magik.compileFile",
+                    "group": "magik",
+                    "when": "editorTextFocus && editorLangId == magik && config.magik-vscode.showCommandsInContextMenu"
+                },
+                {
+                    "command": "magik.loadModule",
+                    "group": "magik",
+                    "when": "editorTextFocus && editorLangId == magik && config.magik-vscode.showCommandsInContextMenu"
+                }
+            ]
+        },
         "configuration": {
             "type": "object",
             "title": "Magik configuration",
@@ -369,6 +383,11 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Enable auto scroll to the Magik prompt when sending commands to the terminal."
+                },
+                "magik-vscode.showCommandsInContextMenu": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show Magik language support commands in the Editor menu."
                 },
                 "magik-vscode.debugClientURL": {
                     "type": "string",

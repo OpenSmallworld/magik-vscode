@@ -511,6 +511,68 @@ $
 
 
 _pragma(classify_level=debug)
+##
+## Load the module containing the specified file.
+## Adds products and loads prerequisite modules as necessary.
+##
+_global _constant vs_load_file <<
+_proc ( file_path, _optional force_reload? )
+
+	_global load_module
+
+	_if _not system.file_exists?( file_path )
+	_then
+		write( "File Not Found" )
+		_return
+	_endif
+
+	module_name << _unset
+
+	(filename, dir) << system.pathname_components( file_path )
+	module_dir << system.locate_file( dir, "module.def" )
+	_if module_dir _isnt _unset
+	_then
+		res << sw_module_manager.module_roots( module_dir, _false )
+		_if _not res.empty?
+		_then
+			module_name << res.a_key()[1]
+		_endif
+	_endif
+
+	_if module_name _is _unset
+	_then
+		write( "Cannot find module for ", file_path )
+		_return
+	_endif
+
+	_if force_reload? _isnt _true _andif
+		sw_module_manager.module_is_loaded?( module_name ) _andif
+	    file_path.index_of_seq( ".magik" ) _isnt _unset
+	_then
+		load_file( file_path )
+		_return
+	_endif
+
+	_if _not sw_module_manager.module_is_defined?( module_name )
+	_then
+		# Add the product here since we already know the module directory
+		product_dir << system.locate_file( module_dir, "product.def" )
+		_if product_dir _is _unset
+		_then
+			write( "Cannot load ", module_name, " - cannot find product." )
+			_return
+		_endif
+
+		smallworld_product.add_product( product_dir )
+	_endif
+
+	load_module( module_name, force_reload? )
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
 ## Run the test for the supplied test class and method name.
 _global _constant vs_run_test <<
 _proc @vs_run_test(class_name, method_name)

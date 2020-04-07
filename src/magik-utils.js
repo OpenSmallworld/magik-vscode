@@ -93,7 +93,7 @@ const INDENT_INC_WORDS = [
   '_when',
   '_protect',
   '_protection',
-  '_proc',
+  // '_proc',
   '_catch',
   '_block',
   '_finally',
@@ -459,6 +459,7 @@ function indentRegion() {
   const doc = editor.document;
   const previousReg = /^(\s*\$|\s*_endmethod|_endblock)/;
   const nextReg = /^(\s*\$|\s*_pragma|\s*(_abstract\s+)*(_private\s+)*(_iter\s+)*_method\s+|_block)/;
+  const startReg = /^(_pragma|_method|_private|_iter|_abstract|_global|_proc|_block)/;
 
   let startLine = editor.selection.active.line;
   if (!startLine) startLine = 0;
@@ -470,7 +471,7 @@ function indentRegion() {
 
   for (let row = startLine; row > -1; row--) {
     const lineText = doc.lineAt(row).text;
-    const lineTextTrimmed = lineText.trim();
+    // const lineTextTrimmed = lineText.trim();
 
     lines.unshift(lineText);
 
@@ -479,8 +480,9 @@ function indentRegion() {
       firstRow = row + 1;
       break;
     } else if (
-      lineTextTrimmed.length > 0 &&
-      lineText.match(/^\s*/)[0].length === 0
+      // lineTextTrimmed.length > 0 &&
+      // lineText.match(/^\s*/)[0].length === 0
+      startReg.test(lineText)
     ) {
       firstRow = row;
       break;

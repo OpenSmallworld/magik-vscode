@@ -210,9 +210,7 @@ class MagikVSCode {
     if (path.extname(fileName) === '.magik') {
       await this.symbolProvider.loadSymbols();
 
-      const name = path.basename(fileName, '.magik');
-      const searchPath = path.dirname(fileName);
-      const command = `load_file_name("${name}", "${searchPath}", _true); vs_save_symbols()`;
+      const command = `vs_load_file("${fileName}", _true); vs_save_symbols()`;
 
       await this._sendToTerminal(command);
     }
