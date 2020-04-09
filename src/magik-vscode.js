@@ -1643,6 +1643,21 @@ class MagikVSCode {
           hoverString += `  \n  \n[Go To Definition](${gotoCommand} "Go To Definition")`;
         }
       }
+
+      const classData = this.symbolProvider.classData[currentText];
+      if (
+        classData &&
+        classData.sourceFile &&
+        fs.existsSync(classData.sourceFile)
+      ) {
+        const openArgs = [vscode.Uri.file(classData.sourceFile)];
+        const openCommand = vscode.Uri.parse(
+          `command:vscode.open?${encodeURIComponent(JSON.stringify(openArgs))}`
+        );
+        hoverString += `  \n  \n[Open Class](${openCommand} "Open file '${
+          classData.sourceFile
+        }'")`;
+      }
     }
 
     // Check if pointing at test method name
