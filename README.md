@@ -59,7 +59,7 @@ Adds the following features to VS Code:
     * Data inspection as you hover over source in the editor
 
 * Symbols:
-    * Search Magik methods in the current session (**Ctrl+T**)
+    * Search Magik methods, exemplars, conditions and globals in the current session (**Ctrl+T**)
     * Magik definitions in the current file to support Outline view
 
 * Testing:
@@ -85,7 +85,7 @@ Adds the following features to VS Code:
 You can search for Magik methods using **Ctrl+T** and typing `<method name>` or `<class name>`.`<method name>`.<br>
 The search supports ^ and $ for starts and ends with.<br>
 e.g. `add_comp` or `map_.goto_` or `^gui_frame.^activ`<br><br>
-Use **Alt+T** to refresh symbols after compiling code (when not using VS Code Magik commands).<br>
+Use **Alt+T** to refresh symbols after compiling code from the prompt, scripts or module dialog.<br>
 Symbols are refreshed after using **F7**, **Ctrl+F7** etc.
 
 
@@ -277,7 +277,8 @@ I would recommend using these other extensions:
 
 ## Known Issues
 
-* Magik symbols (to support searching for methods) are not loaded automatically after compiling code when not using VS Code Magik commands - use **Alt+T** to refresh symbols. Symbols are refreshed when code is loaded using **F7** and **Ctrl+F7**.
+* Magik symbols (to support searching for methods, exemplars, conditions and globals) are only loaded automatically when compiling code using VS Code Magik commands.<br>
+Use **Alt+T** to refresh symbols manually after compiling code from the prompt, scripts or module dialog.
 * No highlighting or formatting at the Magik prompt - I suggest creating a temp magik file for writing Magik (**Alt+N**) and compile using **F7** or **F8**.
 * Linting only available inside methods.
 * No status feedback when stepping in debug session.

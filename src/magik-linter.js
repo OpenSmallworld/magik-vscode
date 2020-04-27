@@ -1036,7 +1036,7 @@ class MagikLinter {
             firstRow,
             this.symbolProvider.classNames,
             this.symbolProvider.classData,
-            this.symbolProvider.globals,
+            this.symbolProvider.globalNames,
             diagnostics
           );
           this._checkUnusedVariables(assignedVars, diagnostics);

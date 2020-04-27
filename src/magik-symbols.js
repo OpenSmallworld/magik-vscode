@@ -22,9 +22,19 @@ class MagikSymbolProvider {
   constructor(vscode) {
     this.classData = {};
     this.classNames = [];
-    this.globals = [...DEFAULT_GLOBALS];
+
+    this.globalData = {};
+    this.globalNames = [...DEFAULT_GLOBALS];
 
     this.vscode = vscode;
+
+    this.symbolOrder = [
+      this.vscode.SymbolKind.Class,
+      this.vscode.SymbolKind.Constant,
+      this.vscode.SymbolKind.Function,
+      this.vscode.SymbolKind.Variable,
+      this.vscode.SymbolKind.Method,
+    ];
   }
 
   async _wait(ms) {
@@ -43,20 +53,38 @@ class MagikSymbolProvider {
     const rl = readline.createInterface({input});
 
     const newClassData = {};
+    const newGlobalData = {};
+    const newGlobalNames = [...DEFAULT_GLOBALS];
+
     let update = false;
 
-    this.globals = [...DEFAULT_GLOBALS];
-
     rl.on('line', (line) => {
-      if (line.startsWith('glob:') || line.startsWith('cond:')) {
-        const globalName = line.split(':')[1];
-        this.globals.push(globalName);
+      const condition = line.startsWith('CONDITION|');
+
+      if (condition || line.startsWith('GLOBAL|')) {
+        const globalParts = line.split('|');
+        const globalName = globalParts[1];
+        let globalSourceFile;
+
+        if (globalParts.length > 2) {
+          globalSourceFile = globalParts[2];
+        }
+
+        newGlobalNames.push(globalName);
+        newGlobalData[globalName] = {
+          sourceFile: globalSourceFile,
+          condition,
+          procedure: !condition,
+        };
+
         return;
       }
-      if (line.startsWith('update:')) {
+
+      if (line.startsWith('UPDATE:')) {
         update = true;
         return;
       }
+
       const parts = line.split('|');
       const className = parts[0];
       const classSourceFile = parts[1];
@@ -97,6 +125,8 @@ class MagikSymbolProvider {
           this.classData = {...this.classData, ...newClassData};
         } else {
           this.classData = newClassData;
+          this.globalData = newGlobalData;
+          this.globalNames = newGlobalNames;
         }
         this.classNames = Object.keys(this.classData);
         try {
@@ -108,7 +138,7 @@ class MagikSymbolProvider {
   }
 
   _getMethodSymbol(name, fileName, methodData) {
-    let sym = methodData.symbol;
+    let sym = methodData.methodSymbol;
     if (!sym) {
       const type = methodData.variable
         ? this.vscode.SymbolKind.Variable
@@ -133,7 +163,33 @@ class MagikSymbolProvider {
         sym._completionText = mName;
       }
 
-      methodData.symbol = sym;
+      methodData.methodSymbol = sym;
+    }
+    return sym;
+  }
+
+  _getGlobalSymbol(name, fileName, globalData) {
+    let sym = globalData.globalSymbol;
+    if (!sym) {
+      let type;
+      if (globalData.condition) {
+        type = this.vscode.SymbolKind.Constant;
+      } else if (globalData.procedure) {
+        type = this.vscode.SymbolKind.Function;
+      } else {
+        type = this.vscode.SymbolKind.Class;
+      }
+      const loc = new this.vscode.Location(
+        this.vscode.Uri.file(fileName),
+        undefined
+      );
+
+      sym = new this.vscode.SymbolInformation(name, type, undefined, loc);
+      sym._fileName = fileName;
+      sym._globalName = name;
+      sym._completionText = name;
+
+      globalData.globalSymbol = sym;
     }
     return sym;
   }
@@ -195,7 +251,7 @@ class MagikSymbolProvider {
         symbols.push(sym);
         doneMethods.push(name);
 
-        if (doneMethods.length >= max) return;
+        if (symbols.length === max) return;
       }
     }
 
@@ -213,7 +269,8 @@ class MagikSymbolProvider {
           methodMatchType,
           max
         );
-        if (doneMethods.length >= max) return;
+
+        if (symbols.length === max) return;
       }
     }
   }
@@ -240,10 +297,11 @@ class MagikSymbolProvider {
         methodMatchType,
         max
       );
-      if (doneMethods.length >= max) return;
+
+      if (symbols.length === max) return;
     }
 
-    if (doneMethods.length === 0) {
+    if (symbols.length === 0) {
       for (let parentIndex = 0; parentIndex < parentsLength; parentIndex++) {
         this._findSuperMethods(
           parents[parentIndex],
@@ -253,15 +311,59 @@ class MagikSymbolProvider {
           methodMatchType,
           max
         );
-        if (doneMethods.length >= max) return;
+
+        if (symbols.length === max) return;
       }
     }
   }
 
-  async getSymbols(query, inheritOnly, max = 500) {
+  _findGlobals(globalString, symbols, matchType, max, searchClasses) {
+    if (searchClasses) {
+      const classLength = this.classNames.length;
+
+      for (let index = 0; index < classLength; index++) {
+        const className = this.classNames[index];
+
+        if (this.matchString(className, globalString, matchType)) {
+          const data = this.classData[className];
+          const sym = this._getGlobalSymbol(className, data.sourceFile, data);
+
+          symbols.push(sym);
+
+          if (symbols.length === max) return;
+        }
+      }
+    }
+
+    const globalLength = this.globalNames.length;
+
+    for (let index = 0; index < globalLength; index++) {
+      const globalName = this.globalNames[index];
+
+      if (this.matchString(globalName, globalString, matchType)) {
+        const data = this.globalData[globalName];
+        const fileName = data.sourceFile;
+
+        if (fileName) {
+          const sym = this._getGlobalSymbol(globalName, fileName, data);
+
+          symbols.push(sym);
+
+          if (symbols.length === max) return;
+        }
+      }
+    }
+  }
+
+  async getSymbols(
+    query,
+    inheritOnly = false,
+    max = 500,
+    searchClasses = false
+  ) {
     await this.loadSymbols();
 
-    const queryString = query.replace(' ', '');
+    const queryString = query.replace(/\s+/g, '');
     const queryParts = queryString.split('.');
     let classString;
     let methodString;
@@ -337,10 +439,29 @@ class MagikSymbolProvider {
             max
           );
         }
+
+        if (symbols.length === max) break;
       }
     }
 
-    symbols.sort((a, b) => a.name.localeCompare(b.name));
+    if (!classString && symbols.length < max) {
+      this._findGlobals(
+        methodString,
+        symbols,
+        methodMatchType,
+        max,
+        searchClasses
+      );
+    }
+
+    symbols.sort((a, b) => {
+      const indexA = this.symbolOrder[a.kind];
+      const indexB = this.symbolOrder[b.kind];
+      if (indexA === indexB) {
+        return a.name.localeCompare(b.name);
+      }
+      return indexA - indexB;
+    });
 
     return symbols;
   }

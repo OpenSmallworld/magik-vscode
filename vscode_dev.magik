@@ -259,6 +259,14 @@ _global _constant vs_save_symbols <<
 		output_name << system.pathname_down(temp_dir, "vscode_symbols.txt")
 		temp_output_name << system.pathname_down(temp_dir, "vscode_symbols_temp.txt")
 
+		core_dir << smallworld_product.product(:sw_core).directory
+		_local home_drive << _if core_dir[2] = %:
+			_then
+				>> core_dir.subseq(1, 2)
+			_else
+				>> ""
+			_endif
+
 		_if class_names _isnt _unset _andif
 			system.file_exists?(output_name)
 		_then
@@ -313,6 +321,7 @@ _global _constant vs_save_symbols <<
 		_local serial_prefix_n << serial_prefix.size + 1
 
 		_local get_source_file << _proc @get_source_file(mt)
+				_import home_drive
 
 				source_file << mt.source_file
 
@@ -350,7 +359,7 @@ _global _constant vs_save_symbols <<
 				_then
 					_if source_file[1] = %/ _orif source_file[1] = %\
 					_then
-						a_path << write_string("C:", source_file)
+						a_path << write_string(home_drive, source_file)
 						_if system.file_exists?(a_path)
 						_then
 							source_file << a_path
@@ -368,6 +377,7 @@ _global _constant vs_save_symbols <<
 				_import slot_mt
 				_import serial_prefix
 				_import serial_prefix_n
+				_import home_drive
 
 				source_file << get_source_file(mt)
 				methods_str << internal_text_output_stream.new()
@@ -400,9 +410,9 @@ _global _constant vs_save_symbols <<
 								m_file.index_of_seq("load_mutated_methods.magik") _is _unset _andif
 								(c_name _is :sw_component _orif m_file.index_of_seq("sw_component.magik") _is _unset) # component properties
 							_then
-								_if m_file[1] = %/ _orif m_file[1] = %/
-									_then
-									a_file << write_string("C:", m_file)
+								_if m_file[1] = %/ _orif m_file[1] = %\
+								_then
+									a_file << write_string(home_drive, m_file)
 									_if system.file_exists?(a_file)
 									_then
 										m_file << a_file
@@ -434,12 +444,13 @@ _global _constant vs_save_symbols <<
 		done << set.new()
 
 		output << _unset
+		ok? << _false
 		_protect
 			output << external_text_output_stream.new(temp_output_name)
 
 			_if class_names _isnt _unset
 			_then
-				output.write("update:", newline_char)
+				output.write("UPDATE:", newline_char)
 
 				_for c_name _over class_names.fast_elements()
 				_loop
@@ -465,7 +476,22 @@ _global _constant vs_save_symbols <<
 					_if val _is _unset _orif
 						val.class_name _is :procedure
 					_then
-						output.write("glob:", g.key, newline_char)
+						_if val _isnt _unset _andif
+							(m_file << val.compiler_info[:source_file]) _isnt _unset
+						_then
+							m_file << m_file.as_charvec()
+							_if m_file[1] = %/ _orif m_file[1] = %\
+							_then
+								a_file << write_string(home_drive, m_file)
+								_if system.file_exists?(a_file)
+								_then
+									m_file << a_file
+								_endif
+							_endif
+							output.write("GLOBAL|", g.key, "|", m_file, newline_char)
+						_else
+							output.write("GLOBAL|", g.key, newline_char)
+						_endif
 						_continue
 					_endif
 
@@ -481,21 +507,40 @@ _global _constant vs_save_symbols <<
 				_endloop
 
 				# Add conditions
-				_for cond_key _over condition.sys!perform(:template_map).fast_keys()
+				_for cond_key, a_cond _over condition.sys!perform(:template_map).fast_keys_and_elements()
 				_loop
-					output.write("cond:", cond_key, newline_char)
+					m_file << a_cond.module_file
+					_if m_file _isnt _unset
+					_then
+						m_file << m_file.as_charvec()
+						_if m_file[1] = %/ _orif m_file[1] = %\
+						_then
+							a_file << write_string(home_drive, m_file)
+							_if system.file_exists?(a_file)
+							_then
+								m_file << a_file
+							_endif
+						_endif
+						output.write("CONDITION|", cond_key, "|", m_file, newline_char)
+					_else
+						output.write("CONDITION|", cond_key, newline_char)
+					_endif
 				_endloop
 			_endif
 
+			ok? << _true
 		_protection
 			_if output _isnt _unset
 			_then
 				output.close()
-				_try
-					system.rename(temp_output_name, output_name)
-				_when error
-					write("Cannot save symbols file")
-				_endtry
+				_if ok?
+				_then
+					_try
+						system.rename(temp_output_name, output_name)
+					_when error
+						write("Cannot save symbols file")
+					_endtry
+				_endif
 			_endif
 		_endprotect
 
@@ -530,12 +575,46 @@ _proc ( file_path, _optional force_reload? )
 
 	(filename, dir) << system.pathname_components( file_path )
 	module_dir << system.locate_file( dir, "module.def" )
+
 	_if module_dir _isnt _unset
 	_then
 		res << sw_module_manager.module_roots( module_dir, _false )
 		_if _not res.empty?
 		_then
 			module_name << res.a_key()[1]
+
+			_if module_name _is _unset _orif
+				module_name.size _is 0 _orif
+				module_name[1] = %#
+			_then
+				module_name << _unset
+				mod_def << system.pathname_down(module_dir, "module.def")
+				_if system.file_exists?(mod_def)
+				_then
+					a_stream << _unset
+					a_reg << sw_regexp.new("\s")
+					_protect
+						a_stream << external_text_input_stream.new(mod_def)
+						_loop
+							_if (a_line << a_stream.get_line()) _is _unset
+							_then
+								_leave
+							_endif
+							a_line << a_line.trim_spaces()
+							_if a_line.size > 0 _andif a_line[1] <> %#
+							_then
+								module_name << a_reg.split(a_line)[1]
+								_leave
+							_endif
+						_endloop
+					_protection
+						_if a_stream _isnt _unset
+						_then
+							a_stream.close()
+						_endif
+					_endprotect
+				_endif
+			_endif
 		_endif
 	_endif
 
@@ -547,7 +626,7 @@ _proc ( file_path, _optional force_reload? )
 
 	_if force_reload? _isnt _true _andif
 		sw_module_manager.module_is_loaded?( module_name ) _andif
-	    file_path.index_of_seq( ".magik" ) _isnt _unset
+		file_path.index_of_seq( ".magik" ) _isnt _unset
 	_then
 		load_file( file_path )
 		_return

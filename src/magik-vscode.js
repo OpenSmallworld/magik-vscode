@@ -492,6 +492,48 @@ class MagikVSCode {
     }
   }
 
+  _findGlobal(fileName, word) {
+    const lines = this.getFileLines(fileName);
+    if (!lines) return;
+
+    const searchName = word.replace(/\?/g, '\\?');
+    const lineCount = lines.length;
+
+    const globalTest = new RegExp(
+      `^\\s*_global\\s*(_constant\\s*)?${searchName}\\s*<<`
+    );
+    const defineTest = new RegExp(
+      `(condition\\.\\s*define_condition|def_slotted_exemplar)\\s*\\(\\s*:${searchName}($|[^\\w!?])`
+    );
+    const defineTestMultiLine = new RegExp(
+      `(condition\\.\\s*define_condition|def_slotted_exemplar)\\s*\\(\\s*$`
+    );
+
+    for (let row = 0; row < lineCount; row++) {
+      let text = magikUtils.stringBeforeComment(lines[row]);
+      let index = text.search(globalTest);
+
+      if (index === -1) {
+        index = text.search(defineTest);
+      }
+
+      if (index === -1 && text.search(defineTestMultiLine) !== -1) {
+        const nextResult = magikUtils.nextWordInFile(lines, row + 1, 0, true);
+        if (nextResult.word === word) {
+          row = nextResult.row;
+          text = magikUtils.stringBeforeComment(lines[row]);
+          index = 0;
+        }
+      }
+
+      if (index !== -1) {
+        index = text.indexOf(word, index);
+        const range = new vscode.Range(row, index, row, index + word.length);
+        return new vscode.Location(vscode.Uri.file(fileName), range);
+      }
+    }
+  }
+
   // TODO - only looking in current file
   provideReferences(doc, pos) {
     const locs = [];
@@ -693,16 +735,19 @@ class MagikVSCode {
   }
 
   async provideWorkspaceSymbols(query) {
-    return this.symbolProvider.getSymbols(query);
+    return this.symbolProvider.getSymbols(query, undefined, undefined, true);
   }
 
   resolveWorkspaceSymbol(sym) {
     if (this.resolveSymbols) {
-      const loc = this._findDefinition(
-        sym._fileName,
-        sym._methodName,
-        sym.kind
-      );
+      const globalName = sym._globalName;
+      let loc;
+
+      if (globalName) {
+        loc = this._findGlobal(sym._fileName, globalName);
+      } else {
+        loc = this._findDefinition(sym._fileName, sym._methodName, sym.kind);
+      }
       if (loc) {
         sym.location = loc;
         return sym;
@@ -751,7 +796,7 @@ class MagikVSCode {
         assignedVars,
         this.symbolProvider.classNames,
         this.symbolProvider.classData,
-        this.symbolProvider.globals,
+        this.symbolProvider.globalNames,
         []
       );
     }
@@ -1011,11 +1056,14 @@ class MagikVSCode {
       for (let i = 0; i < symbolsLength; i++) {
         const sym = symbols[i];
         const name = sym._methodName;
-        const syms = methodNames[name];
-        if (syms) {
-          syms.push(sym);
-        } else {
-          methodNames[name] = [sym];
+
+        if (name) {
+          const syms = methodNames[name];
+          if (syms) {
+            syms.push(sym);
+          } else {
+            methodNames[name] = [sym];
+          }
         }
       }
 
@@ -1149,7 +1197,7 @@ class MagikVSCode {
         pos,
         this.symbolProvider.classNames,
         this.symbolProvider.classData,
-        this.symbolProvider.globals
+        this.symbolProvider.globalNames
       );
       length = vars.length;
       for (let i = 0; i < length; i++) {
@@ -1166,9 +1214,9 @@ class MagikVSCode {
         }
       }
 
-      length = this.symbolProvider.globals.length;
+      length = this.symbolProvider.globalNames.length;
       for (let i = 0; i < length; i++) {
-        const global = this.symbolProvider.globals[i];
+        const global = this.symbolProvider.globalNames[i];
         if (this.symbolProvider.matchString(global, currentWord, 0)) {
           const item = new vscode.CompletionItem(
             global,
