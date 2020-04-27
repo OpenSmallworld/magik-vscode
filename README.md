@@ -294,6 +294,14 @@ https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 
 ## Release Notes
 
+### 0.0.8
+
+* Added hover actions to search, compile code and run tests.
+* Updated symbol search to included exemplars, conditions and gloabls.
+* Fixed load modules to load all prerequisites.
+* Improved Go To Definition command.
+* Added Smallworld Ninja game.
+
 ### 0.0.7
 
 * Added support for Smallworld 4.x development
