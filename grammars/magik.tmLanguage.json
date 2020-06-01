@@ -173,15 +173,15 @@
 					"match": "(_method)\\s+([\\w!?]+)\\s*(?:\\.)\\s*([\\w!?]+)",
 					"captures": {
 							"1": {"name": "storage.type.function.magik"},
-							"2": {"name": "entity.name.type.class.magik"},
-							"3": {"name": "entity.name.function.magik"}
+							"2": {"name": "entity.name.class.magik"},
+							"3": {"name": "entity.name.function.definition.magik"}
 					}
 				},
 				{
 					"match": "(_method)\\s+([\\w!?]+)\\s*(?:\\.)",
 					"captures": {
 							"1": {"name": "storage.type.function.magik"},
-							"2": {"name": "entity.name.type.class.magik"}
+							"2": {"name": "entity.name.class.magik"}
 					}
 				},
 				{
@@ -195,7 +195,7 @@
 				{
 					"match": "\\b([\\w!?]+)\\s*(?:\\.)\\s*(define_slot_access|define_shared_constant|def_property|define_property|define_shared_variable|define_slot_externally_readable|define_slot_externally_writable)",
 					"captures": {
-							"1": {"name": "entity.name.type.class.magik"},
+							"1": {"name": "entity.name.class.magik"},
 							"2": {"name": "storage.type.property.magik"}
 					}
 				}

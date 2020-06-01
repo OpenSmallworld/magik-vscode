@@ -68,7 +68,8 @@ async function removeSpacesBetweenBrackets(firstRow, lastRow) {
   const edit = new vscode.WorkspaceEdit();
 
   for (let row = firstRow; row < lastRow + 1; row++) {
-    const text = magikUtils.stringBeforeComment(doc.lineAt(row).text);
+    const lineText = doc.lineAt(row).text;
+    const text = magikUtils.stringBeforeComment(lineText);
     let reg = /(?<!%)[([{]\s+/g;
     let match;
 
@@ -87,12 +88,12 @@ async function removeSpacesBetweenBrackets(firstRow, lastRow) {
       }
     }
 
-    reg = /(?<!$)\s+[)\]}]/g;
+    reg = /(?<!%)\s+[)\]}]/g;
 
     while (match = reg.exec(text)) { // eslint-disable-line
       const index = match.index;
 
-      if (!magikUtils.withinString(text, index)) {
+      if (index !== 0 && !magikUtils.withinString(text, index)) {
         const matchLength = match[0].length;
         const range = new vscode.Range(
           row,
@@ -115,37 +116,58 @@ async function addSpacesAroundOperators(firstRow, lastRow) {
   const doc = editor.document;
   const edit = new vscode.WorkspaceEdit();
 
-  // FIXME negative number
+  // Ignore floating point exponent and negative number
+  const ignoreCases = /(\de\+|<<[|])/;
+  const ignoreNeg = /[^\w!?] *-\d$/;
 
   for (let row = firstRow; row < lastRow + 1; row++) {
     const lineText = doc.lineAt(row).text;
     const text = magikUtils.stringBeforeComment(lineText);
-    const firstChar = text.search(/\S/);
+    const firstCharIndex = text.search(/\S/);
     const lastIndex = text.length;
-    const reg = /(?<!%)( *)(\^<<|\+<<|-?<<|\*?<<|\/?<<|<<|>>|\*\*|~=|<>|>=?|<=?|\+|-|\*|\/)(\s*)/g;
+    const reg = /(?<!%)( *)([\^+\-*/]?<<[|]?|>>|\*\*|~=|<>|>=?|<=?|\de\+|\+|-|\*|\/)(\s*)/g;
     let match;
 
     while (match = reg.exec(text)) { // eslint-disable-line
       const index = match.index;
 
-      if (!magikUtils.withinString(text, index)) {
+      if (
+        !ignoreCases.test(match[2]) &&
+        !magikUtils.withinString(text, index)
+      ) {
+        let insert = true;
         let insertText;
-        if (firstChar === match.index) {
-          if (match.index + match[0].length === lastIndex) {
-            insertText = match[2];
-          } else {
-            insertText = `${match[2]} `;
+
+        if (match[2] === '-' && match[3].length === 0) {
+          const tempStr = lineText.substring(0, index + match[0].length + 1);
+          if (ignoreNeg.test(tempStr)) {
+            insert = false;
           }
-        } else if (match.index + match[0].length === lastIndex) {
-          insertText = ` ${match[2]}`;
-        } else {
-          insertText = ` ${match[2]} `;
         }
 
-        if (insertText !== match[0]) {
-          const matchLength = match[0].length;
-          const range = new vscode.Range(row, index, row, index + matchLength);
-          edit.replace(doc.uri, range, insertText);
+        if (insert) {
+          if (match.index === firstCharIndex) {
+            if (match.index + match[0].length === lastIndex) {
+              insertText = match[2];
+            } else {
+              insertText = `${match[2]} `;
+            }
+          } else if (match.index + match[0].length === lastIndex) {
+            insertText = ` ${match[2]}`;
+          } else {
+            insertText = ` ${match[2]} `;
+          }
+
+          if (insertText !== match[0]) {
+            const matchLength = match[0].length;
+            const range = new vscode.Range(
+              row,
+              index,
+              row,
+              index + matchLength
+            );
+            edit.replace(doc.uri, range, insertText);
+          }
         }
       }
     }

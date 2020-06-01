@@ -104,7 +104,7 @@ class MagikSession {
       for (const data of aliases) {
         list.push({
           label: data.name,
-          desctription: data.description || fileName,
+          description: data.description || fileName,
           fileName,
           aliasName: data.name,
         });

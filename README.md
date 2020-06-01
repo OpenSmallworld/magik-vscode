@@ -58,7 +58,7 @@ Adds the following features to VS Code:
     * Debug actions Continue/Pause F5, Step Over F10, Step Into F11 and Step Out Shift+F11
     * Data inspection as you hover over source in the editor
 
-* Symbols:
+* Search:
     * Search Magik methods, exemplars, conditions and globals in the current session (**Ctrl+T**)
     * Magik definitions in the current file to support Outline view
 
@@ -69,7 +69,7 @@ Adds the following features to VS Code:
 * Other:
     * Display hover actions for the current word or selection.
         - Search - allows a quick search in the folder, module, product, repo or workspace (if found)
-        - Show Symbols for methods
+        - Search Definitions
         - Go To Definition
         - Run Test (available if the cursor points to a test method name and the code is loaded)
     * Displays method help for indentified method calls.
@@ -85,8 +85,8 @@ Adds the following features to VS Code:
 You can search for Magik methods using **Ctrl+T** and typing `<method name>` or `<class name>`.`<method name>`.<br>
 The search supports ^ and $ for starts and ends with.<br>
 e.g. `add_comp` or `map_.goto_` or `^gui_frame.^activ`<br><br>
-Use **Alt+T** to refresh symbols after compiling code from the prompt, scripts or module dialog.<br>
-Symbols are refreshed after using **F7**, **Ctrl+F7** etc.
+Use **Alt+T** to refresh definitions after compiling code from the prompt, scripts or module dialog.<br>
+Definitions are refreshed after using **F7**, **Ctrl+F7** etc.
 
 
 ### **Magik Linting**
@@ -200,7 +200,7 @@ I would recommend using these other extensions:
         ```
         Magik> relocate_products()
         ```
-        **Note:** Symbols should be refreshed using shortcut **Alt+T** (or vs_save_symbols()) after relocating products to update paths to source files.
+        **Note:** Definitions should be refreshed using shortcut **Alt+T** (or vs_save_symbols()) after relocating products to update paths to source files.
 * Other:
     * Load vscode_dev.magik in the .magik file in your home directory.
     * You can toggle between the editor and terminal using **Ctrl+'**
@@ -277,8 +277,8 @@ I would recommend using these other extensions:
 
 ## Known Issues
 
-* Magik symbols (to support searching for methods, exemplars, conditions and globals) are only loaded automatically when compiling code using VS Code Magik commands.<br>
-Use **Alt+T** to refresh symbols manually after compiling code from the prompt, scripts or module dialog.
+* Magik definition symbols (to support searching for methods, exemplars, conditions and globals) are only loaded automatically when compiling code using VS Code Magik commands.<br>
+Use **Alt+T** to refresh definitions manually after compiling code from the prompt, scripts or module dialog.
 * No highlighting or formatting at the Magik prompt - I suggest creating a temp magik file for writing Magik (**Alt+N**) and compile using **F7** or **F8**.
 * Linting only available inside methods.
 * No status feedback when stepping in debug session.
@@ -293,6 +293,13 @@ Please add issues here:
 https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 
 ## Release Notes
+
+### 0.1.0
+
+* Improved definition search (Ctrl+T) to show parameters and method comments.
+* Go To Definition now shows a list of options in VS Code.
+* The current Magik files is now checked for problems after compiling code.
+* Fixed format errors with brackets, floating point exponent and negative numbers.
 
 ### 0.0.8
 

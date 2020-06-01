@@ -2,7 +2,7 @@
     "name": "magik-vscode",
     "displayName": "Magik VS Code",
     "description": "Magik language support for VS Code",
-    "version": "0.0.8",
+    "version": "0.1.0",
     "publisher": "GE-Smallworld",
     "engines": {
         "vscode": "^1.23.0"
@@ -157,12 +157,12 @@
                 "title": "Magik Check File"
             },
             {
-                "command": "magik.showSymbols",
-                "title": "Magik Show Symbols"
+                "command": "magik.searchSymbols",
+                "title": "Magik Search Definitions"
             },
             {
                 "command": "magik.refreshSymbols",
-                "title": "Magik Refresh Symbols"
+                "title": "Magik Refresh Definitions"
             },
             {
                 "command": "magik.gotoPreviousDefinition",
@@ -271,8 +271,9 @@
                 "when": "editorTextFocus"
             },
             {
-                "command": "magik.showSymbols",
+                "command": "magik.searchSymbols",
                 "key": "ctrl+t",
+                // "when": "resourceLangId == magik"
                 "when": "editorTextFocus && editorLangId == magik"
             },
             {
@@ -379,6 +380,11 @@
                     "default": true,
                     "description": "Enable Magik actions in hover tooltip."
                 },
+                "magik-vscode.maxSearchResults": {
+                    "type": "integer",
+                    "default": 250,
+                    "description": "Maximum number of definition search results to display."
+                },
                 "magik-vscode.enableAutoScrollToPrompt": {
                     "type": "boolean",
                     "default": true,
@@ -417,6 +423,7 @@
     "dependencies": {
         "bluebird": "^3.5.0",
         "findit": "^2.0.0",
+        "md5": "^2.2.1",
         "vscode-debugadapter": "1.33.0",
         "ws": "^7.2.0"
     },

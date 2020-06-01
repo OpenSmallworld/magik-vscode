@@ -171,7 +171,7 @@ const VAR_IGNORE_PREV_CHARS = ['.', ':', '"', '%', '|', '@'];
 
 const DEFINITION_TESTS = [
   {
-    test: new RegExp(`(^|\\s+)_method\\s+.+\\.\\s*.+`),
+    test: new RegExp(`(^|\\s+)_method\\s+[\\w!?]+\\s*\\.\\s*.+`),
     type: vscode.SymbolKind.Method,
   },
   {
@@ -842,6 +842,15 @@ function nextChar(text, index) {
   if (match) return match[0];
 }
 
+function debounce(callback, wait) {
+  let timeout;
+  return (...args) => {
+    const context = this;
+    clearTimeout(timeout);
+    timeout = setTimeout(() => callback.apply(context, args), wait);
+  };
+}
+
 module.exports = {
   MAGIK_KEYWORDS,
   MAGIK_OBJECT_KEYWORDS,
@@ -884,4 +893,5 @@ module.exports = {
   removeSymbolsWithPipes,
   previousCharacter,
   nextChar,
+  debounce,
 };

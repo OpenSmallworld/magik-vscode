@@ -16,10 +16,12 @@ const DEFAULT_GLOBALS = [
   '!window_system!',
   '!print_length!',
   'thread',
+  'events_thread',
+  'string_output_stream',
 ];
 
 class MagikSymbolProvider {
-  constructor(vscode) {
+  constructor(vscode, context) {
     this.classData = {};
     this.classNames = [];
 
@@ -27,14 +29,29 @@ class MagikSymbolProvider {
     this.globalNames = [...DEFAULT_GLOBALS];
 
     this.vscode = vscode;
+    this.magikVSCode = undefined;
 
     this.symbolOrder = [
       this.vscode.SymbolKind.Class,
       this.vscode.SymbolKind.Constant,
-      this.vscode.SymbolKind.Function,
+      this.vscode.SymbolKind.Property,
       this.vscode.SymbolKind.Variable,
       this.vscode.SymbolKind.Method,
     ];
+    this.symbolIcons = {};
+    this.symbolIcons[vscode.SymbolKind.Method] = 'symbol-method';
+    this.symbolIcons[vscode.SymbolKind.Variable] = 'symbol-variable';
+    this.symbolIcons[vscode.SymbolKind.Class] = 'symbol-class';
+    this.symbolIcons[vscode.SymbolKind.Constant] = 'symbol-constant';
+    this.symbolIcons[vscode.SymbolKind.Property] = 'symbol-property';
+
+    this._quickPick = undefined;
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand('magik.searchSymbols', (args) =>
+        this.searchSymbols(args)
+      )
+    );
   }
 
   async _wait(ms) {
@@ -137,10 +154,14 @@ class MagikSymbolProvider {
     }
   }
 
+  _getIcon(kind) {
+    return this.symbolIcons[kind] || 'symbol-misc';
+  }
+
   _getMethodSymbol(name, fileName, methodData) {
     let sym = methodData.methodSymbol;
     if (!sym) {
-      const type = methodData.variable
+      const kind = methodData.variable
         ? this.vscode.SymbolKind.Variable
         : this.vscode.SymbolKind.Method;
       const loc = new this.vscode.Location(
@@ -149,9 +170,11 @@ class MagikSymbolProvider {
       );
       const mName = methodData.name;
 
-      sym = new this.vscode.SymbolInformation(name, type, undefined, loc);
+      sym = new this.vscode.SymbolInformation(name, kind, undefined, loc);
       sym._fileName = fileName;
       sym._methodName = mName;
+      sym._icon = this._getIcon(kind);
+      sym._order = this.symbolOrder.indexOf(kind);
 
       const length = mName.length;
       const last = mName[length - 1];
@@ -171,42 +194,79 @@ class MagikSymbolProvider {
   _getGlobalSymbol(name, fileName, globalData) {
     let sym = globalData.globalSymbol;
     if (!sym) {
-      let type;
+      let kind;
       if (globalData.condition) {
-        type = this.vscode.SymbolKind.Constant;
+        kind = this.vscode.SymbolKind.Constant;
       } else if (globalData.procedure) {
-        type = this.vscode.SymbolKind.Function;
+        kind = this.vscode.SymbolKind.Property;
       } else {
-        type = this.vscode.SymbolKind.Class;
+        kind = this.vscode.SymbolKind.Class;
       }
       const loc = new this.vscode.Location(
         this.vscode.Uri.file(fileName),
         undefined
       );
 
-      sym = new this.vscode.SymbolInformation(name, type, undefined, loc);
+      sym = new this.vscode.SymbolInformation(name, kind, undefined, loc);
       sym._fileName = fileName;
       sym._globalName = name;
       sym._completionText = name;
+      sym._icon = this._getIcon(kind);
+      sym._order = this.symbolOrder.indexOf(kind);
 
       globalData.globalSymbol = sym;
     }
     return sym;
   }
 
+  _matchScore(string, query) {
+    const length = query.length;
+    if (length > string.length) return 0;
+
+    const matches = [];
+    let index = -1;
+    let total = 1;
+    let gaps = 0;
+
+    for (let i = 0; i < length; i++) {
+      const c = query[i];
+
+      index = string.indexOf(c, index + 1);
+      if (index === -1) return 0;
+
+      if (c !== '.') {
+        const start = matches.length - 1;
+        let score = 0;
+        let lastIndex = index;
+        let otherIndex;
+
+        for (let j = start; j > -1; j--) {
+          otherIndex = matches[j];
+          if (lastIndex - otherIndex === 1) {
+            lastIndex = otherIndex;
+            score++;
+          } else {
+            break;
+          }
+        }
+
+        if (start !== -1 && score === 0) {
+          gaps++;
+        }
+
+        matches.push(index);
+        total += score;
+      }
+    }
+
+    total = Math.max(1, total - gaps);
+
+    return total;
+  }
+
   matchString(string, query, matchType) {
     if (matchType === 0) {
-      const length = query.length;
-      if (length > string.length) return false;
-
-      let index = 0;
-      for (let i = 0; i < length; i++) {
-        index = string.indexOf(query[i], index);
-        if (index === -1) return false;
-        index++;
-      }
-
-      return true;
+      return this._matchScore(string, query);
     }
     if (matchType === 1) {
       return string === query;
@@ -339,29 +399,66 @@ class MagikSymbolProvider {
 
     for (let index = 0; index < globalLength; index++) {
       const globalName = this.globalNames[index];
+      const data = this.globalData[globalName];
 
-      if (this.matchString(globalName, globalString, matchType)) {
-        const data = this.globalData[globalName];
-        const fileName = data.sourceFile;
+      if (
+        data &&
+        data.sourceFile &&
+        this.matchString(globalName, globalString, matchType)
+      ) {
+        const sym = this._getGlobalSymbol(globalName, data.sourceFile, data);
 
-        if (fileName) {
-          const sym = this._getGlobalSymbol(globalName, fileName, data);
+        symbols.push(sym);
 
-          symbols.push(sym);
-
-          if (symbols.length === max) return;
-        }
+        if (symbols.length === max) return;
       }
     }
   }
 
-  async getSymbols(
-    query,
-    inheritOnly = false,
-    max = 500,
-    searchClasses = false
-  ) {
+  _sortSymbols(classString, methodString, symbols) {
+    const origQuery = classString
+      ? `${classString}.${methodString}`
+      : methodString;
+
+    symbols.sort((a, b) => {
+      let orderA = a._order;
+      let orderB = b._order;
+
+      if (classString) {
+        orderA = orderA < 3 ? 1 : 0;
+        orderB = orderB < 3 ? 1 : 0;
+      }
+
+      if (orderA === orderB) {
+        let scoreA = this._matchScore(a.name, origQuery);
+        let scoreB = this._matchScore(b.name, origQuery);
+
+        if (scoreA === 0 && a._methodName) {
+          scoreA = this._matchScore(a._methodName, methodString);
+        }
+        if (scoreB === 0 && b._methodName) {
+          scoreB = this._matchScore(b._methodName, methodString);
+        }
+
+        if (scoreA === scoreB) {
+          return a.name.localeCompare(b.name);
+        }
+
+        return scoreB - scoreA;
+      }
+
+      return orderA - orderB;
+    });
+  }
+
+  async getSymbols(query, inheritOnly = false, max, searchClasses = false) {
     await this.loadSymbols();
+
+    if (max === undefined) {
+      max =
+        this.vscode.workspace.getConfiguration('magik-vscode')
+          .maxSearchResults || 500;
+    }
 
     const queryString = query.replace(/\s+/g, '');
     const queryParts = queryString.split('.');
@@ -426,7 +523,8 @@ class MagikSymbolProvider {
             symbols,
             doneMethods,
             methodMatchType,
-            max
+            max,
+            1
           );
         } else {
           this._findMethods(
@@ -436,7 +534,8 @@ class MagikSymbolProvider {
             doneMethods,
             classString,
             methodMatchType,
-            max
+            max,
+            1
           );
         }
 
@@ -454,16 +553,149 @@ class MagikSymbolProvider {
       );
     }
 
-    symbols.sort((a, b) => {
-      const indexA = this.symbolOrder[a.kind];
-      const indexB = this.symbolOrder[b.kind];
-      if (indexA === indexB) {
-        return a.name.localeCompare(b.name);
-      }
-      return indexA - indexB;
-    });
+    this._sortSymbols(classString, methodString, symbols);
 
     return symbols;
+  }
+
+  _gotoSymbol(sym) {
+    const resSym = this.magikVSCode.resolveWorkspaceSymbol(sym);
+    if (resSym) {
+      this.vscode.window.showTextDocument(resSym.location.uri, {
+        selection: resSym.location.range,
+      });
+      this.vscode.commands.executeCommand('editor.unfold', {});
+    }
+  }
+
+  _getSearchList(symbols, showDetail) {
+    const list = [];
+    const symbolsLength = symbols.length;
+
+    for (let index = 0; index < symbolsLength; index++) {
+      const sym = symbols[index];
+      const documentation = sym._completionDocumentation;
+      let detail;
+
+      if (showDetail && documentation !== undefined) {
+        const paramString = sym._help.signatures[0]._paramString;
+        if (paramString === '') {
+          detail = documentation;
+        } else {
+          const documentationString =
+            documentation === ''
+              ? documentation
+              : `$(ellipsis) ${documentation}`;
+          const lastChar = sym.name[sym.name.length - 1];
+          if (lastChar === ')') {
+            detail = `(${paramString}) ${documentationString}`;
+          } else if (lastChar === '<') {
+            detail = documentation;
+          } else {
+            detail = `${paramString} ${documentationString}`;
+          }
+        }
+      }
+
+      list.push({
+        label: `$(${sym._icon}) ${sym.name}`,
+        description: sym._fileName,
+        detail,
+        alwaysShow: true,
+        symbol: sym,
+      });
+    }
+
+    return list;
+  }
+
+  async selectFromSymbols(symbols, showDetail = true) {
+    const list = this._getSearchList(symbols, showDetail);
+
+    const target = await this.vscode.window.showQuickPick(list, {
+      placeHolder: 'Please select a definition',
+      matchOnDescription: true,
+      matchOnDetail: true,
+    });
+
+    if (target) {
+      return target.symbol;
+    }
+  }
+
+  _debounce(callback, wait) {
+    let timeout;
+    return (...args) => {
+      const context = this;
+      clearTimeout(timeout);
+      timeout = setTimeout(() => callback.apply(context, args), wait);
+    };
+  }
+
+  async _updateQuickPick() {
+    const value = this._quickPick.value;
+
+    if (value.length > 1) {
+      const symbols = await this.getSymbols(value, undefined, undefined, true);
+      const symbolsLength = symbols.length;
+      const startTime = new Date().getTime();
+      let currentTime;
+
+      for (let i = 0; i < symbolsLength; i++) {
+        const sym = symbols[i];
+        if (sym._completionDocumentation === undefined) {
+          this.magikVSCode.resolveSymbolCompletion(sym);
+          currentTime = new Date().getTime();
+          if (currentTime - startTime >= 200) break;
+        }
+      }
+
+      const list = this._getSearchList(symbols, true);
+
+      this._quickPick.items = list;
+    } else {
+      this._quickPick.items = [];
+    }
+  }
+
+  _createQuickPick() {
+    if (!this._quickPick) {
+      this._quickPick = this.vscode.window.createQuickPick();
+      // this._quickPick.title = 'Search Magik Definitions';
+      this._quickPick.placeholder =
+        'Search definitions  (class.method or method or class, supports ^ and $)';
+
+      this._quickPick.onDidChangeValue(
+        this._debounce(() => {
+          this._updateQuickPick();
+        }, 300)
+      );
+
+      this._quickPick.onDidAccept(() => {
+        const selection = this._quickPick.selectedItems;
+        if (selection.length > 0) {
+          this._gotoSymbol(selection[0].symbol);
+        }
+      });
+    }
+
+    this._quickPick.items = [];
+  }
+
+  async searchSymbols(args) {
+    let query = '';
+    if (args && args.query) {
+      query = args.query;
+    } else {
+      const selection = this.magikVSCode.selectedText();
+      if (selection) {
+        query = selection;
+      }
+    }
+    this._createQuickPick();
+    this._quickPick.value = query;
+    this._quickPick.show();
+    this._updateQuickPick();
   }
 }
 

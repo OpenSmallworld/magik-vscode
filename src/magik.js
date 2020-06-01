@@ -61,8 +61,10 @@ class MagikDebugAdapterDescriptorFactory {
 }
 
 function activate(context) {
-  const symbolProvider = new MagikSymbolProvider(vscode);
+  const symbolProvider = new MagikSymbolProvider(vscode, context);
   const magikVSCode = new MagikVSCode(symbolProvider, context);
+
+  symbolProvider.magikVSCode = magikVSCode;
 
   new MagikLinter(magikVSCode, symbolProvider, context); // eslint-disable-line
   new MagikSession(context); // eslint-disable-line
