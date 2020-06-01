@@ -273,7 +273,6 @@
             {
                 "command": "magik.searchSymbols",
                 "key": "ctrl+t",
-                // "when": "resourceLangId == magik"
                 "when": "editorTextFocus && editorLangId == magik"
             },
             {
