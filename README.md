@@ -207,7 +207,7 @@ I would recommend using these other extensions:
     * The module for the current Magik file can be loaded using the shortcut **Ctrl+Shift+F7**.<br>
     This will load (or reload) the module containing the file and adds products and loads prerequisite modules as necessary.<br>
     For example, this is useful for loading a test file or new module into the session.
-    * You can jump to source from the terminal by selecting a method name (or class.method) and pressing **F3**. Requires the steps in 2. in the Installtion notes above.
+    * You can jump to source from the terminal by selecting a method name (or class.method) and pressing **F3**. Requires the steps in 2. in the Installation notes above.
     * Use Alt+Click to move the cursor in the terminal.
     * For a light theme and Bracket Pair Colorizer 2 use these colours in the settings:
         ```
