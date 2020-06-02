@@ -508,6 +508,7 @@ class MagikSymbolProvider {
     const symbols = [];
     const doneMethods = [];
     const classLength = this.classNames.length;
+    const checkParents = classString && classMatchType !== 1;
 
     for (let classIndex = 0; classIndex < classLength; classIndex++) {
       const className = this.classNames[classIndex];
@@ -532,7 +533,7 @@ class MagikSymbolProvider {
             methodString,
             symbols,
             doneMethods,
-            classString,
+            checkParents,
             methodMatchType,
             max,
             1
