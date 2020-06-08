@@ -19,7 +19,7 @@ const STATEMENT_PAIRS = [
   [
     '_proc',
     '_endproc',
-    /([\w!?]+\s*\)?\s*<<|\s+>>|^>>)\s*_proc\s*[@\w!?]*\s*\(.*/,
+    /([\w!?]+\s*\)?\s*<<|\s+>>|^>>)\s*_proc\s*[|@\w!?]*\s*\(.*/,
     /(;|\s+)_endproc/,
   ],
   [
@@ -74,7 +74,7 @@ const INDENT_INC_STATEMENT_WORDS = [
   '_lock',
 ];
 const NO_CODE = /^\s*(#|$)/;
-const START_PROC = /(?<=(^|[^\w!?]))_proc\s*[@\w!?]*\s*\(/;
+const START_PROC = /(?<=(^|[^\w!?]))_proc\s*[|@\w!?]*\s*\(/;
 const DEC_STATEMENT = /(?<=\S(\s+|\s*;))(_endproc|_endif$)/;
 
 class MagikLinter {

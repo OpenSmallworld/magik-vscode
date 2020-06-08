@@ -414,7 +414,12 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
   async _getSourcePath(name) {
     const parts = name.split('.');
     const query = `^${parts[0]}$.^${parts[1]}$`;
-    const symbols = await this._symbolProvider.getSymbols(query, false, 1);
+    const symbols = await this._symbolProvider.getSymbols(
+      query,
+      false,
+      true,
+      1
+    );
     const classData = this._symbolProvider.classData[parts[0]];
     let sourcePath;
 

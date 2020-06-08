@@ -451,7 +451,13 @@ class MagikSymbolProvider {
     });
   }
 
-  async getSymbols(query, inheritOnly = false, max, searchClasses = false) {
+  async getSymbols(
+    query,
+    inheritOnly = false,
+    localOnly = false,
+    max,
+    searchClasses = false
+  ) {
     await this.loadSymbols();
 
     if (max === undefined) {
@@ -470,10 +476,8 @@ class MagikSymbolProvider {
     if (queryParts.length > 1) {
       classString = queryParts[0];
       methodString = queryParts[1];
-      if (classString.length < 2 && methodString.length < 2) return;
     } else {
       methodString = queryParts[0];
-      if (methodString.length < 2) return;
     }
 
     if (classString) {
@@ -505,10 +509,17 @@ class MagikSymbolProvider {
       methodString = methodString.substring(0, methodString.length - 1);
     }
 
+    if (
+      (classString && classString.length < 2) ||
+      (!classString && methodString < 2)
+    ) {
+      return;
+    }
+
     const symbols = [];
     const doneMethods = [];
     const classLength = this.classNames.length;
-    const checkParents = classString && classMatchType !== 1;
+    const checkParents = classString && !localOnly;
 
     for (let classIndex = 0; classIndex < classLength; classIndex++) {
       const className = this.classNames[classIndex];
@@ -564,6 +575,7 @@ class MagikSymbolProvider {
     if (resSym) {
       this.vscode.window.showTextDocument(resSym.location.uri, {
         selection: resSym.location.range,
+        preview: false,
       });
       this.vscode.commands.executeCommand('editor.unfold', {});
     }
@@ -637,7 +649,13 @@ class MagikSymbolProvider {
     const value = this._quickPick.value;
 
     if (value.length > 1) {
-      const symbols = await this.getSymbols(value, undefined, undefined, true);
+      const symbols = await this.getSymbols(
+        value,
+        false,
+        false,
+        undefined,
+        true
+      );
       const symbolsLength = symbols.length;
       const startTime = new Date().getTime();
       let currentTime;
@@ -662,7 +680,6 @@ class MagikSymbolProvider {
   _createQuickPick() {
     if (!this._quickPick) {
       this._quickPick = this.vscode.window.createQuickPick();
-      // this._quickPick.title = 'Search Magik Definitions';
       this._quickPick.placeholder =
         'Search definitions  (class.method or method or class, supports ^ and $)';
 

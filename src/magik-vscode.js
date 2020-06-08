@@ -433,20 +433,26 @@ class MagikVSCode {
   _gotoSymbol(sym) {
     vscode.window.showTextDocument(sym.location.uri, {
       selection: sym.location.range,
+      preview: false,
     });
     vscode.commands.executeCommand('editor.unfold', {});
   }
 
-  async _gotoFromQuery(query, command, inherit) {
-    let symbols = await this.symbolProvider.getSymbols(query, inherit, 2);
+  async _gotoFromQuery(query, magikCommand, inherit, local) {
+    let symbols = await this.symbolProvider.getSymbols(
+      query,
+      inherit,
+      local,
+      2
+    );
     let symbolsLength = symbols.length;
 
     if (symbolsLength === 0) {
-      if (command) {
+      if (magikCommand) {
         if (this._usingIntegratedTerminal()) {
           vscode.commands.executeCommand('workbench.action.terminal.focus', {});
         }
-        await this._sendToTerminal(command);
+        await this._sendToTerminal(magikCommand);
       }
       return;
     }
@@ -456,7 +462,8 @@ class MagikVSCode {
     if (symbolsLength === 1) {
       selectedSymbol = symbols[0];
     } else if (symbolsLength > 1) {
-      symbols = await this.symbolProvider.getSymbols(query, inherit);
+      // Repeat symbol query with no max number and show candidates in quick pick
+      symbols = await this.symbolProvider.getSymbols(query, inherit, local);
 
       symbolsLength = symbols.length;
       const startTime = new Date().getTime();
@@ -491,12 +498,14 @@ class MagikVSCode {
     const text = selectedText.trim();
     let query;
     let command;
+    let localOnly = false;
 
     const match = text.match(/\s\.{2,}\s/);
     if (match) {
       const textSplit = text.split(match[0]);
       query = `^${textSplit[1]}$.^${textSplit[0]}$`;
       command = `vs_goto("^${textSplit[0]}$", "${textSplit[1]}")`;
+      localOnly = true;
     } else {
       const textSplit = text.split('.');
       if (textSplit.length === 2) {
@@ -508,7 +517,7 @@ class MagikVSCode {
       }
     }
 
-    await this._gotoFromQuery(query, command);
+    await this._gotoFromQuery(query, command, false, localOnly);
   }
 
   _findDefinition(fileName, word, kind) {
@@ -810,7 +819,7 @@ class MagikVSCode {
   }
 
   async provideWorkspaceSymbols(query) {
-    return this.symbolProvider.getSymbols(query, undefined, undefined, true);
+    return this.symbolProvider.getSymbols(query, false, false, undefined, true);
   }
 
   resolveWorkspaceSymbol(sym) {
@@ -909,11 +918,16 @@ class MagikVSCode {
       }
 
       let query = `^${classString}$.^${currentWord}$`;
-      let symbols = await this.symbolProvider.getSymbols(query, inherit, 1);
+      let symbols = await this.symbolProvider.getSymbols(
+        query,
+        inherit,
+        false,
+        1
+      );
 
       if (symbols.length === 0) {
         query = `^${currentWord}$`;
-        symbols = await this.symbolProvider.getSymbols(query, undefined, 2);
+        symbols = await this.symbolProvider.getSymbols(query, false, false, 2);
       }
 
       if (symbols.length === 1) {
@@ -1072,23 +1086,33 @@ class MagikVSCode {
   }
 
   async _getMethodCompletionItems(doc, pos, currentWord, previousWord) {
-    const items = [];
-
     let className;
     if (previousWord) {
       className = this._getCurrentReceiver(doc, pos, previousWord);
     }
+
+    if (!className && currentWord.length < 2) {
+      return;
+    }
+
+    const items = [];
     const inherit = previousWord === '_super';
     const query = className
       ? `^${className}$.^${currentWord}`
       : `^${currentWord}`;
 
     this.resolveSymbols = false;
-    let symbols = await this.symbolProvider.getSymbols(query, inherit);
+    let symbols = await this.symbolProvider.getSymbols(
+      query,
+      inherit,
+      false,
+      500
+    );
     this.resolveSymbols = true;
 
+    let symbolsLength = symbols.length;
+
     if (className) {
-      const symbolsLength = symbols.length;
       const methodNames = {};
 
       for (let i = 0; i < symbolsLength; i++) {
@@ -1114,7 +1138,7 @@ class MagikVSCode {
 
           this.resolveSymbols = false;
           // eslint-disable-next-line
-          const result = await this.symbolProvider.getSymbols(methodQuery, inherit, 1);
+          const result = await this.symbolProvider.getSymbols(methodQuery, inherit, false, 1);
           this.resolveSymbols = true;
 
           if (result.length === 1) {
@@ -1128,8 +1152,10 @@ class MagikVSCode {
       }
     }
 
-    const symbolsLength = symbols.length;
-    let docCount = 0;
+    symbolsLength = symbols.length;
+    const startTime = new Date().getTime();
+    let resolve = symbolsLength < 51;
+    let currentTime;
 
     for (let i = 0; i < symbolsLength; i++) {
       const sym = symbols[i];
@@ -1141,13 +1167,16 @@ class MagikVSCode {
 
       item.detail = sym.name;
 
-      if (docCount < 30) {
+      if (resolve) {
         this.resolveSymbolCompletion(sym);
         const documentation = sym._completionDocumentation;
         if (documentation) {
           item.detail = sym._completionName;
           item.documentation = documentation;
-          docCount++;
+        }
+        currentTime = new Date().getTime();
+        if (currentTime - startTime >= 150) {
+          resolve = false;
         }
       }
 
@@ -1194,15 +1223,30 @@ class MagikVSCode {
       }
     }
 
+    const items = [];
     const index = currentText.indexOf(
       currentWord,
-      pos.character - currentWord.length + 1
+      pos.character - currentWord.length
     );
+    let length;
 
-    if (magikUtils.previousCharacter(currentText, index) !== '.') {
-      const items = [];
-      let length;
-
+    if (magikUtils.previousCharacter(currentText, index) === '.') {
+      const slots = magikUtils.localSlots(doc, pos);
+      length = slots.length;
+      for (let i = 0; i < length; i++) {
+        const slotName = slots[i];
+        if (this.symbolProvider.matchString(slotName, currentWord, 0)) {
+          const item = new vscode.CompletionItem(
+            slotName,
+            vscode.CompletionItemKind.Property
+          );
+          item.detail = 'Slot';
+          item.sortText = `1${slotName}`;
+          item.filterText = slotName;
+          items.push(item);
+        }
+      }
+    } else {
       if ('class'.startsWith(currentWord)) {
         const item = new vscode.CompletionItem(
           '@class',
@@ -1215,33 +1259,38 @@ class MagikVSCode {
         items.push(item);
       }
 
-      length = magikUtils.MAGIK_KEYWORDS.length;
-      for (let i = 0; i < length; i++) {
-        const key = magikUtils.MAGIK_KEYWORDS[i];
-        const label = `_${key}`;
-        if (key.startsWith(currentWord) || label.startsWith(currentWord)) {
-          const item = new vscode.CompletionItem(
-            label,
+      const methodComplete = 'method'.startsWith(currentWord);
+      if (methodComplete || 'private'.startsWith(currentWord)) {
+        const className = magikUtils.currentClassName(doc, pos.line);
+        if (className) {
+          const name = `_method ${className}`;
+          const privateName = `_private _method ${className}`;
+          let item;
+
+          if (methodComplete) {
+            item = new vscode.CompletionItem(
+              name,
+              vscode.CompletionItemKind.Keyword
+            );
+            item.detail = 'Keyword';
+            item.insertText = `_method ${className}.`;
+            item.sortText = '0_method';
+            item.filterText = 'method';
+            items.push(item);
+          }
+
+          item = new vscode.CompletionItem(
+            privateName,
             vscode.CompletionItemKind.Keyword
           );
           item.detail = 'Keyword';
-          item.sortText = `1${key}`;
-          item.filterText = key;
-          items.push(item);
-        }
-      }
-
-      length = this.symbolProvider.classNames.length;
-      for (let i = 0; i < length; i++) {
-        const className = this.symbolProvider.classNames[i];
-        if (this.symbolProvider.matchString(className, currentWord, 0)) {
-          const item = new vscode.CompletionItem(
-            className,
-            vscode.CompletionItemKind.Class
-          );
-          item.detail = 'Class';
-          item.sortText = `2${className}`;
-          item.filterText = className;
+          item.insertText = `_private _method ${className}.`;
+          item.sortText = '0_private_method';
+          if (methodComplete) {
+            item.filterText = 'methodprivate';
+          } else {
+            item.filterText = 'privatemethod';
+          }
           items.push(item);
         }
       }
@@ -1261,8 +1310,39 @@ class MagikVSCode {
             vscode.CompletionItemKind.Variable
           );
           item.detail = 'Variable';
-          item.sortText = `3${varName}`;
+          item.sortText = `1${varName}`;
           item.filterText = varName;
+          items.push(item);
+        }
+      }
+
+      length = magikUtils.MAGIK_KEYWORDS.length;
+      for (let i = 0; i < length; i++) {
+        const key = magikUtils.MAGIK_KEYWORDS[i];
+        const label = `_${key}`;
+        if (key.startsWith(currentWord) || label.startsWith(currentWord)) {
+          const item = new vscode.CompletionItem(
+            label,
+            vscode.CompletionItemKind.Keyword
+          );
+          item.detail = 'Keyword';
+          item.sortText = `2${key}`;
+          item.filterText = key;
+          items.push(item);
+        }
+      }
+
+      length = this.symbolProvider.classNames.length;
+      for (let i = 0; i < length; i++) {
+        const className = this.symbolProvider.classNames[i];
+        if (this.symbolProvider.matchString(className, currentWord, 0)) {
+          const item = new vscode.CompletionItem(
+            className,
+            vscode.CompletionItemKind.Class
+          );
+          item.detail = 'Class';
+          item.sortText = `3${className}`;
+          item.filterText = className;
           items.push(item);
         }
       }
@@ -1281,9 +1361,9 @@ class MagikVSCode {
           items.push(item);
         }
       }
-
-      return items;
     }
+
+    return items;
   }
 
   async provideCompletionItems(doc, pos) {
@@ -1472,7 +1552,7 @@ class MagikVSCode {
     const currentText = doc.lineAt(pos.line).text;
     const currentIndex = currentText.indexOf(
       currentWord,
-      pos.character - currentWord.length + 1
+      pos.character - currentWord.length
     );
 
     if (magikUtils.withinString(currentText, currentIndex)) throw err;
@@ -1482,6 +1562,7 @@ class MagikVSCode {
       currentText,
       currentIndex
     );
+
     if (ignorePrev.includes(previousChar)) throw err;
 
     const region = magikUtils.currentRegion(true);
@@ -1955,9 +2036,7 @@ class MagikVSCode {
     if (!fileName || fileName === '') return;
 
     try {
-      if (!fs.existsSync(fileName)) {
-        return;
-      }
+      fs.accessSync(fileName, fs.constants.R_OK);
     } catch (err) {
       return;
     }

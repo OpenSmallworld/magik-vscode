@@ -695,15 +695,24 @@ function getMethodParams(lines, startLine, procs) {
 
   if (lines.length === 0) return params;
 
-  let match = lines[0].match(/(\(|<<|\[|^<<)/);
+  const testReg = /^\s*(_pragma|#|$)/;
+  const end = lines.length - 1;
+  let startRow = 0;
+  for (let i = 0; i < end; i++) {
+    if (!testReg.test(lines[i])) {
+      startRow = i;
+      break;
+    }
+  }
+  let match = lines[startRow].match(/(\(|<<|\[|^<<)/);
+
   if (match) {
-    _findParams(lines, startLine, 0, match.index, params);
+    _findParams(lines, startLine, startRow, match.index, params);
   }
 
   if (procs !== false) {
     // Find internal proc params
-    const procReg = /(\s+|\()_proc\s*[@\w!?]*\s*\(/;
-    const end = lines.length - 1;
+    const procReg = /(\s+|\()_proc\s*[|@\w!?]*\s*\(/;
 
     for (let i = 1; i < end; i++) {
       const line = stringBeforeComment(lines[i]);
@@ -815,6 +824,46 @@ function findArgs(lines, startLine, startRow, startRowIndex) {
   return args.map((str) => str.trim());
 }
 
+function localSlots(doc, pos) {
+  const slotNames = [];
+  const className = currentClassName(doc, pos.line);
+  if (!className) {
+    return slotNames;
+  }
+
+  const defTest = new RegExp(
+    `^\\s*def_slotted_exemplar\\s*\\(\\s*:${className}`
+  );
+  const endTest = /(\}\s*$|\}\s*\}\s*,\s*$|^\s*_pragma|^\s*\$\s*$|\)\s*$|^\s*\{\s*\}\s*,\s*$)/;
+  const slotTest = /\{\s*\{?\s*:([\w!?]+)\s*,/g;
+
+  const lineCount = doc.lineCount;
+  let foundDef = false;
+  let match;
+
+  for (let row = 0; row < lineCount; row++) {
+    const lineText = doc.lineAt(row).text;
+
+    if (!foundDef && defTest.test(lineText)) {
+      foundDef = true;
+    }
+
+    if (foundDef) {
+      const text = stringBeforeComment(lineText);
+
+      while (match = slotTest.exec(text)) { // eslint-disable-line
+        slotNames.push(match[1]);
+      }
+
+      if (endTest.test(text)) {
+        break;
+      }
+    }
+  }
+
+  return slotNames;
+}
+
 function removeSymbolsWithPipes(text) {
   let start = text.indexOf(':|');
   let end;
@@ -890,6 +939,7 @@ module.exports = {
   getMethodName,
   getMethodParams,
   findArgs,
+  localSlots,
   removeSymbolsWithPipes,
   previousCharacter,
   nextChar,
