@@ -31,6 +31,7 @@ class MagikVSCode {
       ['gotoPreviousDefinition', this._gotoPreviousDefinition],
       ['gotoNextDefinition', this._gotoNextDefinition],
       ['selectRegion', this._selectRegion],
+      ['runMagik', this._runMagik],
       ['runTest', this._runTest],
       ['runTestClass', this._runTestClass],
       ['compileMessages', this._compileMessages],
@@ -137,6 +138,12 @@ class MagikVSCode {
           }
         }
       });
+    }
+  }
+
+  _runMagik(args) {
+    if (args.text) {
+      this._sendToTerminal(args.text);
     }
   }
 
@@ -826,13 +833,24 @@ class MagikVSCode {
     if (this.resolveSymbols) {
       const globalName = sym._globalName;
       let loc;
+      let startLine;
+
+      if (sym.location.range) {
+        startLine = sym.location.range.start.line;
+      }
 
       if (globalName) {
         loc = this._findGlobal(sym._fileName, globalName);
       } else {
         loc = this._findDefinition(sym._fileName, sym._methodName, sym.kind);
       }
+
       if (loc) {
+        // Clear help if start line has changed
+        if (startLine && loc.range.start.line !== startLine) {
+          sym._completionDocumentation = undefined;
+          sym._help = undefined;
+        }
         sym.location = loc;
         return sym;
       }
@@ -1659,6 +1677,23 @@ class MagikVSCode {
     return pos.character > text.length;
   }
 
+  _underSourceControl(fileName) {
+    let tempDir = fileName;
+    let testDir;
+    do {
+      tempDir = path.dirname(tempDir);
+      testDir = path.join(tempDir, '.git');
+      if (fs.existsSync(testDir)) {
+        return true;
+      }
+      testDir = path.join(tempDir, '.hg');
+      if (fs.existsSync(testDir)) {
+        return true;
+      }
+    } while (!/[/\\]$/.test(tempDir));
+    return false;
+  }
+
   _getSearchHoverString(doc, currentText) {
     const rootPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
     const searchStrings = [];
@@ -1843,7 +1878,6 @@ class MagikVSCode {
       }
     }
 
-    // Check if pointing at test method name
     if (methodDef) {
       const lines = magikUtils.currentRegion(true, pos.line).lines;
 
@@ -1854,9 +1888,30 @@ class MagikVSCode {
         const methodName = res.methodName;
 
         if (methodName) {
+          if (
+            this.symbolProvider.classData.method_viewer &&
+            this._underSourceControl(doc.fileName)
+          ) {
+            const historyArgs = [
+              {
+                text: `mhistory("^${res.displayMethodName}$", "^${
+                  res.className
+                }$")`,
+              },
+            ];
+            const historyCommand = vscode.Uri.parse(
+              `command:magik.runMagik?${encodeURIComponent(
+                JSON.stringify(historyArgs)
+              )}`
+            );
+            const fullName = `${res.className}.${res.displayMethodName}`;
+            hoverString += `  \n  \n[Show History](${historyCommand} "Show method history: '${fullName}'")`;
+          }
+
           const parents = [];
           this._parentClasses(res.className, parents);
 
+          // Check if pointing at test method name
           if (
             /^(windows_)?test_/.test(methodName) &&
             parents.includes('test_case')
@@ -1867,8 +1922,8 @@ class MagikVSCode {
                 JSON.stringify(testArgs)
               )}`
             );
-            const testName = `${res.className}.${res.displayMethodName}`;
-            hoverString += `  \n  \n[Run Test](${testCommand} "Run Test: '${testName}'")`;
+            const fullName = `${res.className}.${res.displayMethodName}`;
+            hoverString += `  \n  \n[Run Test](${testCommand} "Run Test: '${fullName}'")`;
           }
         }
       }

@@ -177,6 +177,10 @@
                 "title": "Magik Select Region"
             },
             {
+                "command": "magik.runMagik",
+                "title": "Magik Run Command"
+            },
+            {
                 "command": "magik.runTest",
                 "title": "Magik Run Test"
             },
