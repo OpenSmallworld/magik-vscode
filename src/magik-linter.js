@@ -66,6 +66,22 @@ const STATEMENT_PAIRS = [
   ],
 ];
 
+const INDENT_PAIRS = {
+  _method: '_endmethod',
+  _then: '_endif',
+  _else: '_endif',
+  _loop: '_endloop',
+  _try: '_when',
+  _when: '_endtry',
+  _protect: '_protection',
+  _protection: '_endprotect',
+  _catch: '_endcatch',
+  _block: '_endblock',
+  _proc: '_endproc',
+  _finally: '_endloop',
+  _lock: '_endlock',
+};
+
 const INDENT_INC_STATEMENT_WORDS = [
   '_proc',
   '_try',
@@ -340,6 +356,7 @@ class MagikLinter {
     const lineIndents = [];
     const assignIndentKeywords = [];
     const arrowAssignRows = [];
+    const outdentWords = [];
     let indent = 0;
     let tempIndent = false;
 
@@ -448,6 +465,7 @@ class MagikLinter {
           // Don't increase indent when chaining method calls
         } else if (this._methodStartTest(testString)) {
           indent++;
+          outdentWords[indent] = '_endmethod';
         } else {
           const statementAssignKeyword = this._statementAssignTest(testString);
           if (statementAssignKeyword) {
@@ -456,6 +474,7 @@ class MagikLinter {
             if (INDENT_INC_STATEMENT_WORDS.includes(statementAssignKeyword)) {
               indent++;
             }
+            outdentWords[indent] = INDENT_PAIRS[statementAssignKeyword];
           } else if (/^[)}]/.test(testString)) {
             // Starts with bracket - explicitly handled here as not included in INDENT_INC_WORDS test below
             indent++;
@@ -470,11 +489,13 @@ class MagikLinter {
               const iWord = magikUtils.INDENT_INC_WORDS[i];
               if (testString === iWord || testString.startsWith(`${iWord} `)) {
                 indent++;
+                outdentWords[indent] = INDENT_PAIRS[iWord];
                 break;
               }
             }
             if (this._startProcTest(testString)) {
               indent++;
+              outdentWords[indent] = '_endproc';
             }
             if (this._endStatementTest(testString)) {
               indent--;
@@ -513,6 +534,8 @@ class MagikLinter {
     if (edit.size > 0) {
       await vscode.workspace.applyEdit(edit);
     }
+
+    this.magikVSCode.outdentWord = outdentWords[indent];
 
     return lineIndents;
   }
@@ -591,7 +614,8 @@ class MagikLinter {
       if (ch === '\n') {
         await magikFormat.wrapComment(pos.line - 1, ch);
         if (
-          vscode.workspace.getConfiguration('magik-vscode').enableAutoIndentation
+          vscode.workspace.getConfiguration('magik-vscode')
+            .enableAutoIndentation
         ) {
           const row = pos.line;
           const lastCol = doc.lineAt(row - 1).text.length;

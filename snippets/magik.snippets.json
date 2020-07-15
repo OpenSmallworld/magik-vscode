@@ -66,7 +66,7 @@
     "method": {
         "prefix": "method",
         "body": [
-            "_pragma(classify_level=${1|basic,advanced,restricted,debug,depricated|}, topic={${2:class_name}}, usage={${3|external,internal,subclassable,redefinable|}})",
+            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:class_name}}, usage={${3|external,internal,subclassable,redefinable|}})",
             "_method ${2:class_name}.${4:method_name}()",
             "\t## Function: ",
             "\t## Arguments: ",
@@ -113,7 +113,7 @@
     },
     "pragma": {
         "prefix": "pragma",
-        "body": "_pragma(classify_level=${1|basic,advanced,restricted,debug,depricated|}, topic={${2:class_name}}, usage={${3|external,internal,subclassable,redefinable|}})\r\n",
+        "body": "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:class_name}}, usage={${3|external,internal,subclassable,redefinable|}})\r\n",
         "description": "Magik Pragma Statement"
     },
     "condition": {

@@ -93,7 +93,6 @@ const INDENT_INC_WORDS = [
   '_when',
   '_protect',
   '_protection',
-  // '_proc',
   '_catch',
   '_block',
   '_finally',
@@ -158,6 +157,18 @@ const END_ASSIGN_WORDS = [
   '_endcatch',
   '_endblock',
   '_endlock',
+];
+
+const PRAGMA_WORDS = [
+  'basic',
+  'advanced',
+  'restricted',
+  'debug',
+  'deprecated',
+  'external',
+  'internal',
+  'subclassable',
+  'redefinable',
 ];
 
 const VALID_CHAR = /[\w!?]/;
@@ -340,6 +351,18 @@ function allClassNames(doc) {
   }
 
   return Array.from(classNames);
+}
+
+function lastPragma(doc, currentLine) {
+  const pragmaTest = /^\s*_pragma\s*\(/;
+
+  for (let row = currentLine; row > -1; row--) {
+    const testString = doc.lineAt(row).text;
+
+    if (pragmaTest.test(testString)) {
+      return testString;
+    }
+  }
 }
 
 function currentRegion(methodOnly, startLine) {
@@ -909,6 +932,7 @@ module.exports = {
   END_WORDS,
   START_ASSIGN_WORDS,
   END_ASSIGN_WORDS,
+  PRAGMA_WORDS,
   VALID_CHAR,
   INVALID_CHAR,
   VAR_TEST,
@@ -929,6 +953,7 @@ module.exports = {
   nextWordInFile,
   currentClassName,
   allClassNames,
+  lastPragma,
   currentRegion,
   indentRegion,
   removeStrings,

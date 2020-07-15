@@ -1265,6 +1265,8 @@ class MagikVSCode {
         }
       }
     } else {
+      const inComment = this._posInComment(pos);
+
       if ('class'.startsWith(currentWord)) {
         const item = new vscode.CompletionItem(
           '@class',
@@ -1277,39 +1279,72 @@ class MagikVSCode {
         items.push(item);
       }
 
-      const methodComplete = 'method'.startsWith(currentWord);
-      if (methodComplete || 'private'.startsWith(currentWord)) {
-        const className = magikUtils.currentClassName(doc, pos.line);
-        if (className) {
-          const name = `_method ${className}`;
-          const privateName = `_private _method ${className}`;
-          let item;
+      if (/^\s*_pragma\s*\(/.test(currentText)) {
+        const pragmaWords = magikUtils.PRAGMA_WORDS;
+        length = pragmaWords.length;
+        for (let i = 0; i < length; i++) {
+          const pragmaWord = pragmaWords[i];
+          if (this.symbolProvider.matchString(pragmaWord, currentWord, 0)) {
+            const item = new vscode.CompletionItem(
+              pragmaWord,
+              vscode.CompletionItemKind.Keyword
+            );
+            item.detail = 'Pragma Keyword';
+            item.sortText = `0${pragmaWord}`;
+            item.filterText = pragmaWord;
+            items.push(item);
+          }
+        }
+      }
 
-          if (methodComplete) {
+      if (!inComment && currentText.startsWith(currentWord)) {
+        const methodComplete = 'method'.startsWith(currentWord);
+        if (methodComplete || 'private'.startsWith(currentWord)) {
+          const className = magikUtils.currentClassName(doc, pos.line);
+          if (className) {
+            const name = `_method ${className}`;
+            const privateName = `_private _method ${className}`;
+            let item;
+
+            if (methodComplete) {
+              item = new vscode.CompletionItem(
+                name,
+                vscode.CompletionItemKind.Keyword
+              );
+              item.detail = 'Keyword';
+              item.insertText = `_method ${className}.`;
+              item.sortText = '0_method';
+              item.filterText = 'method';
+              items.push(item);
+            }
+
             item = new vscode.CompletionItem(
-              name,
+              privateName,
               vscode.CompletionItemKind.Keyword
             );
             item.detail = 'Keyword';
-            item.insertText = `_method ${className}.`;
-            item.sortText = '0_method';
-            item.filterText = 'method';
+            item.insertText = `_private _method ${className}.`;
+            item.sortText = '0_private_method';
+            if (methodComplete) {
+              item.filterText = 'methodprivate';
+            } else {
+              item.filterText = 'privatemethod';
+            }
             items.push(item);
           }
-
-          item = new vscode.CompletionItem(
-            privateName,
-            vscode.CompletionItemKind.Keyword
-          );
-          item.detail = 'Keyword';
-          item.insertText = `_private _method ${className}.`;
-          item.sortText = '0_private_method';
-          if (methodComplete) {
-            item.filterText = 'methodprivate';
-          } else {
-            item.filterText = 'privatemethod';
+        }
+        if ('pragma'.startsWith(currentWord)) {
+          const lastPragma = magikUtils.lastPragma(doc, pos.line);
+          if (lastPragma) {
+            const item = new vscode.CompletionItem(
+              lastPragma,
+              vscode.CompletionItemKind.Keyword
+            );
+            item.detail = 'Last _pragma line';
+            item.sortText = '0_pragma';
+            item.filterText = 'pragma';
+            items.push(item);
           }
-          items.push(item);
         }
       }
 
@@ -1334,25 +1369,29 @@ class MagikVSCode {
         }
       }
 
-      length = magikUtils.MAGIK_KEYWORDS.length;
-      for (let i = 0; i < length; i++) {
-        const key = magikUtils.MAGIK_KEYWORDS[i];
-        const label = `_${key}`;
-        if (key.startsWith(currentWord) || label.startsWith(currentWord)) {
-          const item = new vscode.CompletionItem(
-            label,
-            vscode.CompletionItemKind.Keyword
-          );
-          item.detail = 'Keyword';
-          item.sortText = `2${key}`;
-          item.filterText = key;
-          items.push(item);
+      if (!inComment) {
+        const keywords = magikUtils.MAGIK_KEYWORDS;
+        length = keywords.length;
+        for (let i = 0; i < length; i++) {
+          const key = keywords[i];
+          const label = `_${key}`;
+          if (key.startsWith(currentWord) || label.startsWith(currentWord)) {
+            const item = new vscode.CompletionItem(
+              label,
+              vscode.CompletionItemKind.Keyword
+            );
+            item.detail = 'Keyword';
+            item.sortText = label === this.outdentWord ? `20${key}` : `2${key}`;
+            item.filterText = key;
+            items.push(item);
+          }
         }
       }
 
-      length = this.symbolProvider.classNames.length;
+      const classNames = this.symbolProvider.classNames;
+      length = classNames.length;
       for (let i = 0; i < length; i++) {
-        const className = this.symbolProvider.classNames[i];
+        const className = classNames[i];
         if (this.symbolProvider.matchString(className, currentWord, 0)) {
           const item = new vscode.CompletionItem(
             className,
@@ -1365,9 +1404,10 @@ class MagikVSCode {
         }
       }
 
-      length = this.symbolProvider.globalNames.length;
+      const globalNames = this.symbolProvider.globalNames;
+      length = globalNames.length;
       for (let i = 0; i < length; i++) {
-        const global = this.symbolProvider.globalNames[i];
+        const global = globalNames[i];
         if (this.symbolProvider.matchString(global, currentWord, 0)) {
           const item = new vscode.CompletionItem(
             global,
@@ -1778,10 +1818,10 @@ class MagikVSCode {
   async _getHoverString(doc, pos) {
     let hoverString = '';
 
-    const useSelection = this._posInSelection(pos);
+    const inSelection = this._posInSelection(pos);
     const lineText = doc.lineAt(pos.line).text;
     const methodDef = /(^|\s)_method\s/.test(lineText);
-    const currentText = useSelection
+    const currentText = inSelection
       ? this.selectedText()
       : magikUtils.currentWord(doc, pos);
 
@@ -1824,41 +1864,49 @@ class MagikVSCode {
         hoverString += `  \n  \n${searchString}`;
       }
 
-      if (!/^(\d|_)/.test(currentText) && !this._posInComment(pos)) {
-        const gotoArgs = [{position: pos}];
-        let addGoto = true;
+      if (!/^(\d|_)/.test(currentText)) {
+        const inComment = this._posInComment(pos);
 
-        const searchSymbolsArgs = [{query: currentText}];
-        const searchCommand = vscode.Uri.parse(
-          `command:magik.searchSymbols?${encodeURIComponent(
-            JSON.stringify(searchSymbolsArgs)
-          )}`
-        );
-        hoverString += `  \n  \n[Search Definitions](${searchCommand} "Search definitions for the current text")`;
-
-        if (!useSelection) {
-          const startTest = new RegExp(`^\\s*${currentText}`);
-          const currentIndex = lineText.indexOf(
-            currentText,
-            pos.character - currentText.length + 1
+        if (inSelection || !inComment) {
+          const searchSymbolsArgs = [{query: currentText}];
+          const searchCommand = vscode.Uri.parse(
+            `command:magik.searchSymbols?${encodeURIComponent(
+              JSON.stringify(searchSymbolsArgs)
+            )}`
           );
-          addGoto = false;
-
-          if (
-            magikUtils.previousCharacter(lineText, currentIndex) === '.' ||
-            (startTest.test(lineText) &&
-              pos.line !== 0 &&
-              /\.\s*$/.test(doc.lineAt(pos.line - 1).text))
-          ) {
-            addGoto = true;
-          }
+          hoverString += `  \n  \n[Search Definitions](${searchCommand} "Search definitions for the current text")`;
         }
 
-        if (addGoto) {
-          const gotoCommand = vscode.Uri.parse(
-            `command:magik.goto?${encodeURIComponent(JSON.stringify(gotoArgs))}`
-          );
-          hoverString += `  \n  \n[Go To Definition](${gotoCommand} "Go To Definition")`;
+        if (!methodDef && !inComment) {
+          const gotoArgs = [{position: pos}];
+          let addGoto = true;
+
+          if (!inSelection) {
+            const startTest = new RegExp(`^\\s*${currentText}`);
+            const currentIndex = lineText.indexOf(
+              currentText,
+              pos.character - currentText.length + 1
+            );
+            addGoto = false;
+
+            if (
+              magikUtils.previousCharacter(lineText, currentIndex) === '.' ||
+              (startTest.test(lineText) &&
+                pos.line !== 0 &&
+                /\.\s*$/.test(doc.lineAt(pos.line - 1).text))
+            ) {
+              addGoto = true;
+            }
+          }
+
+          if (addGoto) {
+            const gotoCommand = vscode.Uri.parse(
+              `command:magik.goto?${encodeURIComponent(
+                JSON.stringify(gotoArgs)
+              )}`
+            );
+            hoverString += `  \n  \n[Go To Definition](${gotoCommand} "Go To Definition")`;
+          }
         }
       }
 
