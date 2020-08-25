@@ -280,8 +280,16 @@
                 "when": "editorTextFocus && editorLangId == magik"
             },
             {
+                "command": "magik.searchSymbols",
+                "key": "ctrl+m"
+            },
+            {
                 "command": "magik.refreshSymbols",
                 "key": "alt+t"
+            },
+            {
+                "command": "magik.refreshSymbols",
+                "key": "alt+m"
             },
             {
                 "command": "magik.gotoPreviousDefinition",
@@ -312,10 +320,6 @@
                 "command": "magik.compileMessages",
                 "key": "f7",
                 "when": "editorTextFocus && editorLangId == message"
-            },
-            {
-                "command": "magik.compileExtensionMagik",
-                "key": "alt+m"
             },
             {
                 "command": "magik.newBuffer",

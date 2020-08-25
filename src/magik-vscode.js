@@ -1028,7 +1028,12 @@ class MagikVSCode {
   }
 
   async _refreshSymbols() {
-    await this._sendToTerminal('vs_save_symbols()');
+    if (this.symbolProvider.globalData.vs_save_symbols) {
+      await this._sendToTerminal('vs_save_symbols()');
+    } else {
+      // Load extension Magik - this will also save the symbols
+      await this._compileExtensionMagik();
+    }
   }
 
   async provideDefinition(doc, pos) {

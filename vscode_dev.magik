@@ -6,8 +6,10 @@ $
 
 # Note: Please reload open_file() below if the dev procs are loaded from magik_tools (e.g. if the Dev Application is loaded)
 
+
 !global_auto_declare?! << _true
 $
+
 
 _block
 	# Optional dev setup - please update this block locally to suit your needs!
@@ -22,8 +24,20 @@ _block
 	# sw_module_manager.load_module( :munit_base )
 
 
-	_global default_trunk_branch_name
-	default_trunk_branch_name << "SW522"
+	# Set default_trunk_branch_name to use with dev procs
+	# _local branch_name << "SW525"
+	# _local parts << system.getenv("SMALLWORLD_GIS").split_by(system.pathname_separator)
+	# _for a_part _over parts.fast_elements()
+	# _loop
+	# 	_if a_part.size > 2 _andif a_part.subseq(1, 2) = "SW"
+	# 	_then
+	# 		branch_name << a_part
+	# 		# _leave
+	# 	_endif
+	# _endloop
+
+	# _global default_trunk_branch_name
+	# default_trunk_branch_name << branch_name
 
 
 	# Reinitialise products to get source from local repositories
@@ -296,7 +310,11 @@ _global _constant vs_save_symbols <<
 					_endif
 				_endloop
 			_protection
-				input.close()
+				_if input _isnt _unset
+				_then
+					input.close()
+					_thisthread.sleep(100)
+				_endif
 			_endprotect
 			_if update? _isnt _true
 			_then
@@ -306,9 +324,17 @@ _global _constant vs_save_symbols <<
 		_endif
 
 		_try
-			system.unlink(output_name)
-			system.unlink(temp_output_name)
+			system.unlink(temp_output_name, _true, _true)
 		_when error
+			write("Cannot remove " + temp_output_name)
+			_return
+		_endtry
+
+		_try
+			system.unlink(output_name, _true, _true)
+		_when error
+			write("Cannot remove " + output_name)
+			_return
 		_endtry
 
 		_local slot_mt << slot_access_method_name.method_table
@@ -535,6 +561,7 @@ _global _constant vs_save_symbols <<
 				output.close()
 				_if ok?
 				_then
+					_thisthread.sleep(100)
 					_try
 						system.rename(temp_output_name, output_name)
 					_when error
@@ -545,13 +572,6 @@ _global _constant vs_save_symbols <<
 		_endprotect
 
 	_endproc
-$
-
-
-_block
-	_global vs_save_symbols
-	vs_save_symbols()
-_endblock
 $
 
 
@@ -2541,4 +2561,15 @@ _proc ( tests, _optional background? )
 	_endif
 
 _endproc
+$
+
+
+# End procs
+# ---------------------------------------------------------------------------------------
+
+
+_block
+	_global vs_save_symbols
+	vs_save_symbols()
+_endblock
 $

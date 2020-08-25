@@ -178,7 +178,7 @@
 					}
 				},
 				{
-					"match": "(_method)\\s+([\\w!?]+)\\s*(?:\\.)",
+					"match": "(_method)\\s+([\\w!?]+)\\s*(?:[\\.\\[])",
 					"captures": {
 							"1": {"name": "storage.type.function.magik"},
 							"2": {"name": "entity.name.class.magik"}

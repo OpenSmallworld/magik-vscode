@@ -59,7 +59,7 @@ Adds the following features to VS Code:
     * Data inspection as you hover over source in the editor
 
 * Search:
-    * Search Magik methods, exemplars, conditions and globals in the current session (**Ctrl+T**)
+    * Search Magik methods, exemplars, conditions and globals in the current session (**Ctrl+M**)
     * Magik definitions in the current file to support Outline view
 
 * Testing:
@@ -82,10 +82,10 @@ Adds the following features to VS Code:
 
 ### **Method Search**
 
-You can search for Magik methods using **Ctrl+T** and typing `<method name>` or `<class name>`.`<method name>`.<br>
+You can search for Magik methods using **Ctrl+M** and typing `<method name>` or `<class name>`.`<method name>`.<br>
 The search supports ^ and $ for starts and ends with.<br>
 e.g. `add_comp` or `map_.goto_` or `^gui_frame.^activ`<br><br>
-Use **Alt+T** to refresh definitions after compiling code from the prompt, scripts or module dialog.<br>
+Use **Alt+M** to refresh definitions after compiling code from the prompt, scripts or module dialog.<br>
 Definitions are refreshed after using **F7**, **Ctrl+F7** etc.
 
 
@@ -135,7 +135,7 @@ I would recommend using these other extensions:
 
 1. Open a folder containing Magik code in VS Code (**Note: Do this before opening a terminal**).
 
-    e.g. The magik repo or C:\projects\hg
+    e.g. A Magik repo or C:\projects\hg
 
 2. Start a Magik session:
 
@@ -163,7 +163,7 @@ I would recommend using these other extensions:
     "magik-vscode.magikProcessName: "sw_magik_win32.exe"
     ```
 
-3. Load the file vscode_dev.magik at the Magik prompt (Use shortcut **Alt+M** (when the terminal doesn't have focus)).
+3. Load the file vscode_dev.magik at the Magik prompt (Use shortcut **Alt+M** - this will load the file and refresh definitions).
 
     This will load a set of utility procs to support navigating and compiling Magik in VS Code.
     (vscode_dev.magik is supplied in this extension)
@@ -185,7 +185,7 @@ I would recommend using these other extensions:
         * `workbench.action.quickOpen`
         * `magik.gotoClipboardText`
         * `magik.refreshSymbols`
-        * `magik.compileExtensionMagik`
+        * `magik.searchSymbols`
 
 * Dev Tools:
     * Load the dev_tools_application module in a development session:
@@ -200,7 +200,7 @@ I would recommend using these other extensions:
         ```
         Magik> relocate_products()
         ```
-        **Note:** Definitions should be refreshed using shortcut **Alt+T** (or vs_save_symbols()) after relocating products to update paths to source files.
+        **Note:** Definitions should be refreshed using shortcut **Alt+M** (or vs_save_symbols()) after relocating products to update paths to source files.
 * Other:
     * Load vscode_dev.magik in the .magik file in your home directory.
     * You can toggle between the editor and terminal using **Ctrl+'**
@@ -278,7 +278,7 @@ I would recommend using these other extensions:
 ## Known Issues
 
 * Magik definition symbols (to support searching for methods, exemplars, conditions and globals) are only loaded automatically when compiling code using VS Code Magik commands.<br>
-Use **Alt+T** to refresh definitions manually after compiling code from the prompt, scripts or module dialog.
+Use **Alt+M** to refresh definitions manually after compiling code from the prompt, scripts or module dialog.
 * No highlighting or formatting at the Magik prompt - I suggest creating a temp magik file for writing Magik (**Alt+N**) and compile using **F7** or **F8**.
 * Linting only available inside methods.
 * No status feedback when stepping in debug session.
@@ -296,7 +296,7 @@ https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 
 ### 0.1.0
 
-* Improved definition search (Ctrl+T) to show parameters and method comments.
+* Improved definition search (Ctrl+M) to show parameters and method comments.
 * Go To Definition now shows a list of options in VS Code.
 * The current Magik files is now checked for problems after compiling code.
 * Fixed format errors with brackets, floating point exponent and negative numbers.
