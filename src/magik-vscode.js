@@ -9,6 +9,9 @@ const cp = require('child_process');
 const magikUtils = require('./magik-utils');
 const magikVar = require('./magik-variables');
 
+const TERMINAL_TB_REG = /^([\w!?]+)\.([\w!?\(\)\[\]\^]+)\s+\([\w\d\s\\\/\.:!]+\d+\)/;
+const TERMINAL_DEBUG_TB_REG = /^\[\d+\]\s+([\w!?\(\)\[\]\^]+)\s\.{2,}\s([\w!?]+)\s+/;
+
 class MagikVSCode {
   constructor(symbolProvider, context) {
     this.fileCache = [];
@@ -106,6 +109,8 @@ class MagikVSCode {
         }
       })
     );
+
+    vscode.window.registerTerminalLinkProvider(this);
   }
 
   _checkFileAfterSaveSymbols() {
@@ -525,6 +530,48 @@ class MagikVSCode {
     }
 
     await this._gotoFromQuery(query, command, false, localOnly);
+  }
+
+  provideTerminalLinks(context, token) {
+    const line = context.line;
+    const match = line.match(TERMINAL_TB_REG);
+    let startIndex;
+    let length;
+    let tooltip;
+    let query;
+    let command;
+
+    if (match) {
+      startIndex = 0;
+      tooltip = `${match[1]}.${match[2]}`;
+      length = tooltip.length;
+      query = `^${match[1]}$.^${match[2]}$`;
+      command = `vs_goto("^${match[2]}$", "${match[1]}")`;
+    } else {
+      const matchDebug = line.match(TERMINAL_DEBUG_TB_REG);
+      if (!matchDebug) {
+        return [];
+      }
+
+      startIndex = line.indexOf(matchDebug[1]);
+      length = matchDebug[1].length;
+      tooltip = `${matchDebug[2]}.${matchDebug[1]}`;
+      query = `^${matchDebug[2]}$.^${matchDebug[1]}$`;
+      command = `vs_goto("^${matchDebug[1]}$", "${matchDebug[2]}")`;
+    }
+
+    return [
+      {
+        startIndex,
+        length,
+        tooltip,
+        data: {query, command},
+      },
+    ];
+  }
+
+  async handleTerminalLink(link) {
+    await this._gotoFromQuery(link.data.query, link.data.command, false, true);
   }
 
   _findDefinition(fileName, word, kind) {
@@ -1338,6 +1385,7 @@ class MagikVSCode {
             items.push(item);
           }
         }
+
         if ('pragma'.startsWith(currentWord)) {
           const lastPragma = magikUtils.lastPragma(doc, pos.line);
           if (lastPragma) {
@@ -1380,15 +1428,38 @@ class MagikVSCode {
         for (let i = 0; i < length; i++) {
           const key = keywords[i];
           const label = `_${key}`;
+
           if (key.startsWith(currentWord) || label.startsWith(currentWord)) {
-            const item = new vscode.CompletionItem(
+            let item = new vscode.CompletionItem(
               label,
               vscode.CompletionItemKind.Keyword
             );
             item.detail = 'Keyword';
-            item.sortText = label === this.outdentWord ? `20${key}` : `2${key}`;
+            item.sortText =
+              label === this.outdentWord ? `20${key}` : `22${key}`;
             item.filterText = key;
             items.push(item);
+
+            // _endmethod with dollar and newline
+            if (key === 'endmethod') {
+              item = new vscode.CompletionItem(
+                '_endmethod + $',
+                vscode.CompletionItemKind.Keyword
+              );
+              item.detail = 'Keyword';
+              item.insertText = '_endmethod\n$\n';
+              item.sortText =
+                label === this.outdentWord ? `21${key}` : `23${key}`;
+              item.filterText = key;
+              const insertRange = new vscode.Range(
+                pos.line,
+                0,
+                pos.line,
+                currentText.length
+              );
+              item.range = {replacing: insertRange, inserting: insertRange};
+              items.push(item);
+            }
           }
         }
       }
