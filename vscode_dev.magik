@@ -263,6 +263,7 @@ _pragma(classify_level=debug)
 _global _constant vs_save_symbols <<
 	_proc @vs_save_symbols(_optional class_names)
 		_global slot_access_method_name
+		_global user_repository_paths
 
 		temp_dir << _if system.os_name _is :windows
 			_then
@@ -273,7 +274,8 @@ _global _constant vs_save_symbols <<
 		output_name << system.pathname_down(temp_dir, "vscode_symbols.txt")
 		temp_output_name << system.pathname_down(temp_dir, "vscode_symbols_temp.txt")
 
-		core_dir << smallworld_product.product(:sw_core).directory
+		_local core_dir << smallworld_product.product(:sw_core).directory
+		core_dir << sw_regexp.new("\\").replace_all(core_dir, "/")
 		_local home_drive << _if core_dir[2] = %:
 			_then
 				>> core_dir.subseq(1, 2)
@@ -346,8 +348,35 @@ _global _constant vs_save_symbols <<
 			_endif
 		_local serial_prefix_n << serial_prefix.size + 1
 
+		_local update_source_path << _proc @update_source_path(source_path)
+				_import core_dir, home_drive
+
+				_if source_path _is _unset
+				_then
+					_return ""
+				_endif
+
+				res << source_path
+
+				_if source_path[1] = %/ _orif source_path[1] = %\
+				_then
+					_if source_path.index_of_seq("/sw_core/") _isnt _unset
+					_then
+						res << "".concatenation(core_dir, "/", source_path.split_by("/sw_core/")[2])
+					_else
+						a_path << "".concatenation(home_drive, source_path)
+						_if system.file_exists?(a_path)
+						_then
+							res << a_path
+						_endif
+					_endif
+				_endif
+
+				_return res
+			_endproc
+
 		_local get_source_file << _proc @get_source_file(mt)
-				_import home_drive
+				_import update_source_path
 
 				source_file << mt.source_file
 
@@ -363,8 +392,8 @@ _global _constant vs_save_symbols <<
 								m_source_file << m.source_file
 								_if m_source_file <> "Evaluated-inline"
 								_then
-									n << methods[ m_source_file ].default(0)
-									methods[ m_source_file ] << n + 1
+									n << methods[m_source_file].default(0)
+									methods[m_source_file] << n + 1
 								_endif
 							_when error
 							_endtry
@@ -381,21 +410,7 @@ _global _constant vs_save_symbols <<
 					_endloop
 				_endif
 
-				_if source_file _isnt _unset
-				_then
-					_if source_file[1] = %/ _orif source_file[1] = %\
-					_then
-						a_path << write_string(home_drive, source_file)
-						_if system.file_exists?(a_path)
-						_then
-							source_file << a_path
-						_endif
-					_endif
-				_else
-					source_file << ""
-				_endif
-
-				_return source_file
+				_return update_source_path(source_file)
 			_endproc
 
 		_local output_class << _proc @output_class(mt, c_name, output)
@@ -403,7 +418,7 @@ _global _constant vs_save_symbols <<
 				_import slot_mt
 				_import serial_prefix
 				_import serial_prefix_n
-				_import home_drive
+				_import update_source_path
 
 				source_file << get_source_file(mt)
 				methods_str << internal_text_output_stream.new()
@@ -418,8 +433,8 @@ _global _constant vs_save_symbols <<
 						_continue
 					_endif
 
-					_if m_name.index_of_seq( serial_prefix ) _is 1 _andif
-						m_name.index_of( %!, serial_prefix_n ) _isnt _unset
+					_if m_name.index_of_seq(serial_prefix) _is 1 _andif
+						m_name.index_of(%!, serial_prefix_n) _isnt _unset
 					_then
 						_continue
 					_endif
@@ -436,15 +451,7 @@ _global _constant vs_save_symbols <<
 								m_file.index_of_seq("load_mutated_methods.magik") _is _unset _andif
 								(c_name _is :sw_component _orif m_file.index_of_seq("sw_component.magik") _is _unset) # component properties
 							_then
-								_if m_file[1] = %/ _orif m_file[1] = %\
-								_then
-									a_file << write_string(home_drive, m_file)
-									_if system.file_exists?(a_file)
-									_then
-										m_file << a_file
-									_endif
-								_endif
-								m_source_file << m_file
+								m_source_file << update_source_path(m_file)
 							_endif
 						_when error
 						_endtry
@@ -463,7 +470,7 @@ _global _constant vs_save_symbols <<
 					parents_str.write(parent_mt.meta_at(:class_name), ";")
 				_endloop
 
-				str << write_string(c_name, "|", source_file, "|", parents_str.string, "|", methods_str.string)
+				str << "".concatenation(c_name, "|", source_file, "|", parents_str.string, "|", methods_str.string)
 				output.write(str, newline_char)
 			_endproc
 
@@ -505,15 +512,7 @@ _global _constant vs_save_symbols <<
 						_if val _isnt _unset _andif
 							(m_file << val.compiler_info[:source_file]) _isnt _unset
 						_then
-							m_file << m_file.as_charvec()
-							_if m_file[1] = %/ _orif m_file[1] = %\
-							_then
-								a_file << write_string(home_drive, m_file)
-								_if system.file_exists?(a_file)
-								_then
-									m_file << a_file
-								_endif
-							_endif
+							m_file << update_source_path(m_file.as_charvec())
 							output.write("GLOBAL|", g.key, "|", m_file, newline_char)
 						_else
 							output.write("GLOBAL|", g.key, newline_char)
@@ -523,11 +522,11 @@ _global _constant vs_save_symbols <<
 
 					mt << val.define_method_target
 					c_name << mt.meta_at(:class_name)
-					_if done.includes?( c_name )
+					_if done.includes?(c_name)
 					_then
 						_continue
 					_endif
-					done.add( c_name )
+					done.add(c_name)
 
 					output_class(mt, c_name, output)
 				_endloop
@@ -538,15 +537,7 @@ _global _constant vs_save_symbols <<
 					m_file << a_cond.module_file
 					_if m_file _isnt _unset
 					_then
-						m_file << m_file.as_charvec()
-						_if m_file[1] = %/ _orif m_file[1] = %\
-						_then
-							a_file << write_string(home_drive, m_file)
-							_if system.file_exists?(a_file)
-							_then
-								m_file << a_file
-							_endif
-						_endif
+						m_file << update_source_path(m_file.as_charvec())
 						output.write("CONDITION|", cond_key, "|", m_file, newline_char)
 					_else
 						output.write("CONDITION|", cond_key, newline_char)
@@ -793,13 +784,29 @@ $
 
 _pragma(classify_level=debug)
 ##
+## The root directory to locate local user repositories.
+##
+## **** Please redefine to suite your development environment ****
+##
+##
+_global user_products_root << _if system.os_name _is :windows
+	_then
+		>> "C:\projects\hg\"
+	_else
+		>> system.pathname_down(system.getenv("HOME"), "projects", "hg")
+	_endif
+$
+
+
+_pragma(classify_level=debug)
+##
 ## Returns a rope of user repository paths.
 ## Returns the global user_repository_paths if set, otherwise
 ## searches the folder user_products_root (by default c:\projects\hg).
 ## REPO_DIR_NAME defaults to "hg".
 ##
 _global _constant user_repo_paths <<
-_proc ( _optional repo_dir_name )
+_proc (_optional repo_dir_name)
 
 	_if repo_dir_name _is _unset
 	_then
@@ -809,19 +816,20 @@ _proc ( _optional repo_dir_name )
 	_global user_products_root
 	_if user_products_root _is _unset
 	_then
-		 user_products_root << _if system.os_name _is :windows
-				       _then >> "C:\projects\" + repo_dir_name + "\"
-				       _else >> system.pathname_down(system.getenv("HOME"),
-								     "projects", repo_dir_name)
-				       _endif
+		user_products_root << _if system.os_name _is :windows
+			_then
+				>> "C:\projects\" + repo_dir_name + "\"
+			_else
+				>> system.pathname_down(system.getenv("HOME"), "projects", repo_dir_name)
+			_endif
 	_endif
 
 	repo_paths << rope.new()
 
 	_try
-		dc << directory_channel.new( user_products_root )
+		dc << directory_channel.new(user_products_root)
 	_when file_no_access
-		write( "Access denied to ", user_products_root )
+		write("Access denied to ", user_products_root)
 	_endtry
 
 	_if dc _is _unset
@@ -831,14 +839,14 @@ _proc ( _optional repo_dir_name )
 
 	_protect
 		_loop
-			_if ( entry << dc.get_status() ) _is _unset
+			_if (entry << dc.get_status()) _is _unset
 			_then
 				_leave
 			_endif
 			_if entry.type _is :directory
 			_then
-				pathname << system.canonicalise( entry.name )
-				repo_paths.add_last( pathname )
+				pathname << system.canonicalise(entry.name)
+				repo_paths.add_last(pathname)
 			_endif
 		_endloop
 	_protection

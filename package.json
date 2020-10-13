@@ -361,6 +361,18 @@
                     "group": "magik",
                     "when": "editorTextFocus && editorLangId == magik && config.magik-vscode.showCommandsInContextMenu"
                 }
+            ],
+            "editor/title/context": [
+                {
+                    "command": "magik.compileFile",
+                    "group": "magik",
+                    "when": "resourceLangId == magik && config.magik-vscode.showCommandsInContextMenu"
+                },
+                {
+                    "command": "magik.loadModule",
+                    "group": "magik",
+                    "when": "resourceLangId == magik && config.magik-vscode.showCommandsInContextMenu"
+                }
             ]
         },
         "configuration": {

@@ -10,7 +10,7 @@ const magikUtils = require('./magik-utils');
 const magikVar = require('./magik-variables');
 
 const TERMINAL_TB_REG = /^([\w!?]+)\.([\w!?\(\)\[\]\^]+)\s+\([\w\d\s\\\/\.:!]+\d+\)/;
-const TERMINAL_DEBUG_TB_REG = /^\[\d+\]\s+([\w!?\(\)\[\]\^]+)\s\.{2,}\s([\w!?]+)\s+/;
+const TERMINAL_DEBUG_TB_REG = /^(?:\[\d+\])?\s+([\w!?\(\)\[\]\^]+)\s\.{2,}\s([\w!?]+)\s+/;
 
 class MagikVSCode {
   constructor(symbolProvider, context) {

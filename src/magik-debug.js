@@ -441,7 +441,9 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
       };
 
       for (const [str1, str2] of Object.entries(replacements)) {
-        sourcePath = sourcePath.replace(str1, str2);
+        if (fs.existsSync(str2)) {
+          sourcePath = sourcePath.replace(str1, str2);
+        }
       }
     }
 
