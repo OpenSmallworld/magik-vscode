@@ -17,9 +17,10 @@ Adds the following features to VS Code:
     * `Magik Compile Selection` (**F8**)
     * `Magik Compile Module Messages` (**F7**) compile messages for the current module (from a message file)
 
-* Code Navigation Commands:
+* Code Navigation:
     * `Magik Goto` (**F3**) to jump to source.<br>
     Click on a method name and invoke the command to jump to source or display method candidates at the Magik prompt.
+    * Links to source from tracebacks in the terminal.
     * `Go to Definition` (**F12**) and `Peek Definition` (**Alt+F12**) in Magik.
     * `Find All References` (**Shift+F12**) and `List All References` (**Shift+Alt+F12**) in Magik.<br>
     (Only searches in the current file - use Find in Folder to expand a search)
@@ -107,7 +108,7 @@ To start debugging in VS Code select Debug -> Start Debugging (**F5**) and selec
 The current threads should then be listed under Call Stack in the Debug View.<br>
 Toggle breakpoints by selecting a line and pressing F9 or click to the left of a line number.
 
-I suggest using relocate_products() to ensure local source files can be found during debugging.
+I suggest using `relocate_products()` to ensure local source files can be found during debugging.
 
 Limitation: Compile (saved) files rather than methods during debugging to ensure the line numbers remain in step.
 
@@ -194,13 +195,15 @@ I would recommend using these other extensions:
 	    Magik> sw_module_manager.load_module(:dev_tools_application)
         ```
         **Note:** vscode_dev.magik should be loaded after loading the dev tools as it overrides some helper procs.
-    * (Smallworld 5.x) Use relocate_products() (from the dev procs in magik_tools) to point the known products to local repositories.
+    * (Smallworld 5.x) Use `relocate_products()` (from the dev procs in magik_tools) to point the known products to local repositories.<br>
+        This will use the source paths defined in the global USER_REPOSITORY_PATHS - please update this global or USER_PRODUCTS_ROOT to suite your development environment. This could be added to your .magik file in your home directory.
 
         Jumping to source using F3 will then open code from the local repo.
         ```
         Magik> relocate_products()
         ```
         **Note:** Definitions should be refreshed using shortcut **Alt+M** (or vs_save_symbols()) after relocating products to update paths to source files.
+
 * Other:
     * Load vscode_dev.magik in the .magik file in your home directory.
     * You can toggle between the editor and terminal using **Ctrl+'**
@@ -293,6 +296,14 @@ Please add issues here:
 https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 
 ## Release Notes
+
+### 0.1.1
+
+* Added links to source from tracebacks in the terminal.
+* Added end statement keyword matching to auto complete.
+* Added show method history to hover actions (requires dev_tools to be loaded).
+* Fixed auto complete for variables and parameters.
+* Fixed exact match search for classes and methods.
 
 ### 0.1.0
 
