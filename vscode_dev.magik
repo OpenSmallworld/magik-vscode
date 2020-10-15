@@ -275,7 +275,11 @@ _global _constant vs_save_symbols <<
 		temp_output_name << system.pathname_down(temp_dir, "vscode_symbols_temp.txt")
 
 		_local core_dir << smallworld_product.product(:sw_core).directory
-		core_dir << sw_regexp.new("\\").replace_all(core_dir, "/")
+		_loop
+			index << core_dir.index_of("\")
+			_if index _is _unset _then _leave _endif
+			core_dir[index] << "/"
+		_endloop
 		_local home_drive << _if core_dir[2] = %:
 			_then
 				>> core_dir.subseq(1, 2)
@@ -603,7 +607,6 @@ _proc ( file_path, _optional force_reload? )
 				_if system.file_exists?(mod_def)
 				_then
 					a_stream << _unset
-					a_reg << sw_regexp.new("\s")
 					_protect
 						a_stream << external_text_input_stream.new(mod_def)
 						_loop
@@ -614,7 +617,12 @@ _proc ( file_path, _optional force_reload? )
 							a_line << a_line.trim_spaces()
 							_if a_line.size > 0 _andif a_line[1] <> %#
 							_then
-								module_name << a_reg.split(a_line)[1]
+								module_name << _if a_line.index_of(%tab) _isnt _unset
+									_then
+										>> a_line.split_by(%tab)[1]
+									_else
+										>> a_line.split_by(%space)[1]
+									_endif
 								_leave
 							_endif
 						_endloop
