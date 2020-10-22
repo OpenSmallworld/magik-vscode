@@ -12,7 +12,8 @@ const COMMENT_REG = /^\s*#/;
 
 function findMultiAssignedVariables(lines, firstRow, lineCount, assignedVars) {
   const firstText = magikUtils.stringBeforeComment(lines[lineCount]);
-  if (!VAR_MULTI_START_REG.test(firstText)) return false;
+  if (/<</.test(firstText) || !VAR_MULTI_START_REG.test(firstText))
+    return false;
 
   const max = lines.length;
   let endCount;

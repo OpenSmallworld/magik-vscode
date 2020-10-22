@@ -1,4 +1,4 @@
-' Example of use: cscript test.vbs "sw_magik_win32.exe" "hello"
+' Example of use: cscript sendToMagikName.vbs "sw_magik_win32.exe" "hello"
 
 Option Explicit
 

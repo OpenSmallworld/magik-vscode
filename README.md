@@ -127,6 +127,8 @@ Warning: There are some performance issues with stepping!
     * Add the command `magik.gotoClipboardText` to `Terminal > Integrated: Commands To Skip Shell`.
     * Enable `Terminal > Integrated: Copy On Selection` to allow jump to source from the terminal using **F3**.
 
+4. Restart VS Code if it is already running.
+
 I would recommend using these other extensions:
 * Bracket Pair Colorizer 2
 * Git Lens
