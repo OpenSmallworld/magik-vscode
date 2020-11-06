@@ -3,9 +3,9 @@
 const vscode = require('vscode'); // eslint-disable-line
 const magikUtils = require('./magik-utils');
 
-const VAR_MULTI_START_REG = /^\s*\((\s*[\w!?]+\s*,)*\s*([\w!?]+)*\s*$/;
-const VAR_MULTI_MID_REG = /^(\s*[\w!?]+\s*,)*\s*([\w!?]+)*\s*$/;
-const VAR_MULTI_END_REG = /^(\s*[\w!?]+\s*,)*\s*([\w!?]+)*\s*\)\s*<</;
+const VAR_MULTI_START_REG = /^\s*\((\s*(?=([\w!?]+))\s*,)*\s*((?=([\w!?]+)))*\s*$/;
+const VAR_MULTI_MID_REG = /^(\s*(?=([\w!?]+))\s*,)*\s*((?=([\w!?]+)))*\s*$/;
+const VAR_MULTI_END_REG = /^(\s*(?=([\w!?]+))\s*,)*\s*((?=([\w!?]+)))*\s*\)\s*<</;
 const COMMENT_REG = /^\s*#/;
 
 // TODO - refactor find variable functions
