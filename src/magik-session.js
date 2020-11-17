@@ -16,6 +16,8 @@ const IGNORE_DIRS = [
   'ds',
   'lib',
   'libs',
+  'licences',
+  'data',
 ];
 
 class MagikSession {
@@ -89,7 +91,7 @@ class MagikSession {
   }
 
   async _selectAlias(debug) {
-    if (!this.runAlias) {
+    if (this.runAlias === undefined) {
       vscode.window.showErrorMessage('runalias.exe not found in search path');
       return;
     }
@@ -170,7 +172,7 @@ class MagikSession {
 
       finder.on('file', (file) => {
         const base = path.basename(file);
-        if (!this.runalias && base === 'runalias.exe') {
+        if (this.runAlias === undefined && base === 'runalias.exe') {
           this.runAlias = file;
         }
       });
@@ -197,6 +199,10 @@ class MagikSession {
 
       finder.on('directory', (dir, stat, stop) => {
         const base = path.basename(dir);
+        const testFile = path.join(dir, 'gis_aliases');
+        if (fs.existsSync(testFile)) {
+          this._readAliasFile(testFile);
+        }
         if (IGNORE_DIRS.includes(base)) {
           stop();
         }
@@ -204,10 +210,9 @@ class MagikSession {
 
       finder.on('file', (file) => {
         const base = path.basename(file);
-
         if (base === 'gis_aliases') {
           this._readAliasFile(file);
-        } else if (!this.runalias && base === 'runalias.exe') {
+        } else if (this.runAlias === undefined && base === 'runalias.exe') {
           this.runAlias = file;
         }
       });
