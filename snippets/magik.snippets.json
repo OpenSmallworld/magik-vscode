@@ -150,7 +150,7 @@
         ],
         "description": "Magik Text Encoding"
     },
-    "block" : {
+    "block": {
         "prefix": "block",
         "body": [
             "_block",
@@ -158,5 +158,16 @@
             "_endblock"
         ],
         "description": "Magik Block Statement"
+    },
+    "deprecated": {
+        "prefix": "deprecated",
+        "body": [
+            "## -------Deprecated------",
+	        "## Reason     : ${1|Obsolete,Superseded|}",
+	        "## Use instead: $0",
+	        "## Action     : ${2|Restricted,Remove|} at next release.",
+	        "## -----------------------"
+        ],
+        "description": "Deprecated Statement"
     }
 }
