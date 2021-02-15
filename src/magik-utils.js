@@ -1,6 +1,8 @@
 'use strict';
 
 const vscode = require('vscode'); // eslint-disable-line
+const path = require('path');
+const cp = require('child_process');
 
 const MAGIK_KEYWORDS = [
   'self',
@@ -181,6 +183,12 @@ const ASSIGN_IGNORE_NEXT = /^\s*(\(|\.|\)\.|(\s*,\s*[\w!?]+)+\s*$)/;
 const VAR_IGNORE_PREV_CHARS = ['.', ':', '"', '%', '|', '@'];
 
 const DEFINITION_TESTS = [
+  {
+    test: new RegExp(
+      `(^|\\s+)_private\\s+(_iter\\s+)?_method\\s+[\\w!?]+\\s*\\.\\s*.+`
+    ),
+    type: vscode.SymbolKind.Function,
+  },
   {
     test: new RegExp(`(^|\\s+)_method\\s+[\\w!?]+\\s*\\.\\s*.+`),
     type: vscode.SymbolKind.Method,
@@ -379,6 +387,9 @@ function currentRegion(methodOnly, startLine) {
 
   if (!startLine) {
     startLine = editor.selection.active.line || 0;
+    if (startLine > 0 && doc.lineAt(startLine).text === '') {
+      startLine--;
+    }
   }
 
   const lineCount = doc.lineCount;
@@ -923,6 +934,49 @@ function debounce(callback, wait) {
   };
 }
 
+async function sendToTerminal(stringToSend) {
+  const processName = vscode.workspace.getConfiguration('magik-vscode')
+    .magikProcessName;
+
+  if (processName !== '') {
+    const ext = vscode.extensions.getExtension('GE-Smallworld.magik-vscode');
+    const scriptName = isNaN(processName)
+      ? 'sendToMagikName.vbs'
+      : 'sendToMagikID.vbs';
+    const file = path.join(ext.extensionPath, 'scripts', scriptName);
+    let text = stringToSend;
+    for (const c of ['~', '!', '^', '+', '(', ')']) {
+      text = text.replace(new RegExp(`\\${c}`, 'g'), `{${c}}`);
+    }
+    text = text.replace(/"/g, "'");
+    const command = `cscript ${file} "${processName}" "${text}"`;
+    await cp.execSync(command);
+  } else {
+    const command = `${stringToSend}\u000D`;
+
+    if (
+      vscode.workspace.getConfiguration('magik-vscode').enableAutoScrollToPrompt
+    ) {
+      vscode.commands.executeCommand(
+        'workbench.action.terminal.scrollToBottom',
+        {}
+      );
+    }
+
+    vscode.commands.executeCommand('workbench.action.terminal.sendSequence', {
+      text: command,
+    });
+  }
+}
+
+function getDocEditor(doc) {
+  for (const ed of vscode.window.visibleTextEditors) {
+    if (ed.document === doc) {
+      return ed;
+    }
+  }
+}
+
 module.exports = {
   MAGIK_KEYWORDS,
   MAGIK_OBJECT_KEYWORDS,
@@ -969,4 +1023,6 @@ module.exports = {
   previousCharacter,
   nextChar,
   debounce,
+  sendToTerminal,
+  getDocEditor,
 };

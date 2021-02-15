@@ -202,6 +202,10 @@
                 "title": "Magik New Buffer"
             },
             {
+                "command": "magik.newConsole",
+                "title": "Magik New Console Buffer"
+            },
+            {
                 "command": "magik.gotoClipboardText",
                 "title": "Magik Go To Clipboard"
             },
@@ -322,8 +326,16 @@
                 "when": "editorTextFocus && editorLangId == message"
             },
             {
+                "command": "magik.compileExtensionMagik",
+                "key": "ctrl+alt+m"
+            },
+            {
                 "command": "magik.newBuffer",
                 "key": "alt+n"
+            },
+            {
+                "command": "magik.newConsole",
+                "key": "alt+e"
             },
             {
                 "key": "ctrl+`",
@@ -423,6 +435,11 @@
                     "type": "string",
                     "default": "",
                     "description": "Name or ID of the process running a Smallworld 4.x session e.g. 'sw_magik_win32.exe'. Leave empty for Smallworld 5."
+                },
+                "magik-vscode.enableOutputToConsoleFile": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable capturing Magik terminal output to a Magik console file."
                 }
             }
         },
@@ -440,11 +457,11 @@
         "prettier": "prettier --write \"src/**/*.js\""
     },
     "dependencies": {
-        "bluebird": "^3.5.0",
+        "bluebird": "^3.7.2",
+        "chokidar": "^3.5.1",
         "findit": "^2.0.0",
-        "md5": "^2.2.1",
         "vscode-debugadapter": "1.33.0",
-        "ws": "^7.2.0"
+        "ws": "^7.4.2"
     },
     "devDependencies": {
         "eslint": "5.9.0",

@@ -63,6 +63,13 @@ Adds the following features to VS Code:
     * Search Magik methods, exemplars, conditions and globals in the current session (**Ctrl+M**)
     * Magik definitions in the current file to support Outline view
 
+* Magik Console File:
+    A Magik Console file can be used to evalutate code and display results like the Magik terminal, but with the behaviour of a Magik editor (e.g. syntax highlighting, formatting and auto complete).
+    * Create a new console file (**Alt+E**)
+    * Evaluate the current region (**F7**)
+    * Show the previous command (**Alt+[**)
+    * Show the next command (**Alt+]**)
+
 * Testing:
     * Command `Magik Run Test` to run the current test method (**Alt+F7**)
     * Command `Magik Run Test Class` to run the current test class (**Ctrl+Alt+F7**)
@@ -75,6 +82,7 @@ Adds the following features to VS Code:
         - Run Test (available if the cursor points to a test method name and the code is loaded)
     * Displays method help for indentified method calls.
     * Command `Magik New Buffer` to create a new Magik file in the temp directory (**Alt+N**)
+    * Command `Magik New Console` to create a new Magik console file in the temp directory (**Alt+E**)
     * Command `Magik Go To Previous Definition` (**Alt+PageUp**)
     * Command `Magik Go To Next Definition` (**Alt+PageDown**)
     * Command `Magik Select Region` (**Alt+R**)
@@ -113,6 +121,22 @@ I suggest using `relocate_products()` to ensure local source files can be found 
 Limitation: Compile (saved) files rather than methods during debugging to ensure the line numbers remain in step.
 
 Warning: There are some performance issues with stepping!
+
+### **Magik Console File**
+
+A Magik Console file is a Magik file named console*.magik. A Magik Console file can be used to evalutate code and display results like the Magik terminal, but with the behaviour of a Magik editor.<br>
+The current region can be evaluated by pressing **F7** and the results are displayed in the file.<br>
+The console supports command history. Use **Alt+[** to show the previous command and **Alt+]** to show the next command.<br>
+A console file can be created (in the temp directory) using **Alt+E**.
+
+Standard output (e.g. tracebacks and write statements) will be shown in the console file if `magik-vscode.enableOutputToConsoleFile` is set to true.
+
+Closing all console files will stop standard output being captured and revert behaviour back to the terminal.
+
+Limitation: The console file does not currently support waiting for a response (where !terminal!.get_line() is used).
+
+Warning: Capturing output in the console file is an experimental feature.<br>
+This is controlled by the setting `magik-vscode.enableOutputToConsoleFile` and is disabled by default.
 
 ## Installation
 
@@ -278,6 +302,11 @@ I would recommend using these other extensions:
 * Defines the default path to search for gis_aliases and runalias.exe to start a session.
     ```json
     "magik-vscode.smallworldHome: ""
+    ```
+
+* Enable capturing Magik terminal output to a Magik console file (`false` by default)
+    ```json
+    "magik-vscode.enableOutputToConsoleFile"
     ```
 
 ## Known Issues

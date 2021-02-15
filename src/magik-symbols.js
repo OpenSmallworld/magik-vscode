@@ -20,6 +20,8 @@ const DEFAULT_GLOBALS = [
   'string_output_stream',
 ];
 
+const SYMBOLS_FILENAME = 'vscode_symbols.txt';
+
 class MagikSymbolProvider {
   constructor(vscode, context) {
     this.classData = {};
@@ -37,15 +39,20 @@ class MagikSymbolProvider {
       this.vscode.SymbolKind.Property,
       this.vscode.SymbolKind.Variable,
       this.vscode.SymbolKind.Method,
+      this.vscode.SymbolKind.Function,
     ];
     this.symbolIcons = {};
     this.symbolIcons[vscode.SymbolKind.Method] = 'symbol-method';
+    this.symbolIcons[vscode.SymbolKind.Function] = 'symbol-method';
     this.symbolIcons[vscode.SymbolKind.Variable] = 'symbol-variable';
     this.symbolIcons[vscode.SymbolKind.Class] = 'symbol-class';
     this.symbolIcons[vscode.SymbolKind.Constant] = 'symbol-constant';
     this.symbolIcons[vscode.SymbolKind.Property] = 'symbol-property';
 
     this._quickPick = undefined;
+
+    this._lastQuery = '';
+    this._lastGotoRange = undefined;
 
     context.subscriptions.push(
       vscode.commands.registerCommand('magik.searchSymbols', (args) =>
@@ -63,7 +70,7 @@ class MagikSymbolProvider {
   }
 
   async loadSymbols() {
-    const symbolFile = path.join(os.tmpdir(), 'vscode_symbols.txt');
+    const symbolFile = path.join(os.tmpdir(), SYMBOLS_FILENAME);
     if (!fs.existsSync(symbolFile)) return;
 
     const input = fs.createReadStream(symbolFile);
@@ -115,10 +122,11 @@ class MagikSymbolProvider {
         const data = methodParts[i].split(',');
         const methodData = {
           name: data[0],
-          variable: data[1] === '1',
+          private: data[1] === '1',
+          variable: data[2] === '1',
         };
-        if (data[2] !== '') {
-          methodData.sourceFile = data[2];
+        if (data[3] !== '') {
+          methodData.sourceFile = data[3];
         }
         methods.push(methodData);
       }
@@ -161,9 +169,14 @@ class MagikSymbolProvider {
   _getMethodSymbol(name, fileName, methodData) {
     let sym = methodData.methodSymbol;
     if (!sym) {
-      const kind = methodData.variable
-        ? this.vscode.SymbolKind.Variable
-        : this.vscode.SymbolKind.Method;
+      let kind;
+      if (methodData.variable) {
+        kind = this.vscode.SymbolKind.Variable;
+      } else if (methodData.private) {
+        kind = this.vscode.SymbolKind.Function;
+      } else {
+        kind = this.vscode.SymbolKind.Method;
+      }
       const loc = new this.vscode.Location(
         this.vscode.Uri.file(fileName),
         undefined
@@ -421,13 +434,13 @@ class MagikSymbolProvider {
       : methodString;
 
     symbols.sort((a, b) => {
-      let orderA = a._order;
-      let orderB = b._order;
+      const orderA = a._order;
+      const orderB = b._order;
 
-      if (classString) {
-        orderA = orderA < 3 ? 1 : 0;
-        orderB = orderB < 3 ? 1 : 0;
-      }
+      // if (classString) {
+      //   orderA = orderA < 4 ? 1 : 0;
+      //   orderB = orderB < 4 ? 1 : 0;
+      // }
 
       if (orderA === orderB) {
         let scoreA = this._matchScore(a.name, origQuery);
@@ -513,7 +526,7 @@ class MagikSymbolProvider {
       (classString && classString.length < 2) ||
       (!classString && methodString < 2)
     ) {
-      return;
+      return [];
     }
 
     const symbols = [];
@@ -573,8 +586,10 @@ class MagikSymbolProvider {
   _gotoSymbol(sym) {
     const resSym = this.magikVSCode.resolveWorkspaceSymbol(sym);
     if (resSym) {
+      const resSymRange = resSym.location.range;
+      this._lastGotoRange = resSymRange;
       this.vscode.window.showTextDocument(resSym.location.uri, {
-        selection: resSym.location.range,
+        selection: resSymRange,
         preview: false,
       });
       this.vscode.commands.executeCommand('editor.unfold', {});
@@ -590,10 +605,10 @@ class MagikSymbolProvider {
       const documentation = sym._completionDocumentation;
       let detail;
 
-      if (showDetail && documentation !== undefined) {
+      if (showDetail && documentation !== undefined && documentation !== '') {
         const paramString = sym._help.signatures[0]._paramString;
         if (paramString === '') {
-          detail = documentation;
+          detail = `\u2002 ${documentation}`;
         } else {
           const documentationString =
             documentation === ''
@@ -601,17 +616,23 @@ class MagikSymbolProvider {
               : `$(ellipsis) ${documentation}`;
           const lastChar = sym.name[sym.name.length - 1];
           if (lastChar === ')') {
-            detail = `(${paramString}) ${documentationString}`;
+            detail = `\u2002 (${paramString}) ${documentationString}`;
           } else if (lastChar === '<') {
-            detail = documentation;
+            detail = `\u2002 ${documentation}`;
           } else {
-            detail = `${paramString} ${documentationString}`;
+            detail = `\u2002 ${paramString} ${documentationString}`;
           }
         }
       }
 
+      // Using Function for private method
+      const label =
+        sym.kind === this.vscode.SymbolKind.Function
+          ? `$(${sym._icon})\u2009$(lock) ${sym.name}`
+          : `$(${sym._icon}) ${sym.name}`;
+
       list.push({
-        label: `$(${sym._icon}) ${sym.name}`,
+        label,
         description: sym._fileName,
         detail,
         alwaysShow: true,
@@ -685,6 +706,7 @@ class MagikSymbolProvider {
 
       this._quickPick.onDidChangeValue(
         this._debounce(() => {
+          this._lastQuery = this._quickPick.value;
           this._updateQuickPick();
         }, 300)
       );
@@ -700,16 +722,36 @@ class MagikSymbolProvider {
     this._quickPick.items = [];
   }
 
+  _rangesEqual(rangeA, rangeB) {
+    if (rangeA === undefined && rangeB === undefined) {
+      return false;
+    }
+    if (
+      (rangeA === undefined && rangeB !== undefined) ||
+      (rangeA !== undefined && rangeB === undefined)
+    ) {
+      return false;
+    }
+    return rangeA.isEqual(rangeB);
+  }
+
   async searchSymbols(args) {
-    let query = '';
+    let query = this._lastQuery;
+
     if (args && args.query) {
       query = args.query;
-    } else {
+      this._lastQuery = query;
+    } else if (
+      !this._rangesEqual(this.magikVSCode.selectedRange(), this._lastGotoRange)
+    ) {
       const selection = this.magikVSCode.selectedText();
-      if (selection) {
+      if (selection && selection !== '') {
         query = selection;
+        this._lastQuery = query;
       }
+      this._lastGotoRange = undefined;
     }
+
     this._createQuickPick();
     this._quickPick.value = query;
     this._quickPick.show();
