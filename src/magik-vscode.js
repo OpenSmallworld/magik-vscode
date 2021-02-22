@@ -2,7 +2,6 @@
 
 const vscode = require('vscode'); // eslint-disable-line
 const fs = require('fs');
-// const md5 = require('md5');
 const os = require('os');
 const path = require('path');
 const chokidar = require('chokidar');
@@ -12,6 +11,9 @@ const MagikConsole = require('./magik-console');
 
 const TERMINAL_TB_REG = /^([\w!?]+)\.([\w!?\(\)\[\]\^]+)\s+\([\w\d\s\\\/\.:!]+\d+\)/;
 const TERMINAL_DEBUG_TB_REG = /^(?:\[\d+\])?\s+([\w!?\(\)\[\]\^]+)\s\.{2,}\s([\w!?]+)\s+/;
+
+const SYMBOLS_FILENAME = 'vscode_symbols.txt';
+const FILE_CACHE_SIZE = 100;
 
 class MagikVSCode {
   constructor(symbolProvider, context) {
@@ -118,37 +120,9 @@ class MagikVSCode {
 
   _checkFileAfterSaveSymbols() {
     const fileDir = os.tmpdir();
-    const fileName = 'vscode_symbols.txt';
-    const symbolFile = path.join(fileDir, fileName);
-
-    // if (fs.existsSync(symbolFile)) {
-    //   const md5Previous = md5(fs.readFileSync(symbolFile));
-
-    //   const watcher = fs.watch(
-    //     symbolFile,
-    //     magikUtils.debounce((event, file) => {
-    //       if (file) {
-    //         const md5Current = md5(fs.readFileSync(symbolFile));
-    //         if (md5Current === md5Previous) {
-    //           return;
-    //         }
-    //         vscode.commands.executeCommand('magik.checkFile', {});
-    //         watcher.close();
-    //       }
-    //     }, 100)
-    //   );
-    // } else {
-    //   const watcher = fs.watch(fileDir, (event, file) => {
-    //     if (event === 'rename' && file === fileName) {
-    //       if (fs.existsSync(symbolFile)) {
-    //         vscode.commands.executeCommand('magik.checkFile', {});
-    //         watcher.close();
-    //       }
-    //     }
-    //   });
-    // }
-
+    const symbolFile = path.join(fileDir, SYMBOLS_FILENAME);
     const watcher = chokidar.watch(symbolFile);
+
     watcher.on('add', () => {
       watcher.close();
       vscode.commands.executeCommand('magik.checkFile', {});
@@ -156,7 +130,6 @@ class MagikVSCode {
     // watcher.on(
     //   'change',
     //   magikUtils.debounce(() => {
-    //     console.log('change symbols.txt')
     //     watcher.close();
     //     vscode.commands.executeCommand('magik.checkFile', {});
     //   }, 100)
@@ -415,12 +388,14 @@ class MagikVSCode {
 
   async _newMagikBuffer(name, outputText) {
     const prefix = name === undefined ? 'buffer' : name;
+    const dateStr = new Date().toLocaleDateString().replace(/(\\|\/)/g, '_');
+    const fileName = `${prefix} ${dateStr}`;
     const tempDir = os.tmpdir();
-    let tempFile = path.join(tempDir, `${prefix}1.magik`);
-    let count = 2;
+    let tempFile = path.join(tempDir, `${fileName}.magik`);
+    let count = 1;
 
     while (fs.existsSync(tempFile)) {
-      tempFile = path.join(tempDir, `${prefix}${count}.magik`);
+      tempFile = path.join(tempDir, `${fileName} (${count}).magik`);
       count++;
     }
 
@@ -685,23 +660,65 @@ class MagikVSCode {
     }
   }
 
-  // TODO - only looking in current file
-  provideReferences(doc, pos) {
+  // TODO - only looking in current directory
+  async provideReferences(doc, pos) {
     const locs = [];
     const current = magikUtils.currentWord(doc, pos);
     if (current === '') return locs;
 
-    const lineCount = doc.lineCount;
-    const uri = doc.uri;
+    // const lineCount = doc.lineCount;
+    // const uri = doc.uri;
 
-    for (let row = 0; row < lineCount; row++) {
-      const text = doc.lineAt(row).text;
-      const index = text.indexOf(current);
+    // for (let row = 0; row < lineCount; row++) {
+    //   const text = doc.lineAt(row).text;
+    //   const index = text.indexOf(current);
 
-      if (index !== -1) {
-        const range = new vscode.Range(row, index, row, index + current.length);
-        const loc = new vscode.Location(uri, range);
-        locs.push(loc);
+    //   if (index !== -1) {
+    //     const range = new vscode.Range(row, index, row, index + current.length);
+    //     const loc = new vscode.Location(uri, range);
+    //     locs.push(loc);
+    //   }
+    // }
+
+    const def = await this._getCurrentDefinitionSymbol(doc, pos);
+    const sym = def.symbol;
+    let defFileName;
+    let defRow;
+
+    if (sym) {
+      const defLoc = sym.location;
+      defFileName = defLoc.uri.fsPath;
+      defRow = defLoc.range.start.line;
+      locs.push(defLoc);
+    }
+
+    const currentFileName = doc.fileName;
+    const currentDir = path.dirname(currentFileName);
+    const files = this._getMagikFilesInDirectory(currentDir);
+
+    for (let i = 0; i < files.length; i++) {
+      const fileName = files[i];
+      const fileLines = this.getFileLines(fileName);
+
+      if (fileLines) {
+        const lineCount = fileLines.length;
+        const uri = vscode.Uri.file(fileName);
+
+        for (let row = 0; row < lineCount; row++) {
+          const text = fileLines[row];
+          const index = text.indexOf(current);
+
+          if (index !== -1 && (row !== defRow || fileName !== defFileName)) {
+            const range = new vscode.Range(
+              row,
+              index,
+              row,
+              index + current.length
+            );
+            const loc = new vscode.Location(uri, range);
+            locs.push(loc);
+          }
+        }
       }
     }
 
@@ -1031,6 +1048,11 @@ class MagikVSCode {
   }
 
   async _goto(args) {
+    if (args && args.query) {
+      await this._gotoFromQuery(args.query, args.command, false, true);
+      return;
+    }
+
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
 
@@ -1093,6 +1115,24 @@ class MagikVSCode {
     await this._gotoFromQuery(query, command, inherit);
   }
 
+  // async _peekDefinition() {
+  //   const editor = vscode.window.activeTextEditor;
+  //   if (!editor) return;
+
+  //   const doc = editor.document;
+  //   const pos = editor.selection.active;
+  //   const def = await this._getCurrentDefinitionSymbol(doc, pos);
+
+  //   if (!def.currentWord) return;
+
+  //   if (def.symbol) {
+  //     vscode.commands.executeCommand('editor.action.peekDefinition', {});
+  //     return;
+  //   }
+
+  //   await this._goto();
+  // }
+
   async _refreshSymbols() {
     if (this.isDevLoaded()) {
       await this.magikConsole.sendCommandToTerminal('vs_save_symbols');
@@ -1102,7 +1142,7 @@ class MagikVSCode {
     }
     setTimeout(
       () => vscode.window.showInformationMessage('Magik symbols saved'),
-      2000
+      2500
     );
   }
 
@@ -1936,7 +1976,10 @@ class MagikVSCode {
 
       if (index <= pos.character && index + filePath.length > pos.character) {
         if (fs.existsSync(filePath)) {
-          const openArgs = [vscode.Uri.file(filePath)];
+          const openArgs = [
+            vscode.Uri.file(filePath),
+            {viewColumn: vscode.ViewColumn.One},
+          ];
           const openCommand = vscode.Uri.parse(
             `command:vscode.open?${encodeURIComponent(
               JSON.stringify(openArgs)
@@ -1955,6 +1998,7 @@ class MagikVSCode {
   async _getHoverString(doc, pos) {
     let hoverString = '';
 
+    const lineSeparator = '  \n  \n';
     const inSelection = this._posInSelection(pos);
     const lineText = doc.lineAt(pos.line).text;
     const methodDef = /(^|\s)_method\s/.test(lineText);
@@ -1998,7 +2042,7 @@ class MagikVSCode {
 
       const searchString = this._getSearchHoverString(doc, currentText);
       if (searchString) {
-        hoverString += `  \n  \n$(search)\u2002${searchString}`;
+        hoverString += `${lineSeparator}$(search)\u2002${searchString}`;
       }
 
       if (!/^(\d|_)/.test(currentText)) {
@@ -2013,20 +2057,22 @@ class MagikVSCode {
               JSON.stringify(searchSymbolsArgs)
             )}`
           );
-          hoverString += `  \n  \n$(search)\u2002[Search Definitions](${searchCommand} "Search definitions for the current text")`;
+          hoverString += `${lineSeparator}$(search)\u2002[Search Definitions](${searchCommand} "Search definitions for the current text")`;
         }
 
         if (!methodDef && !inComment) {
           if (tracebackMethod) {
-            const searchSymbolsArgs = [{query: links[0].data.query}];
-            const searchCommand = vscode.Uri.parse(
-              `command:magik.searchSymbols?${encodeURIComponent(
-                JSON.stringify(searchSymbolsArgs)
+            const gotoArgs = [
+              {query: links[0].data.query, command: links[0].data.command},
+            ];
+            const gotoCommand = vscode.Uri.parse(
+              `command:magik.goto?${encodeURIComponent(
+                JSON.stringify(gotoArgs)
               )}`
             );
-            hoverString += `  \n  \n$(symbol-method)\u2002['${
+            hoverString += `${lineSeparator}$(symbol-method)\u2002['${
               links[0].tooltip
-            }'](${searchCommand} "Go To Definition")`;
+            }'](${gotoCommand} "Go To Definition")`;
           } else {
             const gotoArgs = [{position: pos}];
             let addGoto = true;
@@ -2055,7 +2101,7 @@ class MagikVSCode {
                   JSON.stringify(gotoArgs)
                 )}`
               );
-              hoverString += `  \n  \n$(symbol-method)\u2002[Go To Definition](${gotoCommand} "Go To Definition")`;
+              hoverString += `${lineSeparator}$(symbol-method)\u2002[Go To Definition](${gotoCommand} "Go To Definition")`;
             }
           }
         }
@@ -2067,11 +2113,14 @@ class MagikVSCode {
         classData.sourceFile &&
         fs.existsSync(classData.sourceFile)
       ) {
-        const openArgs = [vscode.Uri.file(classData.sourceFile)];
+        const viewColumn = this.magikConsole.isConsoleDoc(doc)
+          ? vscode.ViewColumn.One
+          : undefined;
+        const openArgs = [vscode.Uri.file(classData.sourceFile), {viewColumn}];
         const openCommand = vscode.Uri.parse(
           `command:vscode.open?${encodeURIComponent(JSON.stringify(openArgs))}`
         );
-        hoverString += `  \n  \n$(symbol-class)\u2002[Open Class](${openCommand} "Open file '${
+        hoverString += `${lineSeparator}$(symbol-class)\u2002[Open Class](${openCommand} "Open file '${
           classData.sourceFile
         }'")`;
       }
@@ -2104,7 +2153,7 @@ class MagikVSCode {
               )}`
             );
             const fullName = `${res.className}.${res.displayMethodName}`;
-            hoverString += `  \n  \n$(history)\u2002[Show History](${historyCommand} "Show method history: '${fullName}'")`;
+            hoverString += `${lineSeparator}$(history)\u2002[Show History](${historyCommand} "Show method history: '${fullName}'")`;
           }
 
           const parents = [];
@@ -2122,7 +2171,7 @@ class MagikVSCode {
               )}`
             );
             const fullName = `${res.className}.${res.displayMethodName}`;
-            hoverString += `  \n  \n$(testing-run-icon)\u2002[Run Test](${testCommand} "Run Test: '${fullName}'")`;
+            hoverString += `${lineSeparator}$(testing-run-icon)\u2002[Run Test](${testCommand} "Run Test: '${fullName}'")`;
           }
         }
       }
@@ -2130,7 +2179,7 @@ class MagikVSCode {
 
     const fileString = this._getFileHoverString(doc, pos, lineText);
     if (fileString) {
-      hoverString += `  \n  \n$(file)\u2002${fileString}`;
+      hoverString += `${lineSeparator}$(file)\u2002${fileString}`;
     }
 
     return hoverString;
@@ -2311,14 +2360,13 @@ class MagikVSCode {
       }
     }
 
-    const max = 60;
     const cacheLength = this.fileCache.length;
 
     for (let index = 0; index < cacheLength; index++) {
       const data = this.fileCache[index];
 
       if (data[0] === fileName) {
-        if (index > Math.floor(max * 0.75) - 1) {
+        if (index > Math.floor(FILE_CACHE_SIZE * 0.75) - 1) {
           this.fileCache.splice(index, 1);
           this.fileCache.unshift(data);
         }
@@ -2343,7 +2391,7 @@ class MagikVSCode {
 
     this.fileCache.unshift([fileName, lines]);
 
-    if (cacheLength === max) {
+    if (cacheLength === FILE_CACHE_SIZE) {
       this.fileCache.pop();
     }
 

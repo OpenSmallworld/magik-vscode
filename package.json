@@ -306,6 +306,16 @@
                 "when": "editorTextFocus"
             },
             {
+                "command": "magik.gotoPreviousDefinition",
+                "key": "alt+[",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "magik.gotoNextDefinition",
+                "key": "alt+]",
+                "when": "editorTextFocus"
+            },
+            {
                 "command": "magik.selectRegion",
                 "key": "alt+r",
                 "when": "editorTextFocus"
@@ -324,6 +334,16 @@
                 "command": "magik.compileMessages",
                 "key": "f7",
                 "when": "editorTextFocus && editorLangId == message"
+            },
+            {
+                "command": "magik.goto",
+                "key": "alt+.",
+                "when": "editorTextFocus && editorLangId == magik"
+            },
+            {
+                "command": "editor.action.goToReferences",
+                "key": "ctrl+.",
+                "when": "editorTextFocus && editorLangId == magik"
             },
             {
                 "command": "magik.compileExtensionMagik",
@@ -461,7 +481,7 @@
         "chokidar": "^3.5.1",
         "findit": "^2.0.0",
         "vscode-debugadapter": "1.33.0",
-        "ws": "^7.4.2"
+        "ws": "^7.4.3"
     },
     "devDependencies": {
         "eslint": "5.9.0",

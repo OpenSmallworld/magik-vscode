@@ -54,6 +54,8 @@ class MagikSymbolProvider {
     this._lastQuery = '';
     this._lastGotoRange = undefined;
 
+    this._viewColumn = undefined;
+
     context.subscriptions.push(
       vscode.commands.registerCommand('magik.searchSymbols', (args) =>
         this.searchSymbols(args)
@@ -590,6 +592,7 @@ class MagikSymbolProvider {
       this._lastGotoRange = resSymRange;
       this.vscode.window.showTextDocument(resSym.location.uri, {
         selection: resSymRange,
+        viewColumn: this._viewColumn,
         preview: false,
       });
       this.vscode.commands.executeCommand('editor.unfold', {});
@@ -751,6 +754,8 @@ class MagikSymbolProvider {
       }
       this._lastGotoRange = undefined;
     }
+
+    this._viewColumn = args ? args.viewColumn : undefined;
 
     this._createQuickPick();
     this._quickPick.value = query;

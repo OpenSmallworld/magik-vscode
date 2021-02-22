@@ -10,8 +10,10 @@ const magikUtils = require('./magik-utils');
 const TEMP_FILENAME = 'vscode_temp.magik';
 const CONSOLE_TEMP_FILENAME = 'vscode_console_temp.magik';
 const OUTPUT_TEMP_FILENAME = 'vscode_output_temp.magik';
+
 const MAGIK_PROMPT = '# Magik>';
 
+const MAX_HISTORY = 200;
 class MagikConsole {
   constructor(magikVSCode) {
     this.magikVSCode = magikVSCode;
@@ -40,7 +42,7 @@ class MagikConsole {
 
   isConsoleDoc(doc) {
     const fileName = path.basename(doc.fileName);
-    return /^console\d*\.magik/.test(fileName);
+    return /^console(\s\d|\d).*?\.magik/.test(fileName);
   }
 
   consoleDocExists() {
@@ -154,21 +156,28 @@ class MagikConsole {
     await magikUtils.sendToTerminal(stringToSend);
   }
 
-  async _doReadConsoleTemp(doc, regionLines) {
-    const consoleTempFile = this._consoleTempFile();
-
+  _updateHistory(regionLines) {
     const consoleLines = [];
     const promptReg = new RegExp(`^${MAGIK_PROMPT}`);
+
     for (const regionLine of regionLines) {
       if (!promptReg.test(regionLine)) {
         consoleLines.push(regionLine);
       }
     }
+
     this.consoleHistory.push(consoleLines.join('\n'));
-    if (this.consoleHistory.length > 200) {
+    if (this.consoleHistory.length > MAX_HISTORY) {
       this.consoleHistory.shift();
     }
+
     this.consoleIndex = undefined;
+  }
+
+  async _doReadConsoleTemp(doc, regionLines) {
+    const consoleTempFile = this._consoleTempFile();
+
+    this._updateHistory(regionLines);
 
     const edit = new vscode.WorkspaceEdit();
     const insertPos = new vscode.Position(doc.lineCount, 0);
@@ -193,15 +202,18 @@ class MagikConsole {
 
     fs.writeFileSync(tempFile, output);
 
-    const watcher = chokidar.watch(consoleTempFile);
-
-    watcher.on(
-      'change',
-      magikUtils.debounce(async () => {
-        watcher.close();
-        this._doReadConsoleTemp(doc, regionLines);
-      }, 200)
-    );
+    if (this.outputToConsole) {
+      this._updateHistory(regionLines);
+    } else {
+      const watcher = chokidar.watch(consoleTempFile);
+      watcher.on(
+        'change',
+        magikUtils.debounce(async () => {
+          watcher.close();
+          this._doReadConsoleTemp(doc, regionLines);
+        }, 100)
+      );
+    }
 
     await magikUtils.sendToTerminal('vs_console_load()');
   }
@@ -275,6 +287,27 @@ class MagikConsole {
     await this._showHistory(editor, this.consoleIndex + 1);
   }
 
+  async _addPrompt(doc) {
+    const edit = new vscode.WorkspaceEdit();
+    const lastRow = doc.lineCount - 1;
+    const insertPos = new vscode.Position(lastRow + 1, 0);
+    const prefix = doc.lineAt(lastRow).text === '' ? '' : '\n';
+
+    const editor = magikUtils.getDocEditor(doc);
+    let updateCurrentRow = false;
+    if (editor) {
+      const currentRow = editor.selection.active.line || 0;
+      updateCurrentRow = doc.lineCount - 1 === currentRow;
+    }
+
+    edit.insert(doc.uri, insertPos, `${prefix}$\n\n${MAGIK_PROMPT} \n`);
+    await vscode.workspace.applyEdit(edit);
+
+    if (updateCurrentRow) {
+      this._revealLastRow(doc);
+    }
+  }
+
   async _updateConsoleDoc() {
     if (this.isCompiling) return;
 
@@ -305,8 +338,8 @@ class MagikConsole {
     }
     const newOutput = outputLines.join('\n');
 
-    let updateCurrentRow = false;
     const editor = magikUtils.getDocEditor(doc);
+    let updateCurrentRow = false;
     if (editor) {
       const currentRow = editor.selection.active.line || 0;
       updateCurrentRow = doc.lineCount - 1 === currentRow;
@@ -317,16 +350,19 @@ class MagikConsole {
     const insertPos = new vscode.Position(lastRow + 1, 0);
     const prefix = doc.lineAt(lastRow).text === '' ? '' : '\n';
 
-    edit.insert(
-      doc.uri,
-      insertPos,
-      `${prefix}${newOutput}\n$\n\n${MAGIK_PROMPT} \n`
-    );
+    edit.insert(doc.uri, insertPos, `${prefix}${newOutput}\n`);
     await vscode.workspace.applyEdit(edit);
 
     if (updateCurrentRow) {
       this._revealLastRow(doc);
     }
+
+    if (this._promptTimer) {
+      clearTimeout(this._promptTimer);
+    }
+    this._promptTimer = setTimeout(async () => {
+      await this._addPrompt(doc);
+    }, 500);
   }
 
   _monitorOutput() {
@@ -364,13 +400,13 @@ class MagikConsole {
       'add',
       magikUtils.debounce(async () => {
         await this._updateConsoleDoc();
-      }, 200)
+      }, 100)
     );
     watcher.on(
       'change',
       magikUtils.debounce(async () => {
         await this._updateConsoleDoc();
-      }, 200)
+      }, 100)
     );
   }
 }

@@ -269,7 +269,7 @@ _global _constant vs_monitor_output <<
 							_endif
 						_endlock
 					_endproc,
-				1.0, 0.5)
+				1.0, 0.4)
 		_endif
 
 	_elif vs_output_timer _isnt _unset
@@ -507,21 +507,17 @@ _proc @vs_console_load()
 
 		result << input_str.evaluate()
 
-		_if vs_output _is _unset
+		output_str << !output!.string
+		output_str_empty? << output_str.empty?
+
+		_if vs_output _is _unset _andif _not output_str_empty?
 		_then
-			output_str << !output!.string
+			str << remove_empty_lines(output_str)
+			output_stream.write(str, %newline)
+		_endif
 
-			_if _not output_str.empty?
-			_then
-				str << remove_empty_lines(output_str)
-				output_stream.write(str, %newline)
-			_endif
-
-			_if result _isnt _unset _orif output_str.empty?
-			_then
-				output_stream.write(result, %newline)
-			_endif
-		_else
+		_if result _isnt _unset _orif output_str_empty?
+		_then
 			output_stream.write(result, %newline)
 		_endif
 

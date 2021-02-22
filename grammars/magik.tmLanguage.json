@@ -137,10 +137,10 @@
 				{
 					"begin": "_pragma",
 					"beginCaptures": {
-							"0": {"name": "comment.block.documentation.magik"}
+							"0": {"name": "comment.block.documentation.magik.pragma"}
 					},
 					"end": "\\n",
-					"name": "comment.block.documentation.magik"
+					"name": "comment.block.documentation.magik.pragma"
 				}
 			]
 		},

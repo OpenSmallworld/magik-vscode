@@ -18,12 +18,12 @@ Adds the following features to VS Code:
     * `Magik Compile Module Messages` (**F7**) compile messages for the current module (from a message file)
 
 * Code Navigation:
-    * `Magik Goto` (**F3**) to jump to source.<br>
+    * `Magik Goto` (**F3** or **Alt+.**) to jump to source.<br>
     Click on a method name and invoke the command to jump to source or display method candidates at the Magik prompt.
     * Links to source from tracebacks in the terminal.
     * `Go to Definition` (**F12**) and `Peek Definition` (**Alt+F12**) in Magik.
-    * `Find All References` (**Shift+F12**) and `List All References` (**Shift+Alt+F12**) in Magik.<br>
-    (Only searches in the current file - use Find in Folder to expand a search)
+    * `Find All References` (**Shift+F12** or **Ctrl+.**) and `List All References` (**Shift+Alt+F12**) in Magik.<br>
+    (Only searches in the current folder - use Find in Folder to expand a search)
 
 * Code Formating:
     * Magik Syntax highlighting
@@ -64,11 +64,12 @@ Adds the following features to VS Code:
     * Magik definitions in the current file to support Outline view
 
 * Magik Console File:
+
     A Magik Console file can be used to evalutate code and display results like the Magik terminal, but with the behaviour of a Magik editor (e.g. syntax highlighting, formatting and auto complete).
     * Create a new console file (**Alt+E**)
     * Evaluate the current region (**F7**)
-    * Show the previous command (**Alt+[**)
-    * Show the next command (**Alt+]**)
+    * Show the previous command (**Alt+PageUp** or **Alt+[**)
+    * Show the next command (**Alt+PageDown** or **Alt+]**)
 
 * Testing:
     * Command `Magik Run Test` to run the current test method (**Alt+F7**)
@@ -83,11 +84,13 @@ Adds the following features to VS Code:
     * Displays method help for indentified method calls.
     * Command `Magik New Buffer` to create a new Magik file in the temp directory (**Alt+N**)
     * Command `Magik New Console` to create a new Magik console file in the temp directory (**Alt+E**)
-    * Command `Magik Go To Previous Definition` (**Alt+PageUp**)
-    * Command `Magik Go To Next Definition` (**Alt+PageDown**)
+    * Command `Magik Go To Previous Definition` (**Alt+PageUp** or **Alt+[**)
+    * Command `Magik Go To Next Definition` (**Alt+PageDown** or **Alt+[**)
     * Command `Magik Select Region` (**Alt+R**)
 
 (Use Ctrl+Shift+P to list available commands and type 'Magik')
+
+<br>
 
 ### **Method Search**
 
@@ -97,6 +100,7 @@ e.g. `add_comp` or `map_.goto_` or `^gui_frame.^activ`<br><br>
 Use **Alt+M** to refresh definitions after compiling code from the prompt, scripts or module dialog.<br>
 Definitions are refreshed after using **F7**, **Ctrl+F7** etc.
 
+<br>
 
 ### **Magik Linting**
 
@@ -105,6 +109,8 @@ Magik files are scanned when they are opened and saved or by using the command `
 Warning: This does not confirm the code is without issues!
 
 The linting can be enabled/diabled using the setting `magik-vscode.enableLinting`.
+
+<br>
 
 ### **Magik Debugging (5.x)**
 
@@ -122,12 +128,14 @@ Limitation: Compile (saved) files rather than methods during debugging to ensure
 
 Warning: There are some performance issues with stepping!
 
+<br>
+
 ### **Magik Console File**
 
 A Magik Console file is a Magik file named console*.magik. A Magik Console file can be used to evalutate code and display results like the Magik terminal, but with the behaviour of a Magik editor.<br>
+A console file can be created (in the temp directory) using **Alt+E**.<br>
 The current region can be evaluated by pressing **F7** and the results are displayed in the file.<br>
-The console supports command history. Use **Alt+[** to show the previous command and **Alt+]** to show the next command.<br>
-A console file can be created (in the temp directory) using **Alt+E**.
+The console supports command history. Use **Alt+PageUp** or **Alt+[** to show the previous command and **Alt+PageDown** or **Alt+]** to show the next command.
 
 Standard output (e.g. tracebacks and write statements) will be shown in the console file if `magik-vscode.enableOutputToConsoleFile` is set to true.
 
@@ -137,6 +145,8 @@ Limitation: The console file does not currently support waiting for a response (
 
 Warning: Capturing output in the console file is an experimental feature.<br>
 This is controlled by the setting `magik-vscode.enableOutputToConsoleFile` and is disabled by default.
+
+<br>
 
 ## Installation
 
@@ -213,6 +223,14 @@ I would recommend using these other extensions:
         * `magik.gotoClipboardText`
         * `magik.refreshSymbols`
         * `magik.searchSymbols`
+
+* Code Navigation:
+
+    Use the arrow keys, **Ctrl+Left** and **Ctrl+Right** and the shortcuts below for simple code navigation.
+    * **Alt+[** and **Alt+]** to move to the previous and next definition in a file.
+    * **Alt+Left** and **Alt+Right** to go back and forward through navigation history.
+    * **Alt+.** to jump to the definition of the current word (or list suggestions).
+    * **Ctrl+.** to peek at the definition and references in the current folder.
 
 * Dev Tools:
     * Load the dev_tools_application module in a development session:
