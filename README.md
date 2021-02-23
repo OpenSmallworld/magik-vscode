@@ -163,6 +163,10 @@ This is controlled by the setting `magik-vscode.enableOutputToConsoleFile` and i
 
 4. Restart VS Code if it is already running.
 
+<br>
+
+Note: A npm update is required to update the dependencies after updating this extension.
+
 I would recommend using these other extensions:
 * Bracket Pair Colorizer 2
 * Git Lens
@@ -227,8 +231,8 @@ I would recommend using these other extensions:
 * Code Navigation:
 
     Use the arrow keys, **Ctrl+Left** and **Ctrl+Right** and the shortcuts below for simple code navigation.
-    * **Alt+[** and **Alt+]** to move to the previous and next definition in a file.
-    * **Alt+Left** and **Alt+Right** to go back and forward through navigation history.
+    * **Alt+[** and **Alt+]** to move to the previous and next definition in a magik file.
+    * **Alt+Left** and **Alt+Right** to go back and forward through the navigation history.
     * **Alt+.** to jump to the definition of the current word (or list suggestions).
     * **Ctrl+.** to peek at the definition and references in the current folder.
 
@@ -331,7 +335,7 @@ I would recommend using these other extensions:
 
 * Magik definition symbols (to support searching for methods, exemplars, conditions and globals) are only loaded automatically when compiling code using VS Code Magik commands.<br>
 Use **Alt+M** to refresh definitions manually after compiling code from the prompt, scripts or module dialog.
-* No highlighting or formatting at the Magik prompt - I suggest creating a temp magik file for writing Magik (**Alt+N**) and compile using **F7** or **F8**.
+* No highlighting or formatting at the terminal - I suggest using a Magik Console File (**Alt+E**) or creating a temporary magik file for writing Magik (**Alt+N**) and compile using **F7** or **F8**.
 * Linting only available inside methods.
 * No status feedback when stepping in debug session.
 * The debugger can get stuck and hang the session. Sometimes pressing Pause on the thread allows you to regain control.<br>

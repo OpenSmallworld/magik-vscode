@@ -198,6 +198,10 @@
                 "title": "Magik Compile Extension Code"
             },
             {
+                "command": "magik.openFile",
+                "title": "Magik Open File"
+            },
+            {
                 "command": "magik.newBuffer",
                 "title": "Magik New Buffer"
             },

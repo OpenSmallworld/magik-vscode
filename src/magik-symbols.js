@@ -589,12 +589,17 @@ class MagikSymbolProvider {
     const resSym = this.magikVSCode.resolveWorkspaceSymbol(sym);
     if (resSym) {
       const resSymRange = resSym.location.range;
+      const workbenchConfig = this.vscode.workspace.getConfiguration('workbench');
+      const preview = workbenchConfig.editor.enablePreviewFromCodeNavigation;
+
       this._lastGotoRange = resSymRange;
+
       this.vscode.window.showTextDocument(resSym.location.uri, {
         selection: resSymRange,
         viewColumn: this._viewColumn,
-        preview: false,
+        preview,
       });
+
       this.vscode.commands.executeCommand('editor.unfold', {});
     }
   }

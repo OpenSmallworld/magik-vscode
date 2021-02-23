@@ -43,6 +43,7 @@ class MagikVSCode {
       ['runTestClass', this._runTestClass],
       ['compileMessages', this._compileMessages],
       ['compileExtensionMagik', this._compileExtensionMagik],
+      ['openFile', this._openFile],
       ['newBuffer', this._newMagikBuffer],
       ['newConsole', this._newMagikConsole],
       ['gotoClipboardText', this._gotoClipboardText],
@@ -134,6 +135,19 @@ class MagikVSCode {
     //     vscode.commands.executeCommand('magik.checkFile', {});
     //   }, 100)
     // );
+  }
+
+  _openFile(args) {
+    if (args.fileName) {
+      const workbenchConfig = vscode.workspace.getConfiguration('workbench');
+      const preview = workbenchConfig.editor.enablePreviewFromCodeNavigation;
+      const viewColumn = args.firstColumn ? vscode.ViewColumn.One : undefined;
+
+      vscode.window.showTextDocument(vscode.Uri.file(args.fileName), {
+        preview,
+        viewColumn,
+      });
+    }
   }
 
   _runMagik(args) {
@@ -424,10 +438,14 @@ class MagikVSCode {
   }
 
   _gotoSymbol(sym) {
+    const workbenchConfig = vscode.workspace.getConfiguration('workbench');
+    const preview = workbenchConfig.editor.enablePreviewFromCodeNavigation;
+
     vscode.window.showTextDocument(sym.location.uri, {
       selection: sym.location.range,
-      preview: false,
+      preview,
     });
+
     vscode.commands.executeCommand('editor.unfold', {});
   }
 
@@ -1967,6 +1985,7 @@ class MagikVSCode {
 
   _getFileHoverString(doc, pos, lineText) {
     const pathReg = /(?:\s|\(|\[|^)((?:\w:|\/).*?\..*?)(?:\s|\)|\]|$)/g;
+    const firstColumn = this.magikConsole.isConsoleDoc(doc);
     let startIndex = 0;
     let pathMatch;
 
@@ -1976,12 +1995,9 @@ class MagikVSCode {
 
       if (index <= pos.character && index + filePath.length > pos.character) {
         if (fs.existsSync(filePath)) {
-          const openArgs = [
-            vscode.Uri.file(filePath),
-            {viewColumn: vscode.ViewColumn.One},
-          ];
+          const openArgs = [{fileName: filePath, firstColumn}];
           const openCommand = vscode.Uri.parse(
-            `command:vscode.open?${encodeURIComponent(
+            `command:magik.openFile?${encodeURIComponent(
               JSON.stringify(openArgs)
             )}`
           );
@@ -2113,12 +2129,12 @@ class MagikVSCode {
         classData.sourceFile &&
         fs.existsSync(classData.sourceFile)
       ) {
-        const viewColumn = this.magikConsole.isConsoleDoc(doc)
-          ? vscode.ViewColumn.One
-          : undefined;
-        const openArgs = [vscode.Uri.file(classData.sourceFile), {viewColumn}];
+        const firstColumn = this.magikConsole.isConsoleDoc(doc);
+        const openArgs = [{fileName: classData.sourceFile, firstColumn}];
         const openCommand = vscode.Uri.parse(
-          `command:vscode.open?${encodeURIComponent(JSON.stringify(openArgs))}`
+          `command:magik.openFile?${encodeURIComponent(
+            JSON.stringify(openArgs)
+          )}`
         );
         hoverString += `${lineSeparator}$(symbol-class)\u2002[Open Class](${openCommand} "Open file '${
           classData.sourceFile
