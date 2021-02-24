@@ -437,19 +437,27 @@ class MagikVSCode {
     await this._gotoText(clipboardText);
   }
 
-  _gotoSymbol(sym) {
+  _gotoSymbol(sym, firstColumn = false) {
     const workbenchConfig = vscode.workspace.getConfiguration('workbench');
     const preview = workbenchConfig.editor.enablePreviewFromCodeNavigation;
+    const viewColumn = firstColumn ? vscode.ViewColumn.One : undefined;
 
     vscode.window.showTextDocument(sym.location.uri, {
       selection: sym.location.range,
       preview,
+      viewColumn,
     });
 
     vscode.commands.executeCommand('editor.unfold', {});
   }
 
-  async _gotoFromQuery(query, magikCommand, inherit, local) {
+  async _gotoFromQuery(
+    query,
+    magikCommand,
+    inherit = false,
+    local = false,
+    firstColumn = false
+  ) {
     let symbols = await this.symbolProvider.getSymbols(
       query,
       inherit,
@@ -496,7 +504,7 @@ class MagikVSCode {
     if (selectedSymbol) {
       const resSymbol = this.resolveWorkspaceSymbol(selectedSymbol);
       if (resSymbol) {
-        this._gotoSymbol(resSymbol);
+        this._gotoSymbol(resSymbol, firstColumn);
       }
     }
   }
@@ -1067,7 +1075,13 @@ class MagikVSCode {
 
   async _goto(args) {
     if (args && args.query) {
-      await this._gotoFromQuery(args.query, args.command, false, true);
+      await this._gotoFromQuery(
+        args.query,
+        args.command,
+        false,
+        true,
+        args.firstColumn
+      );
       return;
     }
 
@@ -1098,7 +1112,7 @@ class MagikVSCode {
     if (!def.currentWord) return;
 
     if (def.symbol) {
-      this._gotoSymbol(def.symbol);
+      this._gotoSymbol(def.symbol, args.firstColumn);
       return;
     }
 
@@ -1130,26 +1144,8 @@ class MagikVSCode {
       command = `vs_goto("^${def.currentWord}$")`;
     }
 
-    await this._gotoFromQuery(query, command, inherit);
+    await this._gotoFromQuery(query, command, inherit, false, args.firstColumn);
   }
-
-  // async _peekDefinition() {
-  //   const editor = vscode.window.activeTextEditor;
-  //   if (!editor) return;
-
-  //   const doc = editor.document;
-  //   const pos = editor.selection.active;
-  //   const def = await this._getCurrentDefinitionSymbol(doc, pos);
-
-  //   if (!def.currentWord) return;
-
-  //   if (def.symbol) {
-  //     vscode.commands.executeCommand('editor.action.peekDefinition', {});
-  //     return;
-  //   }
-
-  //   await this._goto();
-  // }
 
   async _refreshSymbols() {
     if (this.isDevLoaded()) {
@@ -2065,6 +2061,7 @@ class MagikVSCode {
         const links = this.provideTerminalLinks({line: lineText}, undefined);
         const tracebackMethod = links.length === 1;
         const inComment = this._posInComment(pos);
+        const firstColumn = this.magikConsole.isConsoleDoc(doc);
 
         if (inSelection || !inComment) {
           const searchSymbolsArgs = [{query: currentText}];
@@ -2079,7 +2076,11 @@ class MagikVSCode {
         if (!methodDef && !inComment) {
           if (tracebackMethod) {
             const gotoArgs = [
-              {query: links[0].data.query, command: links[0].data.command},
+              {
+                query: links[0].data.query,
+                command: links[0].data.command,
+                firstColumn,
+              },
             ];
             const gotoCommand = vscode.Uri.parse(
               `command:magik.goto?${encodeURIComponent(
@@ -2090,7 +2091,7 @@ class MagikVSCode {
               links[0].tooltip
             }'](${gotoCommand} "Go To Definition")`;
           } else {
-            const gotoArgs = [{position: pos}];
+            const gotoArgs = [{position: pos, firstColumn}];
             let addGoto = true;
 
             if (!inSelection) {
