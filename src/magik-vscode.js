@@ -400,7 +400,7 @@ class MagikVSCode {
     }
   }
 
-  async _newMagikBuffer(name, outputText) {
+  async _newMagikBuffer(name, outputText, viewColumn) {
     const prefix = name === undefined ? 'buffer' : name;
     const dateStr = new Date().toLocaleDateString().replace(/(\\|\/)/g, '_');
     const fileName = `${prefix} ${dateStr}`;
@@ -422,11 +422,16 @@ class MagikVSCode {
     vscode.window.showTextDocument(vscode.Uri.file(tempFile), {
       selection: range,
       preview: false,
+      viewColumn,
     });
   }
 
   async _newMagikConsole() {
-    return this._newMagikBuffer('console', '# Magik> \n');
+    return this._newMagikBuffer(
+      'console',
+      '# Magik> \n',
+      vscode.ViewColumn.Beside
+    );
   }
 
   async _gotoClipboardText() {
@@ -1734,7 +1739,7 @@ class MagikVSCode {
       let lineText = doc.lineAt(pos.line).text;
       lineText = lineText.substring(0, pos.character);
 
-      const match = /[\w!?]+\.[\w!?]+\s*(\(|<<|^<<)\s*([\w!?]+\s*,?\s*)*$/.exec(
+      const match = /[\w!?]+\.[\w!?]+\s*(\(|<<|^<<)\s*((?=([\w!?]+))\s*,?\s*)*$/.exec(
         lineText
       );
 

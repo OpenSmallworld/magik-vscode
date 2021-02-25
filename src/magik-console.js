@@ -382,6 +382,8 @@ class MagikConsole {
         dev = this.magikVSCode.isDevLoaded();
       }
 
+      // FIXME - monitor does not restart after starting new session
+
       if (dev) {
         if (this.usingConsoleDoc()) {
           if (!this.outputToConsole) {

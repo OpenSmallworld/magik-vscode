@@ -179,7 +179,7 @@ const VAR_TEST = /[\w!?]+/g;
 const INC_BRACKETS = /(?<!%)[({]/g;
 const DEC_BRACKETS = /(?<!%)[)}]/g;
 
-const ASSIGN_IGNORE_NEXT = /^\s*(\(|\.|\)\.|(\s*,\s*[\w!?]+)+\s*$)/;
+const ASSIGN_IGNORE_NEXT = /^\s*(\(|\.|\)\.|(\s*,\s*(?=([\w!?]+)))+\s*$)/;
 const VAR_IGNORE_PREV_CHARS = ['.', ':', '"', '%', '|', '@'];
 
 const DEFINITION_TESTS = [
@@ -213,11 +213,11 @@ const DEFINITION_TESTS = [
   },
 ];
 const DEFINE_KEYWORD_TESTS = [
-  /(_local|_with)\s+([\w!?]+\s*,\s*)*$/,
-  /_global\s+([\w!?]+\s*,\s*)*$/,
-  /_dynamic\s+([\w!?]+\s*,\s*)*$/,
+  /(_local|_with)\s+((?=([\w!?]+))\s*,\s*)*$/,
+  /_global\s+((?=([\w!?]+))\s*,\s*)*$/,
+  /_dynamic\s+((?=([\w!?]+))\s*,\s*)*$/,
 ];
-const IMPORT_TEST = /_import\s+([\w!?]+\s*,\s*)*$/;
+const IMPORT_TEST = /_import\s+((?=([\w!?]+))\s*,\s*)*$/;
 
 function previousWordInString(text, index) {
   const match = /([\w!?]+)[^\w!?]*[\w!?]*$/.exec(text.substring(0, index));
