@@ -113,6 +113,10 @@ class MagikVSCode {
         } catch (error) {
           console.error(error);
         }
+
+        if (this.magikConsole.isConsoleDoc(doc)) {
+          this.magikConsole.restartMonitor();
+        }
       })
     );
 
@@ -427,11 +431,13 @@ class MagikVSCode {
   }
 
   async _newMagikConsole() {
-    return this._newMagikBuffer(
+    await this._newMagikBuffer(
       'console',
       '# Magik> \n',
       vscode.ViewColumn.Beside
     );
+
+    this.magikConsole.restartMonitor();
   }
 
   async _gotoClipboardText() {

@@ -47,7 +47,7 @@ class MagikConsole {
 
   consoleDocExists() {
     for (const doc of vscode.workspace.textDocuments) {
-      if (this.isConsoleDoc(doc)) {
+      if (!doc.isClosed && this.isConsoleDoc(doc)) {
         return true;
       }
     }
@@ -58,12 +58,12 @@ class MagikConsole {
     const docs = [];
 
     for (const doc of vscode.workspace.textDocuments) {
-      if (this.isConsoleDoc(doc)) {
+      if (!doc.isClosed && this.isConsoleDoc(doc)) {
         docs.push(doc);
       }
     }
 
-    docs.sort((a, b) => a.fileName.localeCompare(b.fileName));
+    docs.sort((a, b) => b.fileName.localeCompare(a.fileName));
 
     if (docs.length > 0) {
       return docs[0];
@@ -410,6 +410,12 @@ class MagikConsole {
         await this._updateConsoleDoc();
       }, 100)
     );
+  }
+
+  restartMonitor() {
+    // Force this.checkOutputInterval to send 'vs_monitor_output(_true)' to restart vs_output_timer in Magik.
+    // Assumes a console file exists.
+    this.outputToConsole = false;
   }
 }
 

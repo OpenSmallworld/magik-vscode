@@ -141,7 +141,8 @@ Standard output (e.g. tracebacks and write statements) will be shown in the cons
 
 Closing all console files will stop standard output being captured and revert behaviour back to the terminal.
 
-Limitation: The console file does not currently support waiting for a response (where !terminal!.get_line() is used).
+Limitations: The console file does not currently support waiting for a response (where !terminal!.get_line() is used).<br>
+Capturing output is not automatically restarted if a new session is started with an existing console file. The workaround is to save the console file or create a new one.
 
 Warning: Capturing output in the console file is an experimental feature.<br>
 This is controlled by the setting `magik-vscode.enableOutputToConsoleFile` and is disabled by default.
@@ -336,6 +337,7 @@ I would recommend using these other extensions:
 * Magik definition symbols (to support searching for methods, exemplars, conditions and globals) are only loaded automatically when compiling code using VS Code Magik commands.<br>
 Use **Alt+M** to refresh definitions manually after compiling code from the prompt, scripts or module dialog.
 * No highlighting or formatting at the terminal - I suggest using a Magik Console File (**Alt+E**) or creating a temporary magik file for writing Magik (**Alt+N**) and compile using **F7** or **F8**.
+* Capturing output to a Magik Console File is not automatically restarted if a new session is started with an existing console file. The workaround is to save the console file or create a new one.
 * Linting only available inside methods.
 * No status feedback when stepping in debug session.
 * The debugger can get stuck and hang the session. Sometimes pressing Pause on the thread allows you to regain control.<br>

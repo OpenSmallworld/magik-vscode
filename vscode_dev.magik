@@ -191,84 +191,84 @@ _pragma(classify_level=debug)
 ## Proc to control a timer to monitor output and save to a temporary file to append to a console
 ## file in VS Code.
 _global _constant vs_monitor_output <<
-	_proc @vs_monitor_output(enable)
+_proc @vs_monitor_output(enable?)
 
-		_global vs_output_timer, vs_default_terminal, vs_output
-		_global !output!, !error_output!, !terminal!
+	_global vs_output_timer, vs_default_terminal, vs_output
+	_global !output!, !error_output!, !terminal!
 
-		_if enable _is _true
+	_if enable? _is _true
+	_then
+		_if vs_output_timer _is _unset
 		_then
-			_if vs_output_timer _is _unset
+			write("Starting output monitor...")
+
+			_if vs_default_terminal _is _unset
 			_then
-				write("Starting output monitor...")
+				vs_default_terminal << !terminal!
+			_endif
 
-				_if vs_default_terminal _is _unset
+			_local remove_empty_lines << _proc(a_string)
+					lines << rope.new_from(a_string.split_by(%newline))
+					_for n _over range(lines.size, 1, -1)
+					_loop
+						_if lines[n].empty?
+						_then
+							lines.remove_nth(n)
+						_else
+							_leave
+						_endif
+					_endloop
+					_return lines.join_as_strings(%newline)
+				_endproc
+
+			_local orig_output << !output!
+			vs_output << internal_text_output_stream.new()
+			!output! << !error_output! << !terminal! << vs_output
+
+			temp_dir << _if system.os_name _is :windows
 				_then
-					vs_default_terminal << !terminal!
+					>> system.getenv("TEMP")
+				_else
+					>> "/tmp"
 				_endif
+			_local output_file << system.pathname_down(temp_dir, "vscode_output_temp.magik")
 
-				_local remove_empty_lines << _proc(a_string)
-						lines << rope.new_from(a_string.split_by(%newline))
-						_for n _over range(lines.size, 1, -1)
-						_loop
-							_if lines[n].empty?
-							_then
-								lines.remove_nth(n)
-							_else
-								_leave
-							_endif
-						_endloop
-						_return lines.join_as_strings(%newline)
-					_endproc
+			_try
+				system.unlink(output_file, _true, _true)
+			_when error
+				# write("Cannot remove " + output_file)
+			_endtry
 
-				_local orig_output << !output!
-				vs_output << internal_text_output_stream.new()
-				!output! << !error_output! << !terminal! << vs_output
+			vs_output_timer << timer.schedule_fixed_delay(
+				_proc @vs_output_timer()
+					_import orig_output, output_file, remove_empty_lines
+					_global vs_output
 
-				temp_dir << _if system.os_name _is :windows
-					_then
-						>> system.getenv("TEMP")
-					_else
-						>> "/tmp"
-					_endif
-				_local output_file << system.pathname_down(temp_dir, "vscode_output_temp.magik")
-
-				_try
-					system.unlink(output_file, _true, _true)
-				_when error
-					# write("Cannot remove " + output_file)
-				_endtry
-
-				vs_output_timer << timer.schedule_fixed_delay(
-					_proc @vs_output_timer()
-						_import orig_output, output_file, remove_empty_lines
-						_global vs_output
-
-						_lock vs_output
-							str << vs_output.string
-							_if _not str.empty? _andif str.last _is %newline
-							_then
-								output_str << remove_empty_lines(str)
-								output_stream << _unset
-								done? << _false
-								_protect
-									output_stream << external_text_simple_output_stream.new_appending(output_file)
-									output_stream.write(output_str, %newline)
-									done? << _true
-								_protection
-									_if output_stream _isnt _unset
-									_then
-										output_stream.close()
-									_endif
-									_if done?
-									_then
-										vs_output.reset()
-									_endif
-									# orig_output.write(str)
-								_endprotect
-							_endif
-						_endlock
-					_endproc,
+					_lock vs_output
+						str << vs_output.string
+						_if _not str.empty? _andif str.last _is %newline
+						_then
+							output_str << remove_empty_lines(str)
+							output_stream << _unset
+							done? << _false
+							_protect
+								output_stream << external_text_simple_output_stream.new_appending(output_file)
+								output_stream.write(output_str, %newline)
+								done? << _true
+							_protection
+								_if output_stream _isnt _unset
+								_then
+									output_stream.close()
+								_endif
+								_if done?
+								_then
+									vs_output.reset()
+								_endif
+								# orig_output.write(str)
+							_endprotect
+						_endif
+					_endlock
+				_endproc,
 				1.0, 0.4)
 		_endif
 
