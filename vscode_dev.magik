@@ -231,7 +231,7 @@ _proc @vs_monitor_output(enable?)
 				_else
 					>> "/tmp"
 				_endif
-			_local output_file << system.pathname_down(temp_dir, "vscode_output_temp.magik")
+			_local output_file << system.pathname_down(temp_dir, "vscode_output_temp.txt")
 
 			_try
 				system.unlink(output_file, _true, _true)
@@ -450,9 +450,9 @@ _proc @vs_console_load()
 
 	output_file << _if vs_output _is _unset
 		_then
-			>> system.pathname_down(temp_dir, "vscode_console_temp.magik")
+			>> system.pathname_down(temp_dir, "vscode_console_temp.txt")
 		_else
-			>> system.pathname_down(temp_dir, "vscode_output_temp.magik")
+			>> system.pathname_down(temp_dir, "vscode_output_temp.txt")
 		_endif
 
 	_local remove_empty_lines << _proc(a_string)

@@ -132,13 +132,6 @@ class MagikVSCode {
       watcher.close();
       vscode.commands.executeCommand('magik.checkFile', {});
     });
-    // watcher.on(
-    //   'change',
-    //   magikUtils.debounce(() => {
-    //     watcher.close();
-    //     vscode.commands.executeCommand('magik.checkFile', {});
-    //   }, 100)
-    // );
   }
 
   _openFile(args) {

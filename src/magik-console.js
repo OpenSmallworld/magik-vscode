@@ -8,19 +8,20 @@ const chokidar = require('chokidar');
 const magikUtils = require('./magik-utils');
 
 const TEMP_FILENAME = 'vscode_temp.magik';
-const CONSOLE_TEMP_FILENAME = 'vscode_console_temp.magik';
-const OUTPUT_TEMP_FILENAME = 'vscode_output_temp.magik';
+const CONSOLE_TEMP_FILENAME = 'vscode_console_temp.txt';
+const OUTPUT_TEMP_FILENAME = 'vscode_output_temp.txt';
 
 const MAGIK_PROMPT = '# Magik>';
-
 const MAX_HISTORY = 200;
+
 class MagikConsole {
   constructor(magikVSCode) {
     this.magikVSCode = magikVSCode;
-    this.isCompiling = false;
-    this.consoleHistory = [];
-    this.consoleIndex = undefined;
-    this.outputToConsole = false;
+
+    this._isCompiling = false;
+    this._consoleHistory = [];
+    this._consoleIndex = undefined;
+    this._outputToConsole = false;
 
     this._monitorOutput();
   }
@@ -166,12 +167,12 @@ class MagikConsole {
       }
     }
 
-    this.consoleHistory.push(consoleLines.join('\n'));
-    if (this.consoleHistory.length > MAX_HISTORY) {
-      this.consoleHistory.shift();
+    this._consoleHistory.push(consoleLines.join('\n'));
+    if (this._consoleHistory.length > MAX_HISTORY) {
+      this._consoleHistory.shift();
     }
 
-    this.consoleIndex = undefined;
+    this._consoleIndex = undefined;
   }
 
   async _doReadConsoleTemp(doc, regionLines) {
@@ -202,7 +203,7 @@ class MagikConsole {
 
     fs.writeFileSync(tempFile, output);
 
-    if (this.outputToConsole) {
+    if (this._outputToConsole) {
       this._updateHistory(regionLines);
     } else {
       const watcher = chokidar.watch(consoleTempFile);
@@ -219,13 +220,13 @@ class MagikConsole {
   }
 
   async compileText(doc, lines, regionLines) {
-    this.isCompiling = true;
+    this._isCompiling = true;
     this._doCompileText(doc, lines, regionLines);
-    this.isCompiling = false;
+    this._isCompiling = false;
   }
 
   async _showHistory(editor, newIndex) {
-    if (this.consoleHistory.length === 0 || newIndex < 0) {
+    if (this._consoleHistory.length === 0 || newIndex < 0) {
       return;
     }
 
@@ -259,14 +260,14 @@ class MagikConsole {
     );
     let newText;
 
-    if (newIndex > this.consoleHistory.length - 1) {
+    if (newIndex > this._consoleHistory.length - 1) {
       // Remove current region
-      this.consoleIndex = undefined;
+      this._consoleIndex = undefined;
       newText = '';
     } else {
       // Remove current region and replace with previous console region
-      this.consoleIndex = newIndex;
-      newText = this.consoleHistory[newIndex];
+      this._consoleIndex = newIndex;
+      newText = this._consoleHistory[newIndex];
     }
 
     edit.replace(doc.uri, range, newText);
@@ -274,17 +275,17 @@ class MagikConsole {
   }
 
   async showPrevious(editor) {
-    if (this.consoleIndex === undefined) {
-      this.consoleIndex = this.consoleHistory.length;
+    if (this._consoleIndex === undefined) {
+      this._consoleIndex = this._consoleHistory.length;
     }
-    await this._showHistory(editor, this.consoleIndex - 1);
+    await this._showHistory(editor, this._consoleIndex - 1);
   }
 
   async showNext(editor) {
-    if (this.consoleIndex === undefined) {
-      this.consoleIndex = this.consoleHistory.length - 1;
+    if (this._consoleIndex === undefined) {
+      this._consoleIndex = this._consoleHistory.length - 1;
     }
-    await this._showHistory(editor, this.consoleIndex + 1);
+    await this._showHistory(editor, this._consoleIndex + 1);
   }
 
   async _addPrompt(doc) {
@@ -309,7 +310,7 @@ class MagikConsole {
   }
 
   async _updateConsoleDoc() {
-    if (this.isCompiling) return;
+    if (this._isCompiling) return;
 
     if (
       !vscode.workspace.getConfiguration('magik-vscode')
@@ -382,16 +383,14 @@ class MagikConsole {
         dev = this.magikVSCode.isDevLoaded();
       }
 
-      // FIXME - monitor does not restart after starting new session
-
       if (dev) {
         if (this.usingConsoleDoc()) {
-          if (!this.outputToConsole) {
-            this.outputToConsole = true;
+          if (!this._outputToConsole) {
+            this._outputToConsole = true;
             await magikUtils.sendToTerminal('vs_monitor_output(_true)');
           }
-        } else if (this.outputToConsole) {
-          this.outputToConsole = false;
+        } else if (this._outputToConsole) {
+          this._outputToConsole = false;
           await magikUtils.sendToTerminal('vs_monitor_output(_false)');
         }
       }
@@ -415,7 +414,7 @@ class MagikConsole {
   restartMonitor() {
     // Force this.checkOutputInterval to send 'vs_monitor_output(_true)' to restart vs_output_timer in Magik.
     // Assumes a console file exists.
-    this.outputToConsole = false;
+    this._outputToConsole = false;
   }
 }
 

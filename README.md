@@ -338,6 +338,7 @@ I would recommend using these other extensions:
 Use **Alt+M** to refresh definitions manually after compiling code from the prompt, scripts or module dialog.
 * No highlighting or formatting at the terminal - I suggest using a Magik Console File (**Alt+E**) or creating a temporary magik file for writing Magik (**Alt+N**) and compile using **F7** or **F8**.
 * Capturing output to a Magik Console File is not automatically restarted if a new session is started with an existing console file. The workaround is to save the console file or create a new one.
+* Capturing output to a Magik Console File will not work with Magik sessions running in mulitple VS Code windows.
 * Linting only available inside methods.
 * No status feedback when stepping in debug session.
 * The debugger can get stuck and hang the session. Sometimes pressing Pause on the thread allows you to regain control.<br>
@@ -351,6 +352,14 @@ Please add issues here:
 https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 
 ## Release Notes
+
+### 0.1.2
+
+* Introduced Magik Console files for evaluating code and capturing terminal output.
+* Updated code navigation shortcuts.
+* Fixed starting a session with F2 z.
+* Fixed extension hangs caused by some regexp tests.
+* Added lock symbol for private methods and constants in the method search.
 
 ### 0.1.1
 
