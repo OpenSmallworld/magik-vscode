@@ -11,7 +11,6 @@ const TEMP_FILENAME = 'vscode_temp.magik';
 const CONSOLE_TEMP_FILENAME = 'vscode_console_temp.txt';
 const OUTPUT_TEMP_FILENAME = 'vscode_output_temp.txt';
 
-const MAGIK_PROMPT = '# Magik>';
 const MAX_HISTORY = 200;
 
 class MagikConsole {
@@ -141,8 +140,10 @@ class MagikConsole {
   }
 
   async sendCommandToTerminal(procName, argString, additionalString) {
+    const usingConsole = this.usingConsoleDoc();
     let stringToSend;
-    if (this.usingConsoleDoc()) {
+
+    if (usingConsole) {
       stringToSend = argString
         ? `vs_perform("${procName}", ${argString})`
         : `vs_perform("${procName}")`;
@@ -151,7 +152,13 @@ class MagikConsole {
     }
 
     if (additionalString) {
-      stringToSend += `; ${additionalString}`;
+      // Any additional command is not sent when running SW4
+      if (
+        vscode.workspace.getConfiguration('magik-vscode').magikProcessName ===
+        ''
+      ) {
+        stringToSend += `; ${additionalString}`;
+      }
     }
 
     await magikUtils.sendToTerminal(stringToSend);
@@ -159,7 +166,7 @@ class MagikConsole {
 
   _updateHistory(regionLines) {
     const consoleLines = [];
-    const promptReg = new RegExp(`^${MAGIK_PROMPT}`);
+    const promptReg = new RegExp(`^${magikUtils.MAGIK_PROMPT}`);
 
     for (const regionLine of regionLines) {
       if (!promptReg.test(regionLine)) {
@@ -184,7 +191,11 @@ class MagikConsole {
     const insertPos = new vscode.Position(doc.lineCount, 0);
     const result = fs.readFileSync(consoleTempFile).toString();
 
-    edit.insert(doc.uri, insertPos, `\n${result}$\n\n${MAGIK_PROMPT} \n`);
+    edit.insert(
+      doc.uri,
+      insertPos,
+      `\n${result}\n${magikUtils.MAGIK_PROMPT} \n`
+    );
     await vscode.workspace.applyEdit(edit);
 
     this._revealLastRow(doc);
@@ -194,8 +205,14 @@ class MagikConsole {
     const tempFile = this._tempFile();
     const consoleTempFile = this._consoleTempFile();
 
+    const promptReg = new RegExp(`^${magikUtils.MAGIK_PROMPT}\\s*$`);
+
     for (let i = 0; i < lines.length; i++) {
-      if (/^_package /.test(lines[i])) {
+      const lineText = lines[i];
+      if (promptReg.test(lineText)) {
+        return;
+      }
+      if (/^_package /.test(lineText)) {
         lines[i] = '_package user';
       }
     }
@@ -230,19 +247,19 @@ class MagikConsole {
       return;
     }
 
+    const promptReg = new RegExp(`^${magikUtils.MAGIK_PROMPT}\\s*$`);
     const doc = editor.document;
     const lastRow = doc.lineCount;
     const startLine = editor.selection.active.line || 0;
 
     for (let row = startLine; row < lastRow; row++) {
       const lineText = doc.lineAt(row).text;
-      if (/^\s*\$/.test(lineText)) {
+      if (promptReg.test(lineText)) {
         return;
       }
     }
 
     let firstRow = 0;
-    const promptReg = new RegExp(`^${MAGIK_PROMPT}\\s*$`);
     for (let row = startLine; row > -1; row--) {
       const lineText = doc.lineAt(row).text;
       if (promptReg.test(lineText)) {
@@ -301,7 +318,7 @@ class MagikConsole {
       updateCurrentRow = doc.lineCount - 1 === currentRow;
     }
 
-    edit.insert(doc.uri, insertPos, `${prefix}$\n\n${MAGIK_PROMPT} \n`);
+    edit.insert(doc.uri, insertPos, `${prefix}\n${magikUtils.MAGIK_PROMPT} \n`);
     await vscode.workspace.applyEdit(edit);
 
     if (updateCurrentRow) {

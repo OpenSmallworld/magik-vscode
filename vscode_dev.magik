@@ -193,6 +193,7 @@ _pragma(classify_level=debug)
 _global _constant vs_monitor_output <<
 _proc @vs_monitor_output(enable?)
 
+	_global timer, external_text_simple_output_stream
 	_global vs_output_timer, vs_default_terminal, vs_output
 	_global !output!, !error_output!, !terminal!
 
@@ -207,18 +208,19 @@ _proc @vs_monitor_output(enable?)
 				vs_default_terminal << !terminal!
 			_endif
 
-			_local remove_empty_lines << _proc(a_string)
-					lines << rope.new_from(a_string.split_by(%newline))
-					_for n _over range(lines.size, 1, -1)
+			_local simple? << external_text_simple_output_stream _isnt _unset
+
+			_local remove_trailing_lines << _proc(a_string)
+					end << 0
+					_for index _over a_string.size.downto(1)
 					_loop
-						_if lines[n].empty?
+						_if _not a_string[index].white_space?
 						_then
-							lines.remove_nth(n)
-						_else
+							end << index
 							_leave
 						_endif
 					_endloop
-					_return lines.join_as_strings(%newline)
+					_return a_string.slice(1, end)
 				_endproc
 
 			_local orig_output << !output!
@@ -239,42 +241,88 @@ _proc @vs_monitor_output(enable?)
 				# write("Cannot remove " + output_file)
 			_endtry
 
-			vs_output_timer << timer.schedule_fixed_delay(
-				_proc @vs_output_timer()
-					_import orig_output, output_file, remove_empty_lines
-					_global vs_output
+			_if timer _isnt _unset
+			_then
+				vs_output_timer << timer.schedule_fixed_delay(
+					_proc @vs_output_timer()
+						_import output_file, remove_trailing_lines, simple?
+						_global vs_output
 
-					_lock vs_output
-						str << vs_output.string
-						_if _not str.empty? _andif str.last _is %newline
-						_then
-							output_str << remove_empty_lines(str)
-							output_stream << _unset
-							done? << _false
-							_protect
-								output_stream << external_text_simple_output_stream.new_appending(output_file)
-								output_stream.write(output_str, %newline)
-								done? << _true
-							_protection
-								_if output_stream _isnt _unset
+						_lock vs_output
+							str << vs_output.string
+							_if _not str.empty? _andif str.last _is %newline
+							_then
+								output_str << remove_trailing_lines(str)
+								output_stream << _unset
+								done? << _false
+								_protect
+									output_stream << _if simple?
+										_then
+											>> external_text_simple_output_stream.new_appending(output_file)
+										_else
+											>> external_text_output_stream.new(output_file)
+										_endif
+									output_stream.write(output_str, %newline)
+									done? << _true
+								_protection
+									_if output_stream _isnt _unset
+									_then
+										output_stream.close()
+									_endif
+									_if done?
+									_then
+										vs_output.reset()
+									_endif
+								_endprotect
+							_endif
+						_endlock
+					_endproc,
+					1.0, 0.4)
+			_else
+				vs_output_timer <<
+					_proc @vs_output_timer()
+						_import output_file, remove_trailing_lines
+						_global vs_output
+
+						_loop
+							_thisthread.sleep(400)
+
+							_lock vs_output
+								str << vs_output.string
+								_if _not str.empty?
 								_then
-									output_stream.close()
+									output_str << remove_trailing_lines(str)
+									output_stream << _unset
+									done? << _false
+									_protect
+										output_stream << external_text_output_stream.new(output_file)
+										output_stream.write(output_str, %newline)
+										done? << _true
+									_protection
+										_if output_stream _isnt _unset
+										_then
+											output_stream.close()
+										_endif
+										_if done?
+										_then
+											vs_output.reset()
+										_endif
+									_endprotect
 								_endif
-								_if done?
-								_then
-									vs_output.reset()
-								_endif
-								# orig_output.write(str)
-							_endprotect
-						_endif
-					_endlock
-				_endproc,
-				1.0, 0.4)
+							_endlock
+						_endloop
+					_endproc.fork_at(_thisthread.low_background_priority)
+			_endif
 		_endif
 
 	_elif vs_output_timer _isnt _unset
 	_then
-		vs_output_timer.cancel()
+		_if timer _isnt _unset
+		_then
+			vs_output_timer.cancel()
+		_else
+			vs_output_timer.kill()
+		_endif
 		vs_output_timer << _unset
 		vs_output << _unset
 		!output! << !error_output! << !terminal! << vs_default_terminal
@@ -428,6 +476,7 @@ _pragma(classify_level=debug)
 _global _constant vs_console_load <<
 _proc @vs_console_load()
 
+	_global external_text_simple_output_stream
 	_global !global_auto_declare?!
 	_global vs_default_terminal
 	_global vs_output
@@ -455,18 +504,17 @@ _proc @vs_console_load()
 			>> system.pathname_down(temp_dir, "vscode_output_temp.txt")
 		_endif
 
-	_local remove_empty_lines << _proc(a_string)
-			lines << rope.new_from(a_string.split_by(%newline))
-			_for n _over range(lines.size, 1, -1)
+	_local remove_trailing_lines << _proc(a_string)
+			end << 0
+			_for index _over a_string.size.downto(1)
 			_loop
-				_if lines[n].empty?
+				_if _not a_string[index].white_space?
 				_then
-					lines.remove_nth(n)
-				_else
+					end << index
 					_leave
 				_endif
 			_endloop
-			_return lines.join_as_strings(%newline)
+			_return a_string.slice(1, end)
 		_endproc
 
 	orig_output << !output!
@@ -480,7 +528,12 @@ _proc @vs_console_load()
 
 	_protect
 		input_stream << external_text_input_stream.new(input_file)
-		output_stream << external_text_simple_output_stream.new_appending(output_file)
+		output_stream << _if external_text_simple_output_stream _isnt _unset
+			_then
+				>> external_text_simple_output_stream.new_appending(output_file)
+			_else
+				>> external_text_output_stream.new(output_file)
+			_endif
 
 		_if vs_output _is _unset
 		_then
@@ -490,15 +543,27 @@ _proc @vs_console_load()
 			!terminal! << vs_default_terminal
 		_endif
 
+		sw4? << system.vm_version < 5
 		input_lines << rope.new()
 		_loop
 			_if (a_line << input_stream.get_line()) _is _unset
 			_then
 				_leave
 			_endif
-			_if a_line.size < 8 _orif a_line.subseq(1, 8) <> "# Magik>"
+			_if sw4?
 			_then
-				input_lines.add_last(a_line)
+				_if _not a_line.empty? _andif
+					a_line[1] _isnt %# _andif
+				a_line[1] _isnt %$ _andif
+					(a_line.size < 9 _orif _not a_line.subseq(1, 9).eq?("_package "))
+				_then
+					input_lines.add_last(a_line)
+				_endif
+			_else
+				_if a_line.size < 8 _orif a_line.subseq(1, 8) <> "# Magik>"
+				_then
+					input_lines.add_last(a_line)
+				_endif
 			_endif
 		_endloop
 		input_str << input_lines.join_as_strings(%newline)
@@ -512,7 +577,7 @@ _proc @vs_console_load()
 
 		_if vs_output _is _unset _andif _not output_str_empty?
 		_then
-			str << remove_empty_lines(output_str)
+			str << remove_trailing_lines(output_str)
 			output_stream.write(str, %newline)
 		_endif
 
@@ -527,7 +592,7 @@ _proc @vs_console_load()
 			error_str << !error_output!.string
 			_if _not error_str.empty? _andif error_str <> output_str
 			_then
-				str << remove_empty_lines(error_str)
+				str << remove_trailing_lines(error_str)
 				output_stream.write(str, %newline)
 			_endif
 		_endif
@@ -2757,6 +2822,7 @@ _proc ( tests, _optional background? )
 	_global test_case
 	_global test_runner
 	_global mtest_result
+	_dynamic !output!
 
 	_if tests.is_kind_of?( "" )
 	_then
@@ -2798,9 +2864,9 @@ _proc ( tests, _optional background? )
 			_loop
 				_if a_test _is _unset _then _continue _endif
 
+				write(" ")
 				_for t _over a_test.tests()
 				_loop
-					write()
 					name << t.get_name()
 					_if name _is _unset
 					_then
@@ -2827,14 +2893,14 @@ _proc ( tests, _optional background? )
 
 					_if failures > 0 _orif errors > 0
 					_then
-						write()
+						write(" ")
 					_endif
 					lines << a_stream.string.split_by( %newline )
 					_for a_line _over lines.fast_elements()
 					_loop
-						write( " ", a_line )
+						write(" ", a_line)
 					_endloop
-					write()
+					write(" ")
 
 					n_runs +<< a_test_result.run_count()
 					n_assertions +<< a_test_result.assert_count()
@@ -2857,7 +2923,7 @@ _proc ( tests, _optional background? )
 			_then
 				total_time << system.elapsed_seconds() - run_start_time
 
-				write()
+				write(" ")
 				_if failing_tests.empty? _andif tests_with_errors.empty?
 				_then
 					write( "**** SUCCESS ****" )
@@ -2873,7 +2939,7 @@ _proc ( tests, _optional background? )
 
 				write( " Tests run: ", n_runs, "   Tests failed: ", failing_tests.size )
 				write( " Assertions: ", n_assertions, "   Failures: ", n_failures, "   Errors: ", n_errors )
-				write()
+				write(" ")
 
 				_if n_runs > 8
 				_then
@@ -2884,7 +2950,7 @@ _proc ( tests, _optional background? )
 						_loop
 							write( " ", a_name )
 						_endloop
-						write()
+						write(" ")
 					_endif
 
 					_if _not tests_with_errors.empty?
@@ -2894,7 +2960,7 @@ _proc ( tests, _optional background? )
 						_loop
 							write( " ", a_name )
 						_endloop
-						write()
+						write(" ")
 					_endif
 				_endif
 			_endif

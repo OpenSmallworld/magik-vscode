@@ -219,6 +219,8 @@ const DEFINE_KEYWORD_TESTS = [
 ];
 const IMPORT_TEST = /_import\s+((?=([\w!?]+))\s*,\s*)*$/;
 
+const MAGIK_PROMPT = '# Magik>';
+
 function previousWordInString(text, index) {
   const match = /([\w!?]+)[^\w!?]*[\w!?]*$/.exec(text.substring(0, index));
   if (match) {
@@ -380,7 +382,9 @@ function currentRegion(methodOnly, startLine) {
   const doc = editor.document;
   const startMethodReg = /^\s*(_abstract\s+)*(_private\s+)*(_iter\s+)*_method\s+/;
   const endMethodReg = /^\s*_endmethod/;
-  const previousReg = /^(\s*\$|\s*_endmethod|_endblock)/;
+  const previousReg = new RegExp(
+    `^(\\s*\\$|\\s*_endmethod|_endblock|${MAGIK_PROMPT})`
+  );
   const nextReg = /^(\s*\$|\s*_pragma|\s*(_abstract\s+)*(_private\s+)*(_iter\s+)*_method\s+|_block)/;
   const startReg = /^_block/;
   const endReg = /^_endblock/;
@@ -491,7 +495,9 @@ function indentRegion() {
   if (!editor) return {};
 
   const doc = editor.document;
-  const previousReg = /^(\s*\$|\s*_endmethod|_endblock)/;
+  const previousReg = new RegExp(
+    `^(\\s*\\$|\\s*_endmethod|_endblock|${MAGIK_PROMPT})`
+  );
   const nextReg = /^(\s*\$|\s*_pragma|\s*(_abstract\s+)*(_private\s+)*(_iter\s+)*_method\s+|_block)/;
   const startReg = /^(_pragma|_method|_private|_iter|_abstract|_global|_proc|_block)/;
 
@@ -620,7 +626,7 @@ function getPackageName(doc) {
     }
   }
 
-  return 'sw';
+  return 'user';
 }
 
 function getClassAndMethodName(text) {
@@ -939,6 +945,7 @@ async function sendToTerminal(stringToSend) {
     .magikProcessName;
 
   if (processName !== '') {
+    const appName = vscode.env.appName;
     const ext = vscode.extensions.getExtension('GE-Smallworld.magik-vscode');
     const scriptName = isNaN(processName)
       ? 'sendToMagikName.vbs'
@@ -949,7 +956,7 @@ async function sendToTerminal(stringToSend) {
       text = text.replace(new RegExp(`\\${c}`, 'g'), `{${c}}`);
     }
     text = text.replace(/"/g, "'");
-    const command = `cscript ${file} "${processName}" "${text}"`;
+    const command = `cscript ${file} "${appName}" "${processName}" "${text}"`;
     await cp.execSync(command);
   } else {
     const command = `${stringToSend}\u000D`;
@@ -997,6 +1004,7 @@ module.exports = {
   DEFINITION_TESTS,
   DEFINE_KEYWORD_TESTS,
   IMPORT_TEST,
+  MAGIK_PROMPT,
   currentWordInString,
   currentWord,
   previousWordInString,

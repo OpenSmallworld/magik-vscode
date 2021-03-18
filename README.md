@@ -144,8 +144,9 @@ Closing all console files will stop standard output being captured and revert be
 Limitations: The console file does not currently support waiting for a response (where !terminal!.get_line() is used).<br>
 Capturing output is not automatically restarted if a new session is started with an existing console file. The workaround is to save the console file or create a new one.
 
-Warning: Capturing output in the console file is an experimental feature.<br>
-This is controlled by the setting `magik-vscode.enableOutputToConsoleFile` and is disabled by default.
+Warning: Capturing output in the console file is an experimental feature.
+
+Capturing output is controlled by the setting `magik-vscode.enableOutputToConsoleFile` and is disabled by default.
 
 <br>
 
@@ -334,8 +335,8 @@ I would recommend using these other extensions:
 
 ## Known Issues
 
-* Magik definition symbols (to support searching for methods, exemplars, conditions and globals) are only loaded automatically when compiling code using VS Code Magik commands.<br>
-Use **Alt+M** to refresh definitions manually after compiling code from the prompt, scripts or module dialog.
+* Magik definition symbols (to support searching for methods, exemplars, conditions and globals) are only loaded automatically when compiling code using VS Code Magik commands (for SW5).<br>
+Use **Alt+M** to refresh definitions manually after compiling code from the prompt, scripts, module dialog or using SW4.
 * No highlighting or formatting at the terminal - I suggest using a Magik Console File (**Alt+E**) or creating a temporary magik file for writing Magik (**Alt+N**) and compile using **F7** or **F8**.
 * Capturing output to a Magik Console File is not automatically restarted if a new session is started with an existing console file. The workaround is to save the console file or create a new one.
 * Capturing output to a Magik Console File will not work with Magik sessions running in mulitple VS Code windows.

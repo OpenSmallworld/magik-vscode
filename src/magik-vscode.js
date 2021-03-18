@@ -24,6 +24,8 @@ class MagikVSCode {
     this.symbolProvider = symbolProvider;
     this.magikConsole = new MagikConsole(this);
 
+    this.symbolFileWatcher = undefined;
+
     this._initialise(context);
   }
 
@@ -124,14 +126,17 @@ class MagikVSCode {
   }
 
   _checkFileAfterSaveSymbols() {
-    const fileDir = os.tmpdir();
-    const symbolFile = path.join(fileDir, SYMBOLS_FILENAME);
-    const watcher = chokidar.watch(symbolFile);
+    if (this.symbolFileWatcher === undefined) {
+      const fileDir = os.tmpdir();
+      const symbolFile = path.join(fileDir, SYMBOLS_FILENAME);
+      const watcher = chokidar.watch(symbolFile);
 
-    watcher.on('add', () => {
-      watcher.close();
-      vscode.commands.executeCommand('magik.checkFile', {});
-    });
+      watcher.on('add', () => {
+        watcher.close();
+        this.symbolFileWatcher = undefined;
+        vscode.commands.executeCommand('magik.checkFile', {});
+      });
+    }
   }
 
   _openFile(args) {
@@ -333,10 +338,9 @@ class MagikVSCode {
       await this.magikConsole.compileText(doc, lines, regionLines);
     } else {
       await this._compileText(lines);
-    }
-
-    if (methodName) {
-      this._checkFileAfterSaveSymbols();
+       if (methodName) {
+        this._checkFileAfterSaveSymbols();
+      }
     }
   }
 
@@ -378,10 +382,9 @@ class MagikVSCode {
       await this.magikConsole.compileText(doc, lines, regionLines);
     } else {
       await this._compileText(lines);
-    }
-
-    if (className) {
-      this._checkFileAfterSaveSymbols();
+      if (className) {
+        this._checkFileAfterSaveSymbols();
+      }
     }
   }
 
@@ -426,7 +429,7 @@ class MagikVSCode {
   async _newMagikConsole() {
     await this._newMagikBuffer(
       'console',
-      '# Magik> \n',
+      `${magikUtils.MAGIK_PROMPT} \n`,
       vscode.ViewColumn.Beside
     );
 
@@ -1984,7 +1987,7 @@ class MagikVSCode {
   }
 
   _getFileHoverString(doc, pos, lineText) {
-    const pathReg = /(?:\s|\(|\[|^)((?:\w:|\/).*?\..*?)(?:\s|\)|\]|$)/g;
+    const pathReg = /(?:\s|[(\['"]|^)((?:\w:|\/).*?\..*?)(?:\s|[)\]'"]|$)/g;
     const firstColumn = this.magikConsole.isConsoleDoc(doc);
     let startIndex = 0;
     let pathMatch;
