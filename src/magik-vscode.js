@@ -1081,13 +1081,15 @@ class MagikVSCode {
   }
 
   async _goto(args) {
+    const firstColumn = args ? args.firstColumn : undefined;
+
     if (args && args.query) {
       await this._gotoFromQuery(
         args.query,
         args.command,
         false,
         true,
-        args.firstColumn
+        firstColumn
       );
       return;
     }
@@ -1119,7 +1121,7 @@ class MagikVSCode {
     if (!def.currentWord) return;
 
     if (def.symbol) {
-      this._gotoSymbol(def.symbol, args.firstColumn);
+      this._gotoSymbol(def.symbol, firstColumn);
       return;
     }
 
@@ -1151,7 +1153,7 @@ class MagikVSCode {
       command = `vs_goto("^${def.currentWord}$")`;
     }
 
-    await this._gotoFromQuery(query, command, inherit, false, args.firstColumn);
+    await this._gotoFromQuery(query, command, inherit, false, firstColumn);
   }
 
   async _refreshSymbols() {
@@ -1382,9 +1384,10 @@ class MagikVSCode {
       currentWord,
       pos.character - currentWord.length
     );
+    const previousChar = magikUtils.previousCharacter(currentText, index);
     let length;
 
-    if (magikUtils.previousCharacter(currentText, index) === '.') {
+    if (previousChar === '.') {
       const slots = magikUtils.localSlots(doc, pos);
       length = slots.length;
       for (let i = 0; i < length; i++) {
@@ -1514,37 +1517,37 @@ class MagikVSCode {
           const label = `_${key}`;
 
           if (key.startsWith(currentWord) || label.startsWith(currentWord)) {
-            let item = new vscode.CompletionItem(
+            const item = new vscode.CompletionItem(
               label,
               vscode.CompletionItemKind.Keyword
             );
             item.detail = 'Keyword';
             item.sortText =
-              label === this.outdentWord ? `20${key}` : `22${key}`;
+              label === this.outdentWord ? `21${key}` : `22${key}`;
             item.filterText = key;
             items.push(item);
-
-            // _endmethod with dollar and newline
-            if (key === 'endmethod') {
-              item = new vscode.CompletionItem(
-                '_endmethod + $',
-                vscode.CompletionItemKind.Keyword
-              );
-              item.detail = 'Keyword';
-              item.insertText = '_endmethod\n$\n';
-              item.sortText =
-                label === this.outdentWord ? `21${key}` : `23${key}`;
-              item.filterText = key;
-              const insertRange = new vscode.Range(
-                pos.line,
-                0,
-                pos.line,
-                currentText.length
-              );
-              item.range = {replacing: insertRange, inserting: insertRange};
-              items.push(item);
-            }
           }
+        }
+
+        // _endmethod with dollar and newline
+        if (this.outdentWord === '_endmethod' &&
+          ('endmethod'.startsWith(currentWord) || '_endmethod'.startsWith(currentWord))) {
+          const item = new vscode.CompletionItem(
+            '_endmethod + $',
+            vscode.CompletionItemKind.Keyword
+          );
+          item.detail = 'Keyword';
+          item.insertText = '_endmethod\n$\n';
+          item.sortText = '20endmethod';
+          item.filterText = 'endmethod';
+          const insertRange = new vscode.Range(
+            pos.line,
+            0,
+            pos.line,
+            currentText.length
+          );
+          item.range = {replacing: insertRange, inserting: insertRange};
+          items.push(item);
         }
       }
 
