@@ -1,0 +1,141 @@
+body {
+	background-color: transparent;
+	padding-top: 0.1em;
+}
+
+.search-container {
+	width: 100%;
+	display: flex;
+}
+
+.search-input {
+	display: block;
+	flex: 10;
+	border: 1px solid var(--vscode-checkbox-border);
+	color: var(--vscode-input-foreground);
+	background-color: var(--vscode-input-background);
+	padding: 0 0.6em;
+	max-width: 500px;
+	height: 1.8em;
+	margin-right: 6px;
+}
+
+.info-button {
+	flex: 0;
+	border: none;
+	margin-left: 6px;
+	padding: 0 0.5em;
+	height: 1.8em;
+	background-color: var(--vscode-button-secondaryBackground);
+}
+
+.info-button.selected {
+	background-color: var(--vscode-button-background);
+}
+
+.info-button[disabled]:hover {
+	cursor: default;
+	background-color: var(--vscode-button-secondaryBackground);
+}
+
+.connect-container {
+	flex: 1;
+}
+
+.connect-button {
+	flex: 0;
+	border: none;
+	margin-left: 12px;
+	padding: 0 0.5em;
+	height: 1.8em;
+}
+
+.results-length {
+	padding-left: 0.6em;
+	padding-top: 0.2em;
+}
+
+.results-list {
+	list-style: none;
+	padding: 0 0.6em;
+	margin-top: 0.6em;
+	overflow: auto;
+	height: calc(100vh - 5em);
+}
+
+.method-element {
+	overflow: hidden;
+	width: 100%;
+	display: flex;
+	margin-top: 0.3em;
+	padding: 0.1em 0.3em 0.2em 0.3em;
+	cursor: pointer;
+	background-color: var(--vscode-list-hoverBackground);
+	outline: 1px solid transparent;
+}
+
+.method-element:first-child {
+	margin-top: 1px;
+}
+
+.method-element:hover {
+	outline-color: var(--vscode-button-hoverBackground);
+}
+
+.method-element:focus-visible {
+	outline-color: var(--vscode-focusBorder);
+}
+
+.codicon {
+	color : var(--vscode-symbolIcon-methodForeground);
+	padding-top: 0.1em;
+	padding-right: 0.3em;
+}
+
+.basic {
+	color: var(--vscode-debugIcon-startForeground);
+}
+
+.class-entry {
+	color: var(--vscode-debugIcon-startForeground);
+}
+
+.method-entry {
+	color: var(--vscode-textLink-foreground);
+}
+
+.info-entry {
+	padding-left: 3em;
+	color: var(--vscode-errorForeground);
+	flex: 1;
+}
+
+.topics-entry {
+	padding-left: 3em;
+	padding-right: 0.6em;
+}
+
+.info-list {
+	list-style: none;
+	padding-left: 2.2em;
+}
+
+.args-element {
+	width: 100%;
+	display: flex;
+	margin-bottom: 0.2em;
+	color: var(--vscode-editorWarning-foreground);
+}
+
+.comment-element {
+	width: 100%;
+	display: flex;
+}
+
+.comment-element:first-child {
+	margin-top: 0.1em;
+}
+
+.comment-element:last-child {
+	margin-bottom: 0.1em;
+}

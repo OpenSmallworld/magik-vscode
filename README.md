@@ -60,6 +60,7 @@ Adds the following features to VS Code:
     * Data inspection as you hover over source in the editor
 
 * Search:
+    * Class Browser panel (**F3 F3**)
     * Search Magik methods, exemplars, conditions and globals in the current session (**Ctrl+M**)
     * Magik definitions in the current file to support Outline view
 
@@ -89,6 +90,16 @@ Adds the following features to VS Code:
     * Command `Magik Select Region` (**Alt+R**)
 
 (Use Ctrl+Shift+P to list available commands and type 'Magik')
+
+<br>
+
+### **Class Browser**
+
+The Class Browser panel can be shown using **F3 F3**.<br>
+After starting a session press Connect to use the method_finder (for the session associated with the current terminal).<br>
+The up and down arrow keys can be used to navigate between the search item and the results. Press enter or click on a method to jump to source.
+
+The max number of results can be changed using the setting `magik-vscode.maxClassBrowserResults`.
 
 <br>
 
@@ -303,6 +314,11 @@ I would recommend using these other extensions:
     "magik-vscode.wrapCommentLineLength": 80
     ```
 
+* Maximum number of results displayed in the Class Browser (Default value is 500)
+    ```json
+    "magik-vscode.maxClassBrowserResults": 500
+    ```
+
 * Enable Magik actions in hover tooltip (Search, Go To, Run Test...).
     ```json
     "magik-vscode.enableHoverActions": true
@@ -353,6 +369,10 @@ Please add issues here:
 https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 
 ## Release Notes
+
+### 0.2.0
+
+* Added Class Browser panel
 
 ### 0.1.2
 

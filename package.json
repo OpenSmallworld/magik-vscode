@@ -111,6 +111,15 @@
                 "variables": {}
             }
         ],
+        "views": {
+            "explorer": [
+                {
+                    "type": "webview",
+                    "id": "magik.classBrowser",
+                    "name": "Magik Class Browser"
+                }
+            ]
+        },
         "commands": [
             {
                 "command": "magik.goto",
@@ -171,6 +180,10 @@
             {
                 "command": "magik.gotoNextDefinition",
                 "title": "Magik Go To Next Definition"
+            },
+            {
+                "command": "magik.classBrowser",
+                "title": "Magik Class Browser"
             },
             {
                 "command": "magik.selectRegion",
@@ -320,6 +333,10 @@
                 "when": "editorTextFocus"
             },
             {
+                "command": "magik.classBrowser",
+                "key": "F3 F3"
+            },
+            {
                 "command": "magik.selectRegion",
                 "key": "alt+r",
                 "when": "editorTextFocus"
@@ -464,6 +481,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Enable capturing Magik terminal output to a Magik console file."
+                },
+                "magik-vscode.maxClassBrowserResults": {
+                    "type": "integer",
+                    "default": 500,
+                    "description": "Maximum number of results displayed in the Class Browser. Default value is 500."
                 }
             }
         },
@@ -484,6 +506,7 @@
         "bluebird": "^3.7.2",
         "chokidar": "^3.5.1",
         "findit": "^2.0.0",
+        "vscode-codicons": "^0.0.17",
         "vscode-debugadapter": "1.33.0",
         "ws": "^7.4.3"
     },

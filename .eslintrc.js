@@ -41,6 +41,7 @@ module.exports = {
     'no-plusplus': 'off',
     strict: ['error', 'global'],
     'require-yield': 'off',
+    'max-len': [2, 101],
   },
 
   overrides: [

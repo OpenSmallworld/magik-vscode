@@ -125,6 +125,34 @@ $
 
 
 _pragma(classify_level=debug)
+_global _constant vs_session_info <<
+_proc()
+	_if method_finder.pid _is _unset
+	_then
+		method_finder.start_acp()
+	_endif
+
+	output_file << system.pathname_down(system.temp_directory_name, "vscode_info.txt")
+
+	id_str << system.process_id.write_string
+	gis_dir << system.getenv("SMALLWORLD_GIS")
+
+	output_stream << _unset
+	_protect
+		output_stream << external_text_output_stream.new(output_file)
+		output_stream.write("processId|", id_str, newline_char)
+		output_stream.write("gisDir|", gis_dir)
+	_protection
+		_if output_stream _isnt _unset
+		_then
+			output_stream.close()
+		_endif
+	_endprotect
+_endproc
+$
+
+
+_pragma(classify_level=debug)
 ## Jump to source in VS Code
 _global _constant vs_goto <<
 _proc ( method_string, _optional class_string, super? )
@@ -252,16 +280,21 @@ _proc @vs_monitor_output(enable?)
 							str << vs_output.string
 							_if _not str.empty? _andif str.last _is %newline
 							_then
-								output_str << remove_trailing_lines(str)
 								output_stream << _unset
 								done? << _false
 								_protect
-									output_stream << _if simple?
-										_then
-											>> external_text_simple_output_stream.new_appending(output_file)
-										_else
-											>> external_text_output_stream.new(output_file)
-										_endif
+									_if simple?
+									_then
+										_try
+											output_stream << external_text_simple_output_stream.new_appending(output_file)
+										_when filesystem_error
+											# Ignore
+											_return
+										_endtry
+									_else
+										output_stream << external_text_output_stream.new(output_file)
+									_endif
+									output_str << remove_trailing_lines(str)
 									output_stream.write(output_str, %newline)
 									done? << _true
 								_protection

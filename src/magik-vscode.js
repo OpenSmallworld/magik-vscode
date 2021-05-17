@@ -8,11 +8,13 @@ const chokidar = require('chokidar');
 const magikUtils = require('./magik-utils');
 const magikVar = require('./magik-variables');
 const MagikConsole = require('./magik-console');
+const MagikClassBrowser = require('./magik-class-browser');
 
 const TERMINAL_TB_REG = /^([\w!?]+)\.([\w!?\(\)\[\]\^]+)\s+\([\w\d\s\\\/\.:!]+\d+\)/;
 const TERMINAL_DEBUG_TB_REG = /^(?:\[\d+\])?\s+([\w!?\(\)\[\]\^]+)\s\.{2,}\s([\w!?]+)\s+/;
 
 const SYMBOLS_FILENAME = 'vscode_symbols.txt';
+const INFO_FILENAME = 'vscode_info.txt';
 const FILE_CACHE_SIZE = 100;
 
 class MagikVSCode {
@@ -23,6 +25,8 @@ class MagikVSCode {
 
     this.symbolProvider = symbolProvider;
     this.magikConsole = new MagikConsole(this);
+
+    this.magikClassBrowser = new MagikClassBrowser(this, context);
 
     this.symbolFileWatcher = undefined;
 
@@ -125,11 +129,45 @@ class MagikVSCode {
     vscode.window.registerTerminalLinkProvider(this);
   }
 
+  getSessionInfo(callback) {
+    if (this.processFileWatcher !== undefined) {
+      this.processFileWatcher.close();
+    }
+
+    const fileDir = os.tmpdir();
+    const infoFile = path.join(fileDir, INFO_FILENAME);
+    const watcher = chokidar.watch(infoFile);
+    this.processFileWatcher = watcher;
+
+    watcher.on('add', () => {
+      watcher.close();
+      this.processFileWatcher = undefined;
+
+      const lines = fs
+        .readFileSync(infoFile)
+        .toString()
+        .split('\n');
+      const data = {};
+
+      for (const line of lines) {
+        const parts = line.split('|');
+        data[parts[0]] = parts[1];
+      }
+
+      fs.unlinkSync(infoFile);
+
+      callback.call(this, data);
+    });
+
+    this.magikConsole.sendCommandToTerminal('vs_session_info');
+  }
+
   _checkFileAfterSaveSymbols() {
     if (this.symbolFileWatcher === undefined) {
       const fileDir = os.tmpdir();
       const symbolFile = path.join(fileDir, SYMBOLS_FILENAME);
       const watcher = chokidar.watch(symbolFile);
+      this.symbolFileWatcher = watcher;
 
       watcher.on('add', () => {
         watcher.close();
@@ -338,7 +376,7 @@ class MagikVSCode {
       await this.magikConsole.compileText(doc, lines, regionLines);
     } else {
       await this._compileText(lines);
-       if (methodName) {
+      if (methodName) {
         this._checkFileAfterSaveSymbols();
       }
     }
@@ -951,6 +989,13 @@ class MagikVSCode {
       let loc;
       let startLine;
 
+      try {
+        fs.accessSync(sym._fileName, fs.constants.R_OK);
+      } catch (err) {
+        vscode.window.showErrorMessage(`Cannot open file: ${sym._fileName}`);
+        return;
+      }
+
       if (sym.location.range) {
         startLine = sym.location.range.start.line;
       }
@@ -1530,8 +1575,11 @@ class MagikVSCode {
         }
 
         // _endmethod with dollar and newline
-        if (this.outdentWord === '_endmethod' &&
-          ('endmethod'.startsWith(currentWord) || '_endmethod'.startsWith(currentWord))) {
+        if (
+          this.outdentWord === '_endmethod' &&
+          ('endmethod'.startsWith(currentWord) ||
+            '_endmethod'.startsWith(currentWord))
+        ) {
           const item = new vscode.CompletionItem(
             '_endmethod + $',
             vscode.CompletionItemKind.Keyword
