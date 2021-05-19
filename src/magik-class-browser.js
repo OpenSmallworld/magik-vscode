@@ -51,8 +51,7 @@ class MagikClassBrowser {
           this._connect();
           break;
         case 'search':
-          this._searchProperties.searchValue = message.value;
-          this._search(message.value);
+          this._search(message.className, message.methodName);
           break;
         case 'methodSelected':
           this._gotoMethod(message.className, message.methodName);
@@ -145,7 +144,8 @@ class MagikClassBrowser {
 			</head>
 			<body>
 				<div class="search-container">
-          <input class="search-input" placeholder="Search class.method or method" disabled></input>
+          <input id="methodInput" class="search-input" placeholder="Method name" disabled></input>
+          <input id="classInput" class="search-input" placeholder="Class name" disabled></input>
           <button id="localButton" class="info-button" disabled>Local</button>
           <button id="argsButton" class="info-button" disabled>Args</button>
           <button id= "commentsButton" class="info-button" disabled>Comments</button>
@@ -353,22 +353,15 @@ class MagikClassBrowser {
     return maxResults;
   }
 
-  _search(text) {
+  _search(className = '', methodName = '') {
     if (this._childProcess === undefined) {
       return;
     }
 
-    const maxResults = this._getMaxResults();
+    this._searchProperties.className = className;
+    this._searchProperties.methodName = methodName;
 
-    const searchValues = text.split('.');
-    let className = '';
-    let methodName = '';
-    if (searchValues.length === 1) {
-      methodName = searchValues[0];
-    } else {
-      className = searchValues[0];
-      methodName = searchValues[1];
-    }
+    const maxResults = this._getMaxResults();
 
     const strings = [
       'unadd class',
@@ -391,12 +384,12 @@ class MagikClassBrowser {
   }
 
   async _gotoMethod(className, methodName) {
-    // FIXME - don't use symbols
+    // FIXME - find source from method finder
     let query;
     let command;
     if (className) {
       query = `^${className}$.^${methodName}$`;
-      command = `vs_goto("^${methodName}$", "${className}")`;
+      command = `vs_goto("^${methodName}$", "^${className}$")`;
     } else {
       query = `^${methodName}$`;
       command = `vs_goto("^${methodName}$")`;

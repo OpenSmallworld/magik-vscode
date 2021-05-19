@@ -7,21 +7,32 @@
 (function main() {
   const vscode = acquireVsCodeApi();
 
+  const methodInput = document.querySelector('#methodInput');
+  const classInput = document.querySelector('#classInput');
+
+  const connectButton = document.querySelector('.connect-button');
   let navigationElements = [];
   let selectedElement;
 
-  const connectButton = document.querySelector('.connect-button')
   connectButton.addEventListener('click', () => {
     vscode.postMessage({type: 'connect'});
   });
   connectButton.setAttribute('tabindex', -1);
 
-  // document.querySelector('.search-input').addEventListener('change', (e) => {
-  // 		vscode.postMessage({type: 'search', value: e.target.value});
-  // 	});
+  methodInput.addEventListener('input', debounce((e) => {
+    vscode.postMessage({
+      type: 'search',
+      className: classInput.value,
+      methodName: e.target.value,
+    });
+  }, 400));
 
-  document.querySelector('.search-input').addEventListener('input', debounce((e) => {
-    vscode.postMessage({type: 'search', value: e.target.value});
+  classInput.addEventListener('input', debounce((e) => {
+    vscode.postMessage({
+      type: 'search',
+      className: e.target.value,
+      methodName: methodInput.value,
+    });
   }, 400));
 
   document.querySelector('#localButton').addEventListener('click', (e) => {
@@ -37,13 +48,9 @@
   });
 
   document.onkeydown = (e) => {
-    // vscode.postMessage({type: 'info', value: e.key});
     const elementsLength = navigationElements.length;
+    const activeElement = document.activeElement;
     let newIndex;
-
-    if (elementsLength === 0) {
-      return;
-    }
 
     switch (e.key) {
       case 'Enter':
@@ -53,26 +60,53 @@
         }
         break;
       case 'ArrowUp':
-        if (selectedElement) {
+        if (activeElement === methodInput) {
+
+        } else if (activeElement === classInput) {
+          if (classInput.selectionStart === 0) {
+            methodInput.focus();
+            return false;
+          }
+        } else {
           const index = navigationElements.indexOf(selectedElement);
-          if (index > 0) {
+          if (index === 0) {
+            selectedElement = undefined;
+            methodInput.focus();
+            return false;
+          } else if (index > 0) {
             newIndex = index - 1;
           }
         }
         break;
       case 'ArrowDown':
-        newIndex = 1;
-        if (selectedElement) {
+        if (activeElement === methodInput || activeElement === classInput) {
+          newIndex = 0;
+        } else {
           const index = navigationElements.indexOf(selectedElement);
-          if (index !== -1 && index !== elementsLength - 1) {
+          newIndex = 0;
+          if (index !== elementsLength - 1) {
             newIndex = index + 1;
           }
+        }
+        break;
+      case 'ArrowLeft':
+        if (activeElement === classInput && classInput.selectionStart === 0) {
+          methodInput.focus();
+          return false;
+        }
+        break;
+      case 'ArrowRight':
+        if (activeElement === methodInput && methodInput.selectionEnd === methodInput.value.length) {
+          classInput.focus();
+          return false;
         }
         break;
       default:
     }
 
-    if (newIndex !== undefined) {
+    if (elementsLength === 0) {
+      selectedElement = undefined;
+    } else if (newIndex !== undefined) {
       selectedElement = navigationElements[newIndex];
       selectedElement.focus();
       return false;
@@ -82,7 +116,6 @@
   // Handle messages sent from the extension to the webview
   window.addEventListener('message', event => {
     const message = event.data; // The json data that the extension sent
-    let input;
     switch (message.type) {
       case 'updateResults':
         updateResultList(message.results, message.resultsLength);
@@ -94,9 +127,8 @@
         enableSearch(message.enabled);
         break;
       case 'setFocus':
-        input = document.querySelector('.search-input');
-        if (!input.classList.contains('disabled')) {
-          input.focus();
+        if (!methodInput.classList.contains('disabled')) {
+          methodInput.focus();
         }
         break;
       case 'search':
@@ -107,7 +139,9 @@
   });
 
   function search(message) {
-    document.querySelector('.search-input').value = message.searchValue;
+    methodInput.value = message.methodName;
+    classInput.value = message.className;
+
     if (message.hasOwnProperty('local')) {
       setInfoButton('#localButton', message.local);
     }
@@ -117,19 +151,27 @@
     if (message.hasOwnProperty('comments')) {
       setInfoButton('#commentsButton', message.comments);
     }
-    vscode.postMessage({type: 'search', value: message.searchValue});
+
+    vscode.postMessage({
+      type: 'search',
+      methodName: message.methodName,
+      className: message.className,
+    });
   }
 
   function infoButtonSelected(btn, name) {
-    const text = document.querySelector('.search-input').value;
+    const methodName = methodInput.value;
+    const className = classInput.value;
     const selected = btn.classList.contains('selected');
+
     if (selected) {
       btn.classList.remove('selected');
     } else {
       btn.classList.add('selected');
     }
+
     vscode.postMessage({type: 'setProperty', name, value: !selected});
-    vscode.postMessage({type: 'search', value: text});
+    vscode.postMessage({type: 'search', methodName, className,});
   }
 
   function setInfoButton(selector, selected) {
@@ -165,7 +207,7 @@
     const list = document.querySelector('.results-list');
 
     const methodsLength = results.length;
-    const navElements = [document.querySelector('.search-input')];
+    const navElements = [];
 
     if (resultsLength !== undefined) {
       document.querySelector('.results-length').textContent = `${resultsLength} results found`;
@@ -190,12 +232,6 @@
         img.classList.add('basic');
       }
       methodElement.appendChild(img);
-
-      // if (methodData.priv) {
-      //   const img = document.createElement('div')
-      //   img.classList.add('codicon', 'codicon-lock');
-      //   methodElement.appendChild(img);
-      // }
 
       addText(methodElement, `${methodData.package}\u2004:\u2004`);
 
@@ -277,7 +313,8 @@
   }
 
   function enableSearch(enabled) {
-    document.querySelector('.search-input').disabled = !enabled;
+    methodInput.disabled = !enabled;
+    classInput.disabled = !enabled;
     document.querySelector('#localButton').disabled = !enabled;
     document.querySelector('#argsButton').disabled = !enabled;
     document.querySelector('#commentsButton').disabled = !enabled;

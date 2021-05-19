@@ -163,7 +163,7 @@ _proc ( method_string, _optional class_string, super? )
 	a_class << _unset
 
 	_if class_string _isnt _unset _andif
-		class_string.an_element() _isnt %*
+		class_string.an_element() _isnt %^
 	_then
 		key << class_string.as_symbol()
 		class_string << _unset

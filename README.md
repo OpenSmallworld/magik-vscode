@@ -60,7 +60,7 @@ Adds the following features to VS Code:
     * Data inspection as you hover over source in the editor
 
 * Search:
-    * Class Browser panel (**F3 F3**)
+    * Class Browser panel (**Ctrl+B**)
     * Search Magik methods, exemplars, conditions and globals in the current session (**Ctrl+M**)
     * Magik definitions in the current file to support Outline view
 
@@ -95,7 +95,7 @@ Adds the following features to VS Code:
 
 ### **Class Browser**
 
-The Class Browser panel can be shown using **F3 F3**.<br>
+The Class Browser panel can be shown using **Ctrl+B**.<br>
 After starting a session press Connect to use the method_finder (for the session associated with the current terminal).<br>
 The up and down arrow keys can be used to navigate between the search item and the results. Press enter or click on a method to jump to source.
 
@@ -240,6 +240,7 @@ I would recommend using these other extensions:
         * `magik.gotoClipboardText`
         * `magik.refreshSymbols`
         * `magik.searchSymbols`
+        * `magik.classBrowser`
 
 * Code Navigation:
 

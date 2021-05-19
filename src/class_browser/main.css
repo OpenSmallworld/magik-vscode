@@ -1,6 +1,6 @@
 body {
 	background-color: transparent;
-	padding-top: 0.1em;
+	padding-top: 0.2em;
 }
 
 .search-container {
@@ -15,7 +15,7 @@ body {
 	color: var(--vscode-input-foreground);
 	background-color: var(--vscode-input-background);
 	padding: 0 0.6em;
-	max-width: 500px;
+	max-width: 350px;
 	height: 1.8em;
 	margin-right: 6px;
 }
@@ -51,7 +51,7 @@ body {
 }
 
 .results-length {
-	padding-left: 0.6em;
+	padding-left: 0.8em;
 	padding-top: 0.2em;
 }
 

@@ -334,7 +334,7 @@
             },
             {
                 "command": "magik.classBrowser",
-                "key": "F3 F3"
+                "key": "ctrl+b"
             },
             {
                 "command": "magik.selectRegion",
