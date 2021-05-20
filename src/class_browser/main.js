@@ -60,11 +60,11 @@
         }
         break;
       case 'ArrowUp':
-        if (activeElement === methodInput) {
+        if (activeElement === classInput) {
 
-        } else if (activeElement === classInput) {
-          if (classInput.selectionStart === 0) {
-            methodInput.focus();
+        } else if (activeElement === methodInput) {
+          if (methodInput.selectionStart === 0) {
+            classInput.focus();
             return false;
           }
         } else {
@@ -90,14 +90,14 @@
         }
         break;
       case 'ArrowLeft':
-        if (activeElement === classInput && classInput.selectionStart === 0) {
-          methodInput.focus();
+        if (activeElement === methodInput && methodInput.selectionStart === 0) {
+          classInput.focus();
           return false;
         }
         break;
       case 'ArrowRight':
-        if (activeElement === methodInput && methodInput.selectionEnd === methodInput.value.length) {
-          classInput.focus();
+        if (activeElement === classInput && classInput.selectionEnd === classInput.value.length) {
+          methodInput.focus();
           return false;
         }
         break;

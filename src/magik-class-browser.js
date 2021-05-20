@@ -144,8 +144,8 @@ class MagikClassBrowser {
 			</head>
 			<body>
 				<div class="search-container">
-          <input id="methodInput" class="search-input" placeholder="Method name" disabled></input>
           <input id="classInput" class="search-input" placeholder="Class name" disabled></input>
+          <input id="methodInput" class="search-input" placeholder="Method name" disabled></input>
           <button id="localButton" class="info-button" disabled>Local</button>
           <button id="argsButton" class="info-button" disabled>Args</button>
           <button id= "commentsButton" class="info-button" disabled>Comments</button>
