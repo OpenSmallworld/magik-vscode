@@ -90,13 +90,17 @@
         }
         break;
       case 'ArrowLeft':
-        if (activeElement === methodInput && methodInput.selectionStart === 0) {
+        if (activeElement === methodInput &&
+          methodInput.selectionStart === 0 &&
+          methodInput.selectionEnd === 0) {
           classInput.focus();
           return false;
         }
         break;
       case 'ArrowRight':
-        if (activeElement === classInput && classInput.selectionEnd === classInput.value.length) {
+        if (activeElement === classInput &&
+          classInput.selectionEnd === classInput.value.length &&
+          classInput.selectionStart === classInput.selectionEnd) {
           methodInput.focus();
           return false;
         }

@@ -1,6 +1,8 @@
-# Magik VSCode
+# <img src="./icons/target_128x128.png" width="24"/> Magik VSCode
 
 Magik language extension for VS Code. Supports Magik development in Smallworld 4.x and 5.x
+
+<img src="./icons/magik_vscode.png" width="800"/>
 
 ## Features
 
@@ -61,6 +63,9 @@ Adds the following features to VS Code:
 
 * Search:
     * Class Browser panel (**Ctrl+B**)
+
+        <img src="./icons/method_finder.png" width="600"/>
+
     * Search Magik methods, exemplars, conditions and globals in the current session (**Ctrl+M**)
     * Magik definitions in the current file to support Outline view
 
@@ -125,6 +130,8 @@ The linting can be enabled/diabled using the setting `magik-vscode.enableLinting
 
 ### **Magik Debugging (5.x)**
 
+<img src="./icons/magik_debug.png" width="800"/>
+
 The Magik session needs to be started with a Java option to tell the JVM to load the debug agent. For example from the command line this could be:
 
 S:\SW522\2019-10-09\core\bin\x86\runalias **-j -agentpath:S:\SW522\2019-10-09\core\bin\x86\mda.dll** -a S:\SW522\2019-10-09\cambridge_db\config\gis_aliases cambridge_db_open
@@ -185,6 +192,8 @@ I would recommend using these other extensions:
 * Git Lens
 * vscode-icons
 
+<br>
+
 ## Usage
 
 1. Open a folder containing Magik code in VS Code (**Note: Do this before opening a terminal**).
@@ -222,6 +231,7 @@ I would recommend using these other extensions:
     This will load a set of utility procs to support navigating and compiling Magik in VS Code.
     (vscode_dev.magik is supplied in this extension)
 
+<br>
 
 ## Tips
 
@@ -242,6 +252,21 @@ I would recommend using these other extensions:
         * `magik.searchSymbols`
         * `magik.classBrowser`
 
+* Utility Code:
+
+    Load vscode_dev.magik and connect to the Class Browser in the .magik file in your home directory (or equivalent script referenced by the environment variable SW_MSF_STARTUP_MAGIK).<br>
+    e.g.
+    ```
+    _if system.getenv("TERM_PROGRAM") = "vscode"
+    _then
+        write( "Loading VS Code utility code..." )
+        load_file("C:\Users\ollie\.vscode\extensions\magik-vscode\vscode_dev.magik")
+
+        write("Connect Class Browser...")
+	    get_global_value(:vs_class_browser).invoke()
+    _endif
+    ```
+
 * Code Navigation:
 
     Use the arrow keys, **Ctrl+Left** and **Ctrl+Right** and the shortcuts below for simple code navigation.
@@ -257,6 +282,7 @@ I would recommend using these other extensions:
 	    Magik> sw_module_manager.load_module(:dev_tools_application)
         ```
         **Note:** vscode_dev.magik should be loaded after loading the dev tools as it overrides some helper procs.
+
     * (Smallworld 5.x) Use `relocate_products()` (from the dev procs in magik_tools) to point the known products to local repositories.<br>
         This will use the source paths defined in the global USER_REPOSITORY_PATHS - please update this global or USER_PRODUCTS_ROOT to suite your development environment. This could be added to your .magik file in your home directory.
 
@@ -267,7 +293,6 @@ I would recommend using these other extensions:
         **Note:** Definitions should be refreshed using shortcut **Alt+M** (or vs_save_symbols()) after relocating products to update paths to source files.
 
 * Other:
-    * Load vscode_dev.magik in the .magik file in your home directory.
     * You can toggle between the editor and terminal using **Ctrl+'**
     * The module for the current Magik file can be loaded using the shortcut **Ctrl+Shift+F7**.<br>
     This will load (or reload) the module containing the file and adds products and loads prerequisite modules as necessary.<br>
@@ -290,6 +315,8 @@ I would recommend using these other extensions:
         ],
         ```
 
+<br>
+
 ## Requirements
 
 * Requires Magik to be running in the VS Code integrated terminal (for Smallworld 5.x).
@@ -297,6 +324,7 @@ I would recommend using these other extensions:
 * VS Code must be included in your Path (e.g. 'C:\Program Files\Microsoft VS Code\bin').
 * Need Node.js to install in the extension dependencies.
 
+<br>
 
 ## Extension Settings
 
@@ -350,6 +378,8 @@ I would recommend using these other extensions:
     "magik-vscode.enableOutputToConsoleFile"
     ```
 
+<br>
+
 ## Known Issues
 
 * Magik definition symbols (to support searching for methods, exemplars, conditions and globals) are only loaded automatically when compiling code using VS Code Magik commands (for SW5).<br>
@@ -368,6 +398,8 @@ https://devcloud.swcoe.ge.com/devspace/pages/viewpage.action?spaceKey=SWV&title=
 
 Please add issues here:
 https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
+
+<br>
 
 ## Release Notes
 
@@ -443,8 +475,8 @@ Initial release to OpenSmallworld public GitHub
 
 ### 0.0.2
 
-Added snippets and symbol support for searching Magik methods.
+* Added snippets and symbol support for searching Magik methods.
 
 ### 0.0.1
 
-Initial release of magik-vscode with syntax highlighting and compiling magik.
+* Initial release of magik-vscode with syntax highlighting and compiling magik.

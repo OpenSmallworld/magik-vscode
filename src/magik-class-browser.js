@@ -1,7 +1,13 @@
 'use strict';
 
 const vscode = require('vscode'); // eslint-disable-line
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const chokidar = require('chokidar');
 const cp = require('child_process');
+
+const CB_FILENAME = 'vscode_class_browser.txt';
 
 class MagikClassBrowser {
   constructor(magikVSCode, context) {
@@ -10,6 +16,8 @@ class MagikClassBrowser {
     this._extensionUri = context.extensionUri;
 
     this._searchProperties = {
+      className: '',
+      methodName: '',
       local: false,
       args: false,
       comments: false,
@@ -31,6 +39,34 @@ class MagikClassBrowser {
         }
       })
     );
+
+    this._initWatcher();
+  }
+
+  _initWatcher() {
+    const fileDir = os.tmpdir();
+    const cbFile = path.join(fileDir, CB_FILENAME);
+
+    this._connectMessage = undefined;
+
+    this._processFileWatcher = chokidar.watch(cbFile);
+    this._processFileWatcher.on('add', () => {
+      const lines = fs
+        .readFileSync(cbFile)
+        .toString()
+        .split('\n');
+      const data = {};
+
+      for (const line of lines) {
+        const parts = line.split('|');
+        data[parts[0]] = parts[1];
+      }
+
+      fs.unlinkSync(cbFile);
+
+      this._disconnect();
+      this._initConnect(data);
+    });
   }
 
   resolveWebviewView(webviewView) {
@@ -40,7 +76,6 @@ class MagikClassBrowser {
       // Allow scripts in the webview
       enableScripts: true,
       localResourceRoots: [this._extensionUri],
-      // retainContextWhenHidden: true,
     };
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
@@ -64,6 +99,10 @@ class MagikClassBrowser {
           break;
         default:
       }
+    });
+
+    webviewView.onDidDispose(() => {
+      this._disconnect();
     });
   }
 
@@ -161,13 +200,6 @@ class MagikClassBrowser {
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
-  }
-
-  _resetBrowser() {
-    this._view.webview.postMessage({type: 'enableSearch', enabled: false});
-    this._view.webview.postMessage({type: 'clearResults'});
-    this._childProcess = undefined;
-    this._dataLines = undefined;
   }
 
   _processData(data) {
@@ -290,6 +322,13 @@ class MagikClassBrowser {
     });
   }
 
+  _resetBrowser() {
+    this._view.webview.postMessage({type: 'enableSearch', enabled: false});
+    this._view.webview.postMessage({type: 'clearResults'});
+    this._childProcess = undefined;
+    this._dataLines = undefined;
+  }
+
   _disconnect() {
     if (this._childProcess) {
       this._childProcess.kill();
@@ -297,40 +336,43 @@ class MagikClassBrowser {
     }
   }
 
+  _initConnect(data) {
+    const id = data.processId;
+    const gisDirectory = data.gisDirectory.replace(/[\/\\]/g, '\\');
+    const command = `${gisDirectory}\\etc\\x86\\mf_connector.exe -m \\\\.\\pipe\\method_finder\\${id}`;
+
+    this._childProcess = cp.exec(
+      command,
+      {stdio: 'pipe', maxBuffer: 10 * 1024 * 1024},
+      (err, stout, sterr) => {
+        if (err) {
+          vscode.window.showWarningMessage(
+            `Cannot connect to method finder:\n${err.message}`
+          );
+        }
+      }
+    );
+
+    this._childProcess.stdout.on('data', (newData) => {
+      this._processData(newData);
+    });
+
+    this._childProcess.on('close', () => {
+      this._resetBrowser();
+    });
+
+    this._view.webview.postMessage({type: 'enableSearch', enabled: true});
+
+    if (this._connectMessage) {
+      this._view.webview.postMessage(this._connectMessage);
+      this._connectMessage = undefined;
+    }
+  }
+
   _connect(message) {
     this._disconnect();
-
-    this.magikVSCode.getSessionInfo((data) => {
-      const id = data.processId;
-      const gisDir = data.gisDir.replace(/[\/\\]/g, '\\');
-      const command = `${gisDir}\\etc\\x86\\mf_connector.exe -m \\\\.\\pipe\\method_finder\\${id}`;
-
-      this._childProcess = cp.exec(
-        command,
-        {stdio: 'pipe', maxBuffer: 10 * 1024 * 1024},
-        (err, stout, sterr) => {
-          if (err) {
-            vscode.window.showWarningMessage(
-              `Cannot connect to method finder:\n${err.message}`
-            );
-          }
-        }
-      );
-
-      this._childProcess.stdout.on('data', (newData) => {
-        this._processData(newData);
-      });
-
-      this._childProcess.on('close', () => {
-        this._resetBrowser();
-      });
-
-      this._view.webview.postMessage({type: 'enableSearch', enabled: true});
-
-      if (message) {
-        this._view.webview.postMessage(message);
-      }
-    });
+    this._connectMessage = message;
+    this.magikVSCode.magikConsole.sendCommandToTerminal('vs_class_browser');
   }
 
   _reconnect() {
@@ -380,6 +422,8 @@ class MagikClassBrowser {
 
     this._view.webview.postMessage({type: 'clearResults'});
 
+    this._dataLines = undefined;
+
     this._childProcess.stdin.write(strings.join('\n'));
   }
 
@@ -394,7 +438,7 @@ class MagikClassBrowser {
       query = `^${methodName}$`;
       command = `vs_goto("^${methodName}$")`;
     }
-    await this.magikVSCode._gotoFromQuery(query, command, false, true);
+    await this.magikVSCode.gotoFromQuery(query, command, false, true);
   }
 }
 

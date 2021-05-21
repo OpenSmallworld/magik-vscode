@@ -2,7 +2,7 @@
     "name": "magik-vscode",
     "displayName": "Magik VS Code",
     "description": "Magik language support for VS Code",
-    "version": "0.1.2",
+    "version": "0.2.0",
     "publisher": "GE-Smallworld",
     "engines": {
         "vscode": "^1.23.0"
@@ -87,6 +87,7 @@
         "debuggers": [
             {
                 "type": "magikDebug",
+                "languages": ["magik"],
                 "label": "Magik",
                 "program": "./src/debug-adapter.js",
                 "runtime": "node",

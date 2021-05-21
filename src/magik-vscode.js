@@ -14,7 +14,6 @@ const TERMINAL_TB_REG = /^([\w!?]+)\.([\w!?\(\)\[\]\^]+)\s+\([\w\d\s\\\/\.:!]+\d
 const TERMINAL_DEBUG_TB_REG = /^(?:\[\d+\])?\s+([\w!?\(\)\[\]\^]+)\s\.{2,}\s([\w!?]+)\s+/;
 
 const SYMBOLS_FILENAME = 'vscode_symbols.txt';
-const INFO_FILENAME = 'vscode_info.txt';
 const FILE_CACHE_SIZE = 100;
 
 class MagikVSCode {
@@ -127,39 +126,6 @@ class MagikVSCode {
     );
 
     vscode.window.registerTerminalLinkProvider(this);
-  }
-
-  getSessionInfo(callback) {
-    if (this.processFileWatcher !== undefined) {
-      this.processFileWatcher.close();
-    }
-
-    const fileDir = os.tmpdir();
-    const infoFile = path.join(fileDir, INFO_FILENAME);
-    const watcher = chokidar.watch(infoFile);
-    this.processFileWatcher = watcher;
-
-    watcher.on('add', () => {
-      watcher.close();
-      this.processFileWatcher = undefined;
-
-      const lines = fs
-        .readFileSync(infoFile)
-        .toString()
-        .split('\n');
-      const data = {};
-
-      for (const line of lines) {
-        const parts = line.split('|');
-        data[parts[0]] = parts[1];
-      }
-
-      fs.unlinkSync(infoFile);
-
-      callback.call(this, data);
-    });
-
-    this.magikConsole.sendCommandToTerminal('vs_session_info');
   }
 
   _checkFileAfterSaveSymbols() {
@@ -496,7 +462,7 @@ class MagikVSCode {
     vscode.commands.executeCommand('editor.unfold', {});
   }
 
-  async _gotoFromQuery(
+  async gotoFromQuery(
     query,
     magikCommand,
     inherit = false,
@@ -547,7 +513,7 @@ class MagikVSCode {
     }
 
     if (selectedSymbol) {
-      const resSymbol = this.resolveWorkspaceSymbol(selectedSymbol);
+      const resSymbol = this.resolveWorkspaceSymbol(selectedSymbol, true);
       if (resSymbol) {
         this._gotoSymbol(resSymbol, firstColumn);
       }
@@ -579,7 +545,7 @@ class MagikVSCode {
       }
     }
 
-    await this._gotoFromQuery(query, command, false, localOnly);
+    await this.gotoFromQuery(query, command, false, localOnly);
   }
 
   provideTerminalLinks(context, token) {
@@ -621,7 +587,7 @@ class MagikVSCode {
   }
 
   async handleTerminalLink(link) {
-    await this._gotoFromQuery(link.data.query, link.data.command, false, true);
+    await this.gotoFromQuery(link.data.query, link.data.command, false, true);
   }
 
   _findDefinition(fileName, word, kind) {
@@ -983,7 +949,7 @@ class MagikVSCode {
     return this.symbolProvider.getSymbols(query, false, false, undefined, true);
   }
 
-  resolveWorkspaceSymbol(sym) {
+  resolveWorkspaceSymbol(sym, showWarning = false) {
     if (this.resolveSymbols) {
       const globalName = sym._globalName;
       let loc;
@@ -992,7 +958,11 @@ class MagikVSCode {
       try {
         fs.accessSync(sym._fileName, fs.constants.R_OK);
       } catch (err) {
-        vscode.window.showErrorMessage(`Cannot open file: ${sym._fileName}`);
+        if (showWarning === true) {
+          vscode.window.showWarningMessage(
+            `Cannot open file: ${sym._fileName}`
+          );
+        }
         return;
       }
 
@@ -1129,7 +1099,7 @@ class MagikVSCode {
     const firstColumn = args ? args.firstColumn : undefined;
 
     if (args && args.query) {
-      await this._gotoFromQuery(
+      await this.gotoFromQuery(
         args.query,
         args.command,
         false,
@@ -1198,7 +1168,7 @@ class MagikVSCode {
       command = `vs_goto("^${def.currentWord}$")`;
     }
 
-    await this._gotoFromQuery(query, command, inherit, false, firstColumn);
+    await this.gotoFromQuery(query, command, inherit, false, firstColumn);
   }
 
   async _refreshSymbols() {
@@ -2459,7 +2429,7 @@ class MagikVSCode {
           .toString()
           .split('\n');
       } catch (err) {
-        vscode.window.showErrorMessage(`Cannot open file: ${fileName}`);
+        vscode.window.showWarningMessage(`Cannot open file: ${fileName}`);
         return;
       }
     }

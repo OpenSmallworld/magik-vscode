@@ -69,9 +69,12 @@ function activate(context) {
   new MagikLinter(magikVSCode, symbolProvider, context); // eslint-disable-line
   new MagikSession(context); // eslint-disable-line
 
-  const provider = new MagikConfigurationProvider();
+  const configProvider = new MagikConfigurationProvider();
   context.subscriptions.push(
-    vscode.debug.registerDebugConfigurationProvider('magikDebug', provider)
+    vscode.debug.registerDebugConfigurationProvider(
+      'magikDebug',
+      configProvider
+    )
   );
 
   const factory = new MagikDebugAdapterDescriptorFactory(
