@@ -509,7 +509,7 @@
         "findit": "^2.0.0",
         "vscode-codicons": "^0.0.17",
         "vscode-debugadapter": "1.33.0",
-        "ws": "^7.4.3"
+        "ws": "^7.4.6"
     },
     "devDependencies": {
         "eslint": "5.9.0",
