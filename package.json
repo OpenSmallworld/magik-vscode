@@ -187,6 +187,10 @@
                 "title": "Magik Class Browser"
             },
             {
+                "command": "magik.searchClassBrowser",
+                "title": "Magik Search Class Browser"
+            },
+            {
                 "command": "magik.selectRegion",
                 "title": "Magik Select Region"
             },
@@ -487,7 +491,13 @@
                     "type": "integer",
                     "default": 500,
                     "description": "Maximum number of results displayed in the Class Browser. Default value is 500."
+                },
+                "magik-vscode.searchWithClassBrowser": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Search for definitions using the Class Browser instead of the Method Search List. Default value is true."
                 }
+
             }
         },
         "iconThemes": [

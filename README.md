@@ -1,8 +1,8 @@
-# <img src="./icons/target_128x128.png" width="24"/> Magik VSCode
+# <img src="./icons/target_128x128.png" width="28"/> Magik VSCode
 
 Magik language extension for VS Code. Supports Magik development in Smallworld 4.x and 5.x
 
-<img src="./icons/magik_vscode.png" width="800"/>
+<img src="./icons/magik_vscode.png" width="850"/>
 
 ## Features
 
@@ -71,6 +71,8 @@ Adds the following features to VS Code:
 
 * Magik Console File:
 
+    <img src="./icons/magik_console.png" width="625"/>
+
     A Magik Console file can be used to evalutate code and display results like the Magik terminal, but with the behaviour of a Magik editor (e.g. syntax highlighting, formatting and auto complete).
     * Create a new console file (**Alt+E**)
     * Evaluate the current region (**F7**)
@@ -130,7 +132,7 @@ The linting can be enabled/diabled using the setting `magik-vscode.enableLinting
 
 ### **Magik Debugging (5.x)**
 
-<img src="./icons/magik_debug.png" width="800"/>
+<img src="./icons/magik_debug.png" width="850"/>
 
 The Magik session needs to be started with a Java option to tell the JVM to load the debug agent. For example from the command line this could be:
 
@@ -341,6 +343,11 @@ I would recommend using these other extensions:
 * Maximum amount of characters per comment line (0 = disable) (80 by default)
     ```json
     "magik-vscode.wrapCommentLineLength": 80
+    ```
+
+* Search for definitions using the Class Browser instead of the Method Search List (Default value is true)
+    ```json
+    "magik-vscode.searchWithClassBrowser": true
     ```
 
 * Maximum number of results displayed in the Class Browser (Default value is 500)

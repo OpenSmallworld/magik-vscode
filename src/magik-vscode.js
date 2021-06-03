@@ -489,7 +489,16 @@ class MagikVSCode {
 
     if (symbolsLength === 1) {
       selectedSymbol = symbols[0];
-    } else if (symbolsLength > 1) {
+    } else if (
+      vscode.workspace.getConfiguration('magik-vscode').searchWithClassBrowser
+    ) {
+      const queryParts = query.split('.');
+      const queryLength = queryParts.length;
+      const className = queryLength > 1 ? queryParts[0] : '';
+      const methodName = queryLength > 1 ? queryParts[1] : queryParts[0];
+      this.magikClassBrowser.search(className, methodName);
+      return;
+    } else {
       // Repeat symbol query with no max number and show candidates in quick pick
       symbols = await this.symbolProvider.getSymbols(query, inherit, local);
 
@@ -590,7 +599,7 @@ class MagikVSCode {
     await this.gotoFromQuery(link.data.query, link.data.command, false, true);
   }
 
-  _findDefinition(fileName, word, kind) {
+  findDefinition(fileName, word, kind) {
     const lines = this.getFileLines(fileName);
     if (!lines) return;
 
@@ -606,7 +615,7 @@ class MagikVSCode {
       word = word.substring(0, invalidIndex);
       const searchName = word.replace(/\?/g, '\\?');
       methodTest = new RegExp(
-        `(^|\\s+)_method\\s+.+\\.\\s*${searchName}\\s*(\\(|<<|\\[|^<<)`
+        `(^|\\s+)_method\\s+.+?\\.\\s*${searchName}\\s*(\\(|<<|\\[|^<<)`
       );
     } else {
       const searchName = word.replace(/\?/g, '\\?');
@@ -614,11 +623,11 @@ class MagikVSCode {
         if (kind) {
           // Search for exact name if resolving a symbol
           methodTest = new RegExp(
-            `(^|\\s+)_method\\s+.+\\.\\s*${searchName}\\s*$`
+            `(^|\\s+)_method\\s+.+?\\.\\s*${searchName}\\s*$`
           );
         } else {
           methodTest = new RegExp(
-            `(^|\\s+)_method\\s+.+\\.\\s*${searchName}\\s*($|\\(|<<|\\[|^<<)`
+            `(^|\\s+)_method\\s+.+?\\.\\s*${searchName}\\s*($|\\(|<<|\\[|^<<)`
           );
         }
       }
@@ -973,7 +982,7 @@ class MagikVSCode {
       if (globalName) {
         loc = this._findGlobal(sym._fileName, globalName);
       } else {
-        loc = this._findDefinition(sym._fileName, sym._methodName, sym.kind);
+        loc = this.findDefinition(sym._fileName, sym._methodName, sym.kind);
       }
 
       if (loc) {
@@ -1202,7 +1211,7 @@ class MagikVSCode {
     let loc;
 
     // Check current file
-    loc = this._findDefinition(currentFileName, current);
+    loc = this.findDefinition(currentFileName, current);
     if (loc) return loc;
     doneFileNames.push(currentFileName);
 
@@ -1212,7 +1221,7 @@ class MagikVSCode {
         !doneFileNames.includes(fileName) &&
         path.extname(fileName) === '.magik'
       ) {
-        loc = this._findDefinition(fileName, current);
+        loc = this.findDefinition(fileName, current);
         if (loc) return loc;
         doneFileNames.push(fileName);
       }
@@ -1225,7 +1234,7 @@ class MagikVSCode {
       const fileName = files[i];
 
       if (!doneFileNames.includes(fileName)) {
-        loc = this._findDefinition(fileName, current);
+        loc = this.findDefinition(fileName, current);
         if (loc) return loc;
         doneFileNames.push(fileName);
       }
@@ -2092,12 +2101,23 @@ class MagikVSCode {
         const firstColumn = this.magikConsole.isConsoleDoc(doc);
 
         if (inSelection || !inComment) {
-          const searchSymbolsArgs = [{query: currentText}];
-          const searchCommand = vscode.Uri.parse(
-            `command:magik.searchSymbols?${encodeURIComponent(
-              JSON.stringify(searchSymbolsArgs)
-            )}`
-          );
+          let searchCommand;
+          if (
+            vscode.workspace.getConfiguration('magik-vscode')
+              .searchWithClassBrowser
+          ) {
+            searchCommand = vscode.Uri.parse(
+              `command:magik.searchClassBrowser?${encodeURIComponent(
+                JSON.stringify([{methodName: currentText}])
+              )}`
+            );
+          } else {
+            searchCommand = vscode.Uri.parse(
+              `command:magik.searchSymbols?${encodeURIComponent(
+                JSON.stringify([{query: currentText}])
+              )}`
+            );
+          }
           hoverString += `${lineSeparator}$(search)\u2002[Search Definitions](${searchCommand} "Search definitions for the current text")`;
         }
 

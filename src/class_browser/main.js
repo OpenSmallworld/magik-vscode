@@ -55,8 +55,11 @@
     switch (e.key) {
       case 'Enter':
         if (selectedElement && selectedElement.getAttribute('data-method-name')) {
-          handleMethodClicked(selectedElement.getAttribute('data-class-name'),
-            selectedElement.getAttribute('data-method-name'));
+          handleMethodClicked(
+            selectedElement.getAttribute('data-class-name'),
+            selectedElement.getAttribute('data-method-name'),
+            selectedElement.getAttribute('data-package-name'),
+          );
         }
         break;
       case 'ArrowUp':
@@ -225,6 +228,7 @@
       methodElement.setAttribute('tabindex', 0);
       methodElement.setAttribute('data-class-name', methodData.className);
       methodElement.setAttribute('data-method-name', methodData.methodName);
+      methodElement.setAttribute('data-package-name', methodData.package);
 
       const img = document.createElement('div')
       if (methodData.className) {
@@ -251,7 +255,7 @@
       addText(methodElement, methodData.topics.join('\u2002\u2004'), 'topics-entry');
 
       methodElement.addEventListener('click', () => {
-        handleMethodClicked(methodData.className, methodData.methodName);
+        handleMethodClicked(methodData.className, methodData.methodName, methodData.package);
       });
 
       list.appendChild(methodElement);
@@ -333,8 +337,8 @@
     };
   }
 
-  function handleMethodClicked(className, methodName) {
-    vscode.postMessage({type: 'methodSelected', className, methodName,});
+  function handleMethodClicked(className, methodName, packageName) {
+    vscode.postMessage({type: 'methodSelected', className, methodName, packageName,});
   }
 
   vscode.postMessage({type: 'ready'});

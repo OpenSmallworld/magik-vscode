@@ -131,6 +131,7 @@ _pragma(classify_level=debug)
 ##
 _global _constant vs_class_browser <<
 _proc @vs_class_browser()
+
 	_if method_finder.pid _is _unset
 	_then
 		method_finder.start_acp()
@@ -139,19 +140,25 @@ _proc @vs_class_browser()
 	output_file << system.pathname_down(system.temp_directory_name, "vscode_class_browser.txt")
 
 	id_str << system.process_id.write_string
-	gis_directory << system.getenv("SMALLWORLD_GIS")
 
 	output_stream << _unset
 	_protect
 		output_stream << external_text_output_stream.new(output_file)
 		output_stream.write("processId|", id_str, newline_char)
-		output_stream.write("gisDirectory|", gis_directory)
+
+		_for key, val _over system.get_all_env().fast_keys_and_elements()
+		_loop
+			str << val.write_string.replace_all_instances_of("\", "/");
+			output_stream.write(key.write_string, "|", str, newline_char)
+		_endloop
+
 	_protection
 		_if output_stream _isnt _unset
 		_then
 			output_stream.close()
 		_endif
 	_endprotect
+
 _endproc
 $
 

@@ -338,7 +338,7 @@ function getVariables(
       );
     } else if (
       /(\)|<<|\]|^<<)/.test(text) ||
-      /(^|\s+)_method\s+.*[\w!?]$/.test(text)
+      /(^|\s+)_method\s+.*?[\w!?]$/.test(text)
     ) {
       search = true;
     }

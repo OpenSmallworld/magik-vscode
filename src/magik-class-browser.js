@@ -32,41 +32,65 @@ class MagikClassBrowser {
 
     context.subscriptions.push(
       vscode.commands.registerCommand('magik.classBrowser', () => {
-        // Make CB webview visible and set focus in search input.
-        if (this._view) {
-          this._view.show(false);
-          this._view.webview.postMessage({type: 'setFocus'});
-        }
+        this._setFocus();
       })
     );
 
+    context.subscriptions.push(
+      vscode.commands.registerCommand('magik.searchClassBrowser', (args) => {
+        this.search(args.className, args.methodName);
+      })
+    );
+
+    this._postAction = undefined;
     this._initWatcher();
   }
 
   _initWatcher() {
+    if (this._cbFileWatcher !== undefined) {
+      this._cbFileWatcher.close();
+      this._cbFileWatcher = undefined;
+    }
+
     const fileDir = os.tmpdir();
     const cbFile = path.join(fileDir, CB_FILENAME);
+    const watcher = chokidar.watch(cbFile);
+    this._cbFileWatcher = watcher;
 
-    this._connectMessage = undefined;
+    watcher.on('add', () => {
+      if (!this._view) {
+        return;
+      }
 
-    this._processFileWatcher = chokidar.watch(cbFile);
-    this._processFileWatcher.on('add', () => {
+      watcher.close();
+      this._cbFileWatcher = undefined;
+
+      const data = {};
       const lines = fs
         .readFileSync(cbFile)
         .toString()
         .split('\n');
-      const data = {};
+
+      fs.unlinkSync(cbFile);
 
       for (const line of lines) {
         const parts = line.split('|');
-        data[parts[0]] = parts[1];
+        data[parts[0]] = parts[1] || '';
       }
 
-      fs.unlinkSync(cbFile);
+      this._envVariables = data;
 
       this._disconnect();
       this._initConnect(data);
     });
+  }
+
+  _setFocus() {
+    // Make CB webview visible and set focus in search input.
+    if (this._view) {
+      this._view.show(false);
+      this._view.webview.postMessage({type: 'setFocus'});
+    }
   }
 
   resolveWebviewView(webviewView) {
@@ -86,10 +110,14 @@ class MagikClassBrowser {
           this._connect();
           break;
         case 'search':
-          this._search(message.className, message.methodName);
+          this._doSearch(message.className, message.methodName);
           break;
         case 'methodSelected':
-          this._gotoMethod(message.className, message.methodName);
+          this._getSource(
+            message.className,
+            message.methodName,
+            message.packageName
+          );
           break;
         case 'setProperty':
           this._searchProperties[message.name] = message.value;
@@ -202,6 +230,30 @@ class MagikClassBrowser {
 			</html>`;
   }
 
+  _gotoSource(line, className, methodName) {
+    if (line.charCodeAt(0) === 6) {
+      let fileName = line.split(/\s+/)[0].slice(1);
+      fileName = this._replacePaths(fileName);
+
+      const loc = this.magikVSCode.findDefinition(fileName, methodName);
+      if (loc) {
+        const workbenchConfig = vscode.workspace.getConfiguration('workbench');
+        const preview = workbenchConfig.editor.enablePreviewFromCodeNavigation;
+
+        vscode.window.showTextDocument(loc.uri, {
+          selection: loc.range,
+          preview,
+        });
+
+        vscode.commands.executeCommand('editor.unfold', {});
+
+        return;
+      }
+    }
+
+    this._gotoMethod(className, methodName);
+  }
+
   _processData(data) {
     const results = [];
     const lines = data.split('\n');
@@ -217,6 +269,16 @@ class MagikClassBrowser {
       Array.prototype.push.apply(this._dataLines, lines);
     } else {
       this._dataLines = lines;
+    }
+
+    if (this._postAction && this._postAction.getSource) {
+      this._gotoSource(
+        lines[0],
+        this._postAction.className,
+        this._postAction.methodName
+      );
+      this._postAction = undefined;
+      return;
     }
 
     if (!totalReg.test(lines[lines.length - 2])) {
@@ -338,7 +400,7 @@ class MagikClassBrowser {
 
   _initConnect(data) {
     const id = data.processId;
-    const gisDirectory = data.gisDirectory.replace(/[\/\\]/g, '\\');
+    const gisDirectory = data.SMALLWORLD_GIS.replace(/[\/\\]/g, '\\');
     const command = `${gisDirectory}\\etc\\x86\\mf_connector.exe -m \\\\.\\pipe\\method_finder\\${id}`;
 
     this._childProcess = cp.exec(
@@ -363,16 +425,21 @@ class MagikClassBrowser {
 
     this._view.webview.postMessage({type: 'enableSearch', enabled: true});
 
-    if (this._connectMessage) {
-      this._view.webview.postMessage(this._connectMessage);
-      this._connectMessage = undefined;
+    if (this._postAction) {
+      this._view.webview.postMessage(this._postAction);
+      this._postAction = undefined;
     }
   }
 
   _connect(message) {
     this._disconnect();
-    this._connectMessage = message;
-    this.magikVSCode.magikConsole.sendCommandToTerminal('vs_class_browser');
+    this._postAction = message;
+    this._initWatcher();
+    this.magikVSCode.magikConsole.sendCommandToTerminal(
+      'vs_class_browser',
+      undefined,
+      'vs_save_symbols()'
+    );
   }
 
   _reconnect() {
@@ -395,7 +462,7 @@ class MagikClassBrowser {
     return maxResults;
   }
 
-  _search(className = '', methodName = '') {
+  _doSearch(className = '', methodName = '') {
     if (this._childProcess === undefined) {
       return;
     }
@@ -427,8 +494,26 @@ class MagikClassBrowser {
     this._childProcess.stdin.write(strings.join('\n'));
   }
 
-  async _gotoMethod(className, methodName) {
-    // FIXME - find source from method finder
+  search(className = '', methodName = '') {
+    if (this._view) {
+      this._setFocus();
+      this._searchProperties.className = className;
+      this._searchProperties.methodName = methodName;
+      this._view.webview.postMessage({
+        type: 'search',
+        ...this._searchProperties,
+      });
+    }
+  }
+
+  _getSource(className, methodName, packageName) {
+    this._postAction = {getSource: true, className, methodName};
+    this._childProcess.stdin.write(
+      `pr_source_file ${methodName} ${packageName}:${className}\n`
+    );
+  }
+
+  _gotoMethod(className, methodName) {
     let query;
     let command;
     if (className) {
@@ -438,7 +523,18 @@ class MagikClassBrowser {
       query = `^${methodName}$`;
       command = `vs_goto("^${methodName}$")`;
     }
-    await this.magikVSCode.gotoFromQuery(query, command, false, true);
+    this.magikVSCode.gotoFromQuery(query, command, false, true);
+  }
+
+  _replacePaths(pathName) {
+    let newPath = pathName;
+    for (const [key, value] of Object.entries(this._envVariables)) {
+      const varName = `$${key}`;
+      if (newPath.indexOf(varName) !== -1) {
+        newPath = newPath.replace(varName, value);
+      }
+    }
+    return newPath;
   }
 }
 
