@@ -46,11 +46,15 @@ class MagikClassBrowser {
     this._initWatcher();
   }
 
-  _initWatcher() {
+  _closeWatcher() {
     if (this._cbFileWatcher !== undefined) {
       this._cbFileWatcher.close();
       this._cbFileWatcher = undefined;
     }
+  }
+
+  _initWatcher() {
+    this._closeWatcher();
 
     const fileDir = os.tmpdir();
     const cbFile = path.join(fileDir, CB_FILENAME);
@@ -62,8 +66,7 @@ class MagikClassBrowser {
         return;
       }
 
-      watcher.close();
-      this._cbFileWatcher = undefined;
+      this._closeWatcher();
 
       const data = {};
       const lines = fs
@@ -113,11 +116,12 @@ class MagikClassBrowser {
           this._doSearch(message.className, message.methodName);
           break;
         case 'methodSelected':
-          this._getSource(
-            message.className,
-            message.methodName,
-            message.packageName
-          );
+          // this._getSource(
+          //   message.className,
+          //   message.methodName,
+          //   message.packageName
+          // );
+          this._gotoMethod(message.className, message.methodName);
           break;
         case 'setProperty':
           this._searchProperties[message.name] = message.value;
@@ -494,9 +498,11 @@ class MagikClassBrowser {
     this._childProcess.stdin.write(strings.join('\n'));
   }
 
-  search(className = '', methodName = '') {
+  search(className = '', methodName = '', setFocus = true) {
     if (this._view) {
-      this._setFocus();
+      if (setFocus) {
+        this._setFocus();
+      }
       this._searchProperties.className = className;
       this._searchProperties.methodName = methodName;
       this._view.webview.postMessage({
