@@ -73,6 +73,13 @@
                 "path": "./grammars/definition.tmLanguage.json"
             }
         ],
+        "themes": [
+            {
+                "label": "Dark Magik",
+                "uiTheme": "vs-dark",
+                "path": "./themes/magik-dark.json"
+            }
+        ],
         "snippets": [
             {
                 "language": "magik",
@@ -87,7 +94,9 @@
         "debuggers": [
             {
                 "type": "magikDebug",
-                "languages": ["magik"],
+                "languages": [
+                    "magik"
+                ],
                 "label": "Magik",
                 "program": "./src/debug-adapter.js",
                 "runtime": "node",
@@ -497,7 +506,6 @@
                     "default": true,
                     "description": "Search for definitions using the Class Browser instead of the Method Search List. Default value is true."
                 }
-
             }
         },
         "iconThemes": [

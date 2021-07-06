@@ -136,6 +136,7 @@
       case 'setFocus':
         if (!methodInput.classList.contains('disabled')) {
           methodInput.focus();
+          methodInput.setSelectionRange(0, methodInput.value.length);
         }
         break;
       case 'search':

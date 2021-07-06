@@ -767,6 +767,21 @@ class MagikSymbolProvider {
     this._quickPick.show();
     this._updateQuickPick();
   }
+
+  filePathFromPartial(patialPath) {
+    for (const data of Object.values(this.classData)) {
+      const sourceFile = data.sourceFile;
+      if (sourceFile !== undefined && sourceFile.endsWith(patialPath)) {
+        return sourceFile;
+      }
+    }
+    for (const data of Object.values(this.globalData)) {
+      const sourceFile = data.sourceFile;
+      if (sourceFile !== undefined && sourceFile.endsWith(patialPath)) {
+        return sourceFile;
+      }
+    }
+  }
 }
 
 module.exports = MagikSymbolProvider;

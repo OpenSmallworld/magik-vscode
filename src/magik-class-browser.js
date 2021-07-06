@@ -499,6 +499,11 @@ class MagikClassBrowser {
   }
 
   search(className = '', methodName = '', setFocus = true) {
+    if (this._childProcess === undefined) {
+      vscode.window.showInformationMessage('Class Browser not connected');
+      return;
+    }
+
     if (this._view) {
       if (setFocus) {
         this._setFocus();

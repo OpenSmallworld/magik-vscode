@@ -12,6 +12,7 @@ const MagikClassBrowser = require('./magik-class-browser');
 
 const TERMINAL_TB_REG = /^([\w!?]+)\.([\w!?\(\)\[\]\^]+)\s+\([\w\d\s\\\/\.:!]+\d+\)/;
 const TERMINAL_DEBUG_TB_REG = /^(?:\[\d+\])?\s+([\w!?\(\)\[\]\^]+)\s\.{2,}\s([\w!?]+)\s+/;
+const PATH_REG = /(?:\s|[(['"]|^)((\w:)?[^.'"()[\]]+?\.[^.'"()[\]]+?)(:(\d+))?(?:\s|[)\]'"]|$)/;
 
 const SYMBOLS_FILENAME = 'vscode_symbols.txt';
 const FILE_CACHE_SIZE = 100;
@@ -148,10 +149,16 @@ class MagikVSCode {
       const workbenchConfig = vscode.workspace.getConfiguration('workbench');
       const preview = workbenchConfig.editor.enablePreviewFromCodeNavigation;
       const viewColumn = args.firstColumn ? vscode.ViewColumn.One : undefined;
+      let selection;
+
+      if (args.lineNumber !== undefined) {
+        selection = new vscode.Range(args.lineNumber, 0, args.lineNumber, 0);
+      }
 
       vscode.window.showTextDocument(vscode.Uri.file(args.fileName), {
         preview,
         viewColumn,
+        selection,
       });
     }
   }
@@ -559,44 +566,80 @@ class MagikVSCode {
 
   provideTerminalLinks(context, token) {
     const line = context.line;
-    const match = line.match(TERMINAL_TB_REG);
+    const links = [];
     let startIndex;
     let length;
     let tooltip;
     let query;
     let command;
 
+    let match = line.match(TERMINAL_TB_REG);
     if (match) {
       startIndex = 0;
       tooltip = `${match[1]}.${match[2]}`;
       length = tooltip.length;
       query = `^${match[1]}$.^${match[2]}$`;
       command = `vs_goto("^${match[2]}$", "${match[1]}")`;
-    } else {
-      const matchDebug = line.match(TERMINAL_DEBUG_TB_REG);
-      if (!matchDebug) {
-        return [];
-      }
-
-      startIndex = line.indexOf(matchDebug[1]);
-      length = matchDebug[1].length;
-      tooltip = `${matchDebug[2]}.${matchDebug[1]}`;
-      query = `^${matchDebug[2]}$.^${matchDebug[1]}$`;
-      command = `vs_goto("^${matchDebug[1]}$", "${matchDebug[2]}")`;
-    }
-
-    return [
-      {
+      links.push({
         startIndex,
         length,
         tooltip,
         data: {query, command},
-      },
-    ];
+      });
+    } else {
+      match = line.match(TERMINAL_DEBUG_TB_REG);
+      if (match) {
+        startIndex = line.indexOf(match[1]);
+        length = match[1].length;
+        tooltip = `${match[2]}.${match[1]}`;
+        query = `^${match[2]}$.^${match[1]}$`;
+        command = `vs_goto("^${match[1]}$", "${match[2]}")`;
+        links.push({
+          startIndex,
+          length,
+          tooltip,
+          data: {query, command},
+        });
+      }
+    }
+
+    match = line.match(PATH_REG);
+    if (match) {
+      let filePath = match[1];
+      // Only add link for parital file path
+      if (!fs.existsSync(filePath)) {
+        filePath = this.symbolProvider.filePathFromPartial(filePath);
+        if (fs.existsSync(filePath)) {
+          startIndex = line.indexOf(match[1]);
+          let lineNumber;
+          if (match[4]) {
+            const partialPath = `${match[1]}:${match[4]}`;
+            length = partialPath.length;
+            lineNumber = Number(match[4]);
+            tooltip = `${filePath}:${match[4]}`;
+          } else {
+            length = match[1].length;
+            tooltip = filePath;
+          }
+          links.push({
+            startIndex,
+            length,
+            tooltip,
+            data: {fileName: filePath, lineNumber},
+          });
+        }
+      }
+    }
+
+    return links;
   }
 
   async handleTerminalLink(link) {
-    await this.gotoFromQuery(link.data.query, link.data.command, false, true);
+    if (link.data.fileName) {
+      this._openFile(link.data);
+    } else {
+      await this.gotoFromQuery(link.data.query, link.data.command, false, true);
+    }
   }
 
   findDefinition(fileName, word, kind) {
@@ -2017,18 +2060,25 @@ class MagikVSCode {
   }
 
   _getFileHoverString(doc, pos, lineText) {
-    const pathReg = /(?:\s|[(\['"]|^)((?:\w:|\/).*?\..*?)(?:\s|[)\]'"]|$)/g;
+    const pathReg = /(?:\s|[(['"]|^)((\w:)?[^.'"()[\]]+?\.[^.'"()[\]]+?)(:(\d+))?(?:\s|[)\]'"]|$)/g;
+
     const firstColumn = this.magikConsole.isConsoleDoc(doc);
     let startIndex = 0;
     let pathMatch;
 
     while (pathMatch = pathReg.exec(lineText)) { // eslint-disable-line
-      const filePath = pathMatch[1];
+      let filePath = pathMatch[1];
       const index = lineText.indexOf(filePath, startIndex);
 
       if (index <= pos.character && index + filePath.length > pos.character) {
-        if (fs.existsSync(filePath)) {
-          const openArgs = [{fileName: filePath, firstColumn}];
+        let fileFound = fs.existsSync(filePath);
+        if (!fileFound) {
+          filePath = this.symbolProvider.filePathFromPartial(filePath);
+          fileFound = fs.existsSync(filePath);
+        }
+        if (fileFound) {
+          const lineNumber = pathMatch[4] ? Number(pathMatch[4]) : undefined;
+          const openArgs = [{fileName: filePath, firstColumn, lineNumber}];
           const openCommand = vscode.Uri.parse(
             `command:magik.openFile?${encodeURIComponent(
               JSON.stringify(openArgs)
