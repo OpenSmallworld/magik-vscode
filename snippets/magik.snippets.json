@@ -190,6 +190,6 @@
             "\t${6:string}, :${7|private, public|})",
             "$"      
         ],
-        "description": "Magic Shared VARIABLE"
+        "description": "Magic Shared Variable"
     }
 }

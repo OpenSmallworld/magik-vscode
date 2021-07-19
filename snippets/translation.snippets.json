@@ -1,0 +1,17 @@
+{
+    "enumerator": {
+        "prefix": "enumerator translation",
+        "body": "enumerator\t${2:enum_name}\tunset\t${3|en_gb,en_us,de_de,fr_fr,nl_nl|}\t${4:string}\t${5:translation}",
+        "description": "Enumerator Translation"
+    },
+    "external_name": {
+        "prefix": "external name translation",
+        "body": "external_name\t${2:table_name}\tunset\t${3|en_gb,en_us,de_de,fr_fr,nl_nl|}\t${4:string}\t${5:translation}",
+        "description": "External Name Translation"
+    },
+    "field_value": {
+        "prefix": "field value translation",
+        "body": "field_value\t${2:table_name}\t${3:field_name}\t${4|en_gb,en_us,de_de,fr_fr,nl_nl|}\t${5:string}\t${6:translation}",
+        "description": "External Name Translation"
+    }
+}

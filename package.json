@@ -54,6 +54,17 @@
                     ".def"
                 ],
                 "configuration": "./definition-configuration.json"
+            },
+            {
+                "id": "translation",
+                "aliases": [
+                    "Translation",
+                    "translation"
+                ],
+                "extensions": [
+                    ".trn"
+                ],
+                "configuration": "./languages/translation-configuration.json"
             }
         ],
         "grammars": [
@@ -81,6 +92,10 @@
             {
                 "language": "message",
                 "path": "./snippets/message.snippets.json"
+            },
+            {
+                "language": "translation",
+                "path": "./snippets/translation.snippets.json"
             }
         ],
         "breakpoints": [
