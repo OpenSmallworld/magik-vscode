@@ -96,6 +96,10 @@
             {
                 "language": "translation",
                 "path": "./snippets/translation.snippets.json"
+            },
+            {
+                "language": "xml",
+                "path": "./snippets/xml.snippets.json"
             }
         ],
         "breakpoints": [
