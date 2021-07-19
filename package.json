@@ -77,6 +77,10 @@
             {
                 "language": "magik",
                 "path": "./snippets/magik.snippets.json"
+            },
+            {
+                "language": "message",
+                "path": "./snippets/message.snippets.json"
             }
         ],
         "breakpoints": [

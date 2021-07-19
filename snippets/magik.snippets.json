@@ -169,5 +169,27 @@
 	        "## -----------------------"
         ],
         "description": "Deprecated Statement"
+    },
+    "shared_constant": {
+        "prefix": "define_shared_constant",
+        "body": [
+            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:topic}}, usage={${3|external,internal,subclassable,redefinable|}})",
+            "${4:class_name}.define_shared_constant(",
+            "\t:${5:name},",
+            "\t${6:string}, :${7|private, public|})",
+            "$"      
+        ],
+        "description": "Magic Shared Constant"
+    },
+    "shared_variable": {
+        "prefix": "define_shared_variable",
+        "body": [
+            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:topic}}, usage={${3|external,internal,subclassable,redefinable|}})",
+            "${4:class_name}.define_shared_variable(",
+            "\t:${5:name},",
+            "\t${6:string}, :${7|private, public|})",
+            "$"      
+        ],
+        "description": "Magic Shared VARIABLE"
     }
 }
