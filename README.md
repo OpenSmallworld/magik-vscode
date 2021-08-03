@@ -178,8 +178,9 @@ Capturing output is controlled by the setting `magik-vscode.enableOutputToConsol
 4. Run npm install inside the Magik extension (requires Node.js to be installed):
 
     cd %USERPROFILE%\\.vscode\extensions\magik-vscode<br>
-    npm install
 	set the http and https proxies
+    npm install
+	
 
 5. VS Code Settings:
     * Enable `Editor: Format on Type` in the VS Code settings to allow adding _ and auto indentation.
