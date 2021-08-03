@@ -172,18 +172,21 @@ Capturing output is controlled by the setting `magik-vscode.enableOutputToConsol
 
 ## Installation
 
-1. Add the extension to VS Code by cloning the repo to %USERPROFILE%\\.vscode\extensions
-2. Run npm install inside the Magik extension (requires Node.js to be installed):
+1. Download and install Visual Studio Code from - https://code.visualstudio.com/Download. Choose the System Installer.
+2. Add the extension to Visual Stddio Code by cloning the repo to %USERPROFILE%\\.vscode\extensions
+3. Download and install the npm installer from - https://nodejs.org/en/download/.
+4. Run npm install inside the Magik extension (requires Node.js to be installed):
 
     cd %USERPROFILE%\\.vscode\extensions\magik-vscode<br>
     npm install
+	set the http and https proxies
 
-3. VS Code Settings:
+5. VS Code Settings:
     * Enable `Editor: Format on Type` in the VS Code settings to allow adding _ and auto indentation.
     * Add the command `magik.gotoClipboardText` to `Terminal > Integrated: Commands To Skip Shell`.
     * Enable `Terminal > Integrated: Copy On Selection` to allow jump to source from the terminal using **F3**.
 
-4. Restart VS Code if it is already running.
+5. Restart VS Code if it is already running.
 
 <br>
 
