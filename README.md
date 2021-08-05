@@ -106,6 +106,9 @@ The Class Browser panel can be shown using **Ctrl+B**.<br>
 After starting a session press Connect to use the method_finder (for the session associated with the current terminal).<br>
 The up and down arrow keys can be used to navigate between the search item and the results. Press enter or click on a method to jump to source.
 
+Type `@<package>:<class name>` in the class input to show class comments. The package defaults to sw if it is omitted.<br>
+e.g. @sw:map_manager or @rope
+
 The max number of results can be changed using the setting `magik-vscode.maxClassBrowserResults`.
 
 <br>
@@ -180,7 +183,7 @@ Capturing output is controlled by the setting `magik-vscode.enableOutputToConsol
     cd %USERPROFILE%\\.vscode\extensions\magik-vscode<br>
 	set the http and https proxies
     npm install
-	
+
 
 5. VS Code Settings:
     * Enable `Editor: Format on Type` in the VS Code settings to allow adding _ and auto indentation.

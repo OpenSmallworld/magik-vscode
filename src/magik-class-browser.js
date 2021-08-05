@@ -259,13 +259,8 @@ class MagikClassBrowser {
   }
 
   _processData(data) {
-    const results = [];
     const lines = data.split('\n');
-    const methodReg = /\s+IN\s+/;
     const totalReg = /(^|>)\d+$/;
-    const commentReg = /^\s*##.*$/;
-    let methodData;
-    let resultsLength;
 
     if (this._dataLines) {
       const lastLine = this._dataLines[this._dataLines.length - 1];
@@ -281,7 +276,45 @@ class MagikClassBrowser {
         this._postAction.className,
         this._postAction.methodName
       );
+
       this._postAction = undefined;
+      this._dataLines = undefined;
+      return;
+    }
+
+    if (this._postAction && this._postAction.showClassComment) {
+      const dataLines = this._dataLines;
+      const linesLength = Number(dataLines[0]);
+
+      if (isNaN(linesLength)) {
+        this._view.webview.postMessage({
+          type: 'updateResults',
+          results: [{commentLines: ['Class name not found!']}],
+        });
+        this._postAction = undefined;
+        this._dataLines = undefined;
+      }
+
+      if (
+        lines[lines.length - 1] === '' &&
+        dataLines.length >= linesLength + 2
+      ) {
+        const title = this._postAction.className
+          .replace(':', ' : ')
+          .toUpperCase();
+        const commentLines = [title, ''];
+        for (let lineIndex = 1; lineIndex < dataLines.length - 1; lineIndex++) {
+          commentLines.push(dataLines[lineIndex]);
+        }
+
+        this._view.webview.postMessage({
+          type: 'updateResults',
+          results: [{commentLines}],
+        });
+        this._postAction = undefined;
+        this._dataLines = undefined;
+      }
+
       return;
     }
 
@@ -289,8 +322,18 @@ class MagikClassBrowser {
       return;
     }
 
+    this._processMethodData();
+  }
+
+  _processMethodData() {
+    const results = [];
     const dataLines = this._dataLines;
     const linesLength = dataLines.length;
+    const methodReg = /\s+IN\s+/;
+    const totalReg = /(^|>)\d+$/;
+    const commentReg = /^\s*##.*$/;
+    let methodData;
+    let resultsLength;
 
     for (let lineIndex = 0; lineIndex < linesLength; lineIndex++) {
       const line = dataLines[lineIndex];
@@ -410,7 +453,7 @@ class MagikClassBrowser {
     this._childProcess = cp.exec(
       command,
       {stdio: 'pipe', maxBuffer: 10 * 1024 * 1024},
-      (err, stout, sterr) => {
+      (err) => {
         if (err) {
           vscode.window.showWarningMessage(
             `Cannot connect to method finder:\n${err.message}`
@@ -475,21 +518,33 @@ class MagikClassBrowser {
     this._searchProperties.methodName = methodName;
 
     const maxResults = this._getMaxResults();
+    let strings = [];
 
-    const strings = [
-      'unadd class',
-      `add class ${className}`,
-      `method_name ${methodName}`,
-      this._searchProperties.args ? 'show_args' : 'dont_show_args',
-      this._searchProperties.comments ? 'show_comments' : 'dont_show_comments',
-      'show_topics',
-      'override_flags',
-      'override_topics',
-      this._searchProperties.local ? 'local_only' : 'inherit_all',
-      'add deprecated',
-      `method_cut_off ${maxResults}`,
-      'print_curr_methods\n',
-    ];
+    if (className[0] === '@') {
+      const name =
+        className.indexOf(':') !== -1
+          ? className.substring(1)
+          : `sw:${className.substring(1)}`;
+      strings = [`get_class_info comments ${name}\n`];
+      this._postAction = {showClassComment: true, className: name};
+    } else {
+      strings = [
+        'unadd class',
+        `add class ${className}`,
+        `method_name ${methodName}`,
+        this._searchProperties.args ? 'show_args' : 'dont_show_args',
+        this._searchProperties.comments
+          ? 'show_comments'
+          : 'dont_show_comments',
+        'show_topics',
+        'override_flags',
+        'override_topics',
+        this._searchProperties.local ? 'local_only' : 'inherit_all',
+        'add deprecated',
+        `method_cut_off ${maxResults}`,
+        'print_curr_methods\n',
+      ];
+    }
 
     this._view.webview.postMessage({type: 'clearResults'});
 

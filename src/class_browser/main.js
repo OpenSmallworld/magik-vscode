@@ -224,44 +224,46 @@
     for (let methodIndex = 0; methodIndex < methodsLength; methodIndex++) {
       const methodData = results[methodIndex];
 
-      const methodElement = document.createElement('li');
-      methodElement.className = 'method-element';
-      methodElement.setAttribute('tabindex', 0);
-      methodElement.setAttribute('data-class-name', methodData.className);
-      methodElement.setAttribute('data-method-name', methodData.methodName);
-      methodElement.setAttribute('data-package-name', methodData.package);
-
-      const img = document.createElement('div')
       if (methodData.className) {
-        img.classList.add('codicon', 'codicon-symbol-method');
-      } else {
-        img.classList.add('codicon', 'codicon-symbol-constant');
+        const methodElement = document.createElement('li');
+        methodElement.className = 'method-element';
+        methodElement.setAttribute('tabindex', 0);
+        methodElement.setAttribute('data-class-name', methodData.className);
+        methodElement.setAttribute('data-method-name', methodData.methodName);
+        methodElement.setAttribute('data-package-name', methodData.package);
+
+        const img = document.createElement('div')
+        if (methodData.className) {
+          img.classList.add('codicon', 'codicon-symbol-method');
+        } else {
+          img.classList.add('codicon', 'codicon-symbol-constant');
+        }
+        if (methodData.level === 'Basic') {
+          img.classList.add('basic');
+        }
+        methodElement.appendChild(img);
+
+        addText(methodElement, `${methodData.package}\u2004:\u2004`);
+
+        if (methodData.className) {
+          addText(methodElement, methodData.className, 'class-entry');
+          addText(methodElement, '\u2004.\u2004');
+        }
+
+        addText(methodElement, methodData.methodName, 'method-entry');
+
+        addText(methodElement, methodData.infoString, 'info-entry');
+
+        addText(methodElement, methodData.topics.join('\u2002\u2004'), 'topics-entry');
+
+        methodElement.addEventListener('click', () => {
+          handleMethodClicked(methodData.className, methodData.methodName, methodData.package);
+        });
+
+        list.appendChild(methodElement);
+
+        navElements.push(methodElement);
       }
-      if (methodData.level === 'Basic') {
-        img.classList.add('basic');
-      }
-      methodElement.appendChild(img);
-
-      addText(methodElement, `${methodData.package}\u2004:\u2004`);
-
-      if (methodData.className) {
-        addText(methodElement, methodData.className, 'class-entry');
-        addText(methodElement, '\u2004.\u2004');
-      }
-
-      addText(methodElement, methodData.methodName, 'method-entry');
-
-      addText(methodElement, methodData.infoString, 'info-entry');
-
-      addText(methodElement, methodData.topics.join('\u2002\u2004'), 'topics-entry');
-
-      methodElement.addEventListener('click', () => {
-        handleMethodClicked(methodData.className, methodData.methodName, methodData.package);
-      });
-
-      list.appendChild(methodElement);
-
-      navElements.push(methodElement);
 
       const commentLines = methodData.commentLines
       const commentsLength = commentLines.length;
@@ -304,6 +306,8 @@
               str = '\u2002';
             }
             checkEmpty = false;
+
+            str = str.replace(/\s/gy, '\u2002');
 
             const commentElement = document.createElement('li');
             commentElement.className = 'comment-element';
