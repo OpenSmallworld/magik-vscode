@@ -769,15 +769,18 @@ class MagikSymbolProvider {
   }
 
   filePathFromPartial(patialPath) {
+    const altPatialPath = patialPath.replace(/\\/g, '/');
+
     for (const data of Object.values(this.classData)) {
       const sourceFile = data.sourceFile;
-      if (sourceFile !== undefined && sourceFile.endsWith(patialPath)) {
+      if (sourceFile !== undefined && (sourceFile.endsWith(patialPath) || sourceFile.endsWith(altPatialPath))) {
         return sourceFile;
       }
     }
+
     for (const data of Object.values(this.globalData)) {
       const sourceFile = data.sourceFile;
-      if (sourceFile !== undefined && sourceFile.endsWith(patialPath)) {
+      if (sourceFile !== undefined && (sourceFile.endsWith(patialPath) || sourceFile.endsWith(altPatialPath))) {
         return sourceFile;
       }
     }

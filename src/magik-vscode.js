@@ -152,7 +152,7 @@ class MagikVSCode {
       let selection;
 
       if (args.lineNumber !== undefined) {
-        selection = new vscode.Range(args.lineNumber, 0, args.lineNumber, 0);
+        selection = new vscode.Range(args.lineNumber - 1, 0, args.lineNumber - 1, 0);
       }
 
       vscode.window.showTextDocument(vscode.Uri.file(args.fileName), {
@@ -564,7 +564,7 @@ class MagikVSCode {
     await this.gotoFromQuery(query, command, false, localOnly);
   }
 
-  provideTerminalLinks(context, token) {
+  provideTerminalLinks(context, token, allPaths = false) {
     const line = context.line;
     const links = [];
     let startIndex;
@@ -606,8 +606,8 @@ class MagikVSCode {
     match = line.match(PATH_REG);
     if (match) {
       let filePath = match[1];
-      // Only add link for parital file path
-      if (!fs.existsSync(filePath)) {
+      // Only add link for partial file path for terminal
+      if (allPaths || !fs.existsSync(filePath)) {
         filePath = this.symbolProvider.filePathFromPartial(filePath);
         if (fs.existsSync(filePath)) {
           startIndex = line.indexOf(match[1]);
@@ -2145,7 +2145,7 @@ class MagikVSCode {
       }
 
       if (!/^(\d|_)/.test(currentText)) {
-        const links = this.provideTerminalLinks({line: lineText}, undefined);
+        const links = this.provideTerminalLinks({line: lineText}, undefined, true);
         const tracebackMethod = links.length === 1;
         const inComment = this._posInComment(pos);
         const firstColumn = this.magikConsole.isConsoleDoc(doc);

@@ -375,11 +375,7 @@ function lastPragma(doc, currentLine) {
   }
 }
 
-function currentRegion(methodOnly, startLine) {
-  const editor = vscode.window.activeTextEditor;
-  if (!editor) return {};
-
-  const doc = editor.document;
+function getRegion(doc, methodOnly, startLine) {
   const startMethodReg = /^\s*(_abstract\s+)*(_private\s+)*(_iter\s+)*_method\s+/;
   const endMethodReg = /^\s*_endmethod/;
   const previousReg = new RegExp(
@@ -390,6 +386,9 @@ function currentRegion(methodOnly, startLine) {
   const endReg = /^_endblock/;
 
   if (!startLine) {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) return {};
+
     startLine = editor.selection.active.line || 0;
     if (startLine > 0 && doc.lineAt(startLine).text === '') {
       startLine--;
@@ -490,6 +489,13 @@ function currentRegion(methodOnly, startLine) {
   return {lines, firstRow, lastRow};
 }
 
+function currentRegion(methodOnly, startLine) {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) return {};
+
+  return getRegion(editor.document, methodOnly, startLine);
+}
+
 function indentRegion() {
   const editor = vscode.window.activeTextEditor;
   if (!editor) return {};
@@ -544,6 +550,8 @@ function indentRegion() {
 }
 
 function removeStrings(text) {
+  if (text.indexOf('"') === -1) return text;
+
   const textLength = text.length;
   const noStrings = [];
   let count = 0;
@@ -751,8 +759,7 @@ function getMethodParams(lines, startLine, procs) {
   }
 
   if (procs !== false) {
-    // Find internal proc params
-    const procReg = /(\s+|\()_proc\s*[|@\w!?]*\s*\(/;
+    const procReg = /(^|\s+|\()_proc\s*[|@\w!?]*\s*\(/;
 
     for (let i = 1; i < end; i++) {
       const line = stringBeforeComment(lines[i]);
@@ -1016,6 +1023,7 @@ module.exports = {
   currentClassName,
   allClassNames,
   lastPragma,
+  getRegion,
   currentRegion,
   indentRegion,
   removeStrings,

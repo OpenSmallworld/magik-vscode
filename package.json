@@ -370,15 +370,53 @@
                 "key": "f7",
                 "when": "editorTextFocus && editorLangId == message"
             },
+
             {
-                "command": "magik.goto",
-                "key": "alt+.",
-                "when": "editorTextFocus && editorLangId == magik"
+                "command": "editor.action.referenceSearch.trigger",
+                "key": "ctrl+oem_comma",
+                "when": "editorHasDefinitionProvider && editorTextFocus && !isInEmbeddedEditor"
+            },
+            {
+                "command": "editor.action.peekDefinition",
+                "key": "ctrl+oem_period",
+                "when": "editorHasDefinitionProvider && editorTextFocus && !inReferenceSearchEditor && !isInEmbeddedEditor"
             },
             {
                 "command": "editor.action.goToReferences",
-                "key": "ctrl+.",
+                "key": "alt+oem_comma",
+                "when": "editorHasDefinitionProvider && editorTextFocus && !isInEmbeddedEditor"
+            },
+
+            {
+                "command": "magik.goto",
+                "key": "alt+oem_period",
                 "when": "editorTextFocus && editorLangId == magik"
+            },
+            {
+                "command": "magik.goto",
+                "key": "alt+right",
+                "when": "editorTextFocus && editorLangId == magik"
+            },
+            {
+                "command": "editor.action.revealDefinition",
+                "key": "alt+oem_period",
+                "when": "editorHasDefinitionProvider && editorTextFocus && !isInEmbeddedEditor"
+            },
+            {
+                "command": "editor.action.revealDefinition",
+                "key": "alt+right",
+                "when": "editorHasDefinitionProvider && editorTextFocus && !isInEmbeddedEditor"
+            },
+
+            {
+                "key": "ctrl+g",
+                "command": "workbench.action.findInFiles",
+                "when": "editorTextFocus"
+            },
+            {
+                "key": "alt+g",
+                "command": "search.action.openInEditor",
+                "when": "editorTextFocus"
             },
             {
                 "command": "magik.compileExtensionMagik",
@@ -522,17 +560,17 @@
         "prettier": "prettier --write \"src/**/*.js\""
     },
     "dependencies": {
+        "@vscode/codicons": "^0.0.26",
         "bluebird": "^3.7.2",
         "chokidar": "^3.5.1",
         "findit": "^2.0.0",
-        "vscode-codicons": "^0.0.17",
         "vscode-debugadapter": "1.33.0",
         "ws": "^7.4.3"
     },
     "devDependencies": {
-        "eslint": "5.9.0",
-        "eslint-config-airbnb": "17.1.0",
-        "eslint-config-airbnb-base": "13.1.0",
+        "eslint": "^8.3.0",
+        "eslint-config-airbnb": "^19.0.1",
+        "eslint-config-airbnb-base": "^15.0.0",
         "eslint-config-prettier": "3.3.0",
         "eslint-plugin-import": "2.14.0",
         "eslint-plugin-prettier": "3.0.0",
