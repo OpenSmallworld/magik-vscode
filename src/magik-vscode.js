@@ -152,7 +152,7 @@ class MagikVSCode {
       let selection;
 
       if (args.lineNumber !== undefined) {
-        selection = new vscode.Range(args.lineNumber - 1, 0, args.lineNumber - 1, 0);
+        selection = new vscode.Range(args.lineNumber, 0, args.lineNumber, 0);
       }
 
       vscode.window.showTextDocument(vscode.Uri.file(args.fileName), {
@@ -615,7 +615,7 @@ class MagikVSCode {
           if (match[4]) {
             const partialPath = `${match[1]}:${match[4]}`;
             length = partialPath.length;
-            lineNumber = Number(match[4]);
+            lineNumber = Number(match[4]) - 1;
             tooltip = `${filePath}:${match[4]}`;
           } else {
             length = match[1].length;
@@ -2077,7 +2077,7 @@ class MagikVSCode {
           fileFound = fs.existsSync(filePath);
         }
         if (fileFound) {
-          const lineNumber = pathMatch[4] ? Number(pathMatch[4]) : undefined;
+          const lineNumber = pathMatch[4] ? Number(pathMatch[4]) - 1 : undefined;
           const openArgs = [{fileName: filePath, firstColumn, lineNumber}];
           const openCommand = vscode.Uri.parse(
             `command:magik.openFile?${encodeURIComponent(
