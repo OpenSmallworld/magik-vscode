@@ -55,8 +55,9 @@
     switch (e.key) {
       case 'Enter':
         if (selectedElement && selectedElement.getAttribute('data-method-name')) {
+          const className = selectedElement.getAttribute('data-class-name')
           handleMethodClicked(
-            selectedElement.getAttribute('data-class-name'),
+            className === 'undefined' ? undefined : className,
             selectedElement.getAttribute('data-method-name'),
             selectedElement.getAttribute('data-package-name'),
           );
@@ -224,7 +225,7 @@
     for (let methodIndex = 0; methodIndex < methodsLength; methodIndex++) {
       const methodData = results[methodIndex];
 
-      if (methodData.className) {
+      if (methodData.methodName) {
         const methodElement = document.createElement('li');
         methodElement.className = 'method-element';
         methodElement.setAttribute('tabindex', 0);

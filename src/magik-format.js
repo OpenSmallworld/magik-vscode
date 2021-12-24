@@ -257,6 +257,39 @@ async function wrapComment(currentRow, ch) {
   }
 }
 
+async function checkSymbolPipe(firstRow, lastRow) {
+  const editor = vscode.window.activeTextEditor;
+  const doc = editor.document;
+  const edit = new vscode.WorkspaceEdit();
+
+  for (let row = firstRow; row < lastRow + 1; row++) {
+    const lineText = doc.lineAt(row).text;
+    const text = magikUtils.stringBeforeComment(lineText);
+    const reg = /:([\w!?]+)\|(\??\^?(\(\)(<<)?|<<))\|/g;
+    let match;
+
+      while (match = reg.exec(text)) { // eslint-disable-line
+      const index = match.index;
+
+      if (!magikUtils.withinString(text, index)) {
+        const matchLength = match[0].length;
+        const range = new vscode.Range(
+          row,
+          index,
+          row,
+          index + matchLength
+        );
+        const insertText = `:|${match[1]}${match[2]}|`;
+        edit.replace(doc.uri, range, insertText);
+      }
+    }
+  }
+
+  if (edit.size > 0) {
+    await vscode.workspace.applyEdit(edit);
+  }
+}
+
 module.exports = {
   addSpaceAfterComma,
   removeSpacesAfterMethodName,
@@ -264,4 +297,5 @@ module.exports = {
   addSpacesAroundOperators,
   addNewlineAfterDollar,
   wrapComment,
+  checkSymbolPipe,
 };

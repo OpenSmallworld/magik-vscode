@@ -2848,6 +2848,41 @@ _global _constant mp << mprompt
 $
 
 
+
+_pragma(classify_level=debug)
+##
+## Iterator to yield elements of a collection in a random order.
+##
+_global _constant random_elements <<
+_iter _proc(source, _optional iter_method_name)
+	a_rope << _if iter_method_name _isnt _unset
+		_then
+			>> rope.new_from_iter(source, iter_method_name)
+		_else
+			>> rope.new_from(source)
+		_endif
+
+	size << a_rope.size
+	max_range << 10000000
+	rnd << random.new(max_range, date_time.now().as_milliseconds)
+
+	_loop
+		_if size = 0 _then _return _endif
+		_if size = 1
+		_then
+			_loopbody(a_rope[1])
+			_return
+		_endif
+
+		index << (rnd.get() * size / max_range).floor + 1
+		_loopbody(a_rope.remove_nth(index))
+
+		size -<< 1
+	_endloop
+_endproc
+$
+
+
 _pragma(classify_level=debug)
 ##
 ## Runs the supplied collection of test cases.
@@ -2909,7 +2944,7 @@ _proc ( tests, _optional background? )
 				_if a_test _is _unset _then _continue _endif
 
 				write(" ")
-				_for t _over a_test.tests()
+				_for t _over random_elements(a_test, :|tests()|)
 				_loop
 					name << t.get_name()
 					_if name _is _unset

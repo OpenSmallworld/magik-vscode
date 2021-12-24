@@ -573,6 +573,7 @@ class MagikLinter {
       await magikFormat.removeSpacesAfterMethodName(firstRow, lastRow);
       await magikFormat.addSpaceAfterComma(firstRow, lastRow);
       await magikFormat.addSpacesAroundOperators(firstRow, lastRow);
+      await magikFormat.checkSymbolPipe(firstRow, lastRow);
     }
   }
 
@@ -596,6 +597,7 @@ class MagikLinter {
     await magikFormat.removeSpacesAfterMethodName(0, lastRow);
     await magikFormat.addSpaceAfterComma(0, lastRow);
     await magikFormat.addSpacesAroundOperators(0, lastRow);
+    await magikFormat.checkSymbolPipe(0, lastRow);
     await magikFormat.addNewlineAfterDollar(0, lastRow);
   }
 
