@@ -101,26 +101,26 @@
 				},
 				{
 					"name": "storage.type.function.magik",
-					"match": "\\b(_private|_iter|_abstract)\\b"
+					"match": "\\b(_private|_iter|_abstract|_package)\\b"
 				},
 				{
 					"name": "keyword.operator.arithmetic.magik",
 					"match": "\\b(_div|_mod|_divmod)\\b"
 				},
 				{
-					"name": "storage.type.function.magik",
-					"match": "\\b(remex|_package)\\b"
+					"name": "invalid.illegal.warning.magik",
+					"match": "\\b(remex)\\b"
 				}
 			]
 		},
 		"exemplar": {
 			"patterns": [
 				{
-					"begin": "(def_slotted_exemplar)\\(",
+					"begin": "(def_slotted_exemplar|def_mixin)\\s*\\(",
 					"beginCaptures": {
 						"1": {"name": "storage.type.function.magik"}
 					},
-					"end": "(:[\\w!?]+),",
+					"end": "(:[\\w!?]+)\\s*(,|\\))",
 					"endCaptures": {
 						"1": {"name": "entity.name.class.magik"}
 					}

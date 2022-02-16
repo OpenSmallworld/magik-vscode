@@ -7,6 +7,8 @@ const magikVar = require('./magik-variables');
 const TOKEN_TYPES = ['class', 'parameter', 'variable'];
 const TOKEN_MODIFIERS = ['readonly', 'defaultLibrary'];
 
+const GLOBALS_TO_IGNORE = ['def_slotted_exemplar', 'def_mixin'];
+
 class MagikSemantics {
   constructor(magikVSCode, symbolProvider, context) {
     const magikFile = {
@@ -80,7 +82,7 @@ class MagikSemantics {
           preChar !== ':' &&
           Number.isNaN(Number(name))
         ) {
-          if (globalNames.indexOf(name) !== -1) {
+          if (globalNames.indexOf(name) !== -1 && GLOBALS_TO_IGNORE.indexOf(name) === -1) {
             index = text.indexOf(name, startIndex);
             tokensBuilder.push(startRow + row, index, name.length, 2, 2);
           } else if (assignedVars && assignedVars[name]) {
