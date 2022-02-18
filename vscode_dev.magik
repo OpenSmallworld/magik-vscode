@@ -11,59 +11,6 @@ $
 $
 
 
-_block
-	# Optional dev setup - please update this block locally to suit your needs!
-
-	# _local core_repo << system.pathname_up(smallworld_product.product(:sw_core).directory) # "C:\projects\hg\corerepo"
-	# _local dev_tools_dir << system.pathname_down( core_repo, "sw_core", "modules", "sw_dev_tools" )
-
-
-	# Load munit
-	# _local munit_dir << "C:\projects\hg\munit"
-	# smallworld_product.add_product( munit_dir )
-	# sw_module_manager.load_module( :munit_base )
-
-
-	# Set default_trunk_branch_name to use with dev procs
-	# _local branch_name << "SW525"
-	# _local parts << system.getenv("SMALLWORLD_GIS").split_by(system.pathname_separator)
-	# _for a_part _over parts.fast_elements()
-	# _loop
-	# 	_if a_part.size > 2 _andif a_part.subseq(1, 2) = "SW"
-	# 	_then
-	# 		branch_name << a_part
-	# 		# _leave
-	# 	_endif
-	# _endloop
-
-	# _global default_trunk_branch_name
-	# default_trunk_branch_name << branch_name
-
-
-	# Reinitialise products to get source from local repositories
-	# _global relocate_products
-	# relocate_products()
-
-
-	# Load dev tools
-	# smallworld_product.add_product( dev_tools_dir )
-	# sw_module_manager.load_module( :dev_tools_application )
-
-
-	# _global !debug_tracebacks?!
-	# !debug_tracebacks?! << _true
-
-	# _global !swift_build_method?!
-	# !swift_build_method?! << _true
-
-	_global !use_method_finder?!
-	!use_method_finder?! << _false
-	method_finder.auto_start? << _false
-
-_endblock
-$
-
-
 # Redefined for use with VS Code
 
 _pragma(classify_level=debug)

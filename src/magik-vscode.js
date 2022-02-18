@@ -1412,23 +1412,29 @@ class MagikVSCode {
   }
 
   async _getCompletionItems(doc, pos) {
-    const currentWord = magikUtils.currentWord(doc, pos);
-    if (!currentWord) return;
-
     const currentText = doc.lineAt(pos.line).text;
+    let items = [];
+
+    if (this.magikConsole.isConsoleDoc(doc)) {
+      items = this.magikConsole.getConsoleCompletionItems(currentText, pos);
+    }
+
+    const currentWord = magikUtils.currentWord(doc, pos);
+    if (!currentWord) return items;
+
     const previousWord = magikUtils.previousVarInString(
       currentText,
       pos.character
     );
 
     if (previousWord) {
-      const items = await this._getMethodCompletionItems(
+      const methodItems = await this._getMethodCompletionItems(
         doc,
         pos,
         currentWord,
         previousWord
       );
-      return items;
+      return Array.prototype.push(items, methodItems);
     }
 
     if (pos.line > 1) {
@@ -1446,7 +1452,6 @@ class MagikVSCode {
       }
     }
 
-    const items = [];
     const index = currentText.indexOf(
       currentWord,
       pos.character - currentWord.length

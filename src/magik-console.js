@@ -433,6 +433,40 @@ class MagikConsole {
     // Assumes a console file exists.
     this._outputToConsole = false;
   }
+
+  getConsoleCompletionItems(currentText, pos) {
+    const items = [];
+    const matches = [];
+    const len = this._consoleHistory.length
+
+    for (let index = 0; index < len; index++) {
+      const text = this._consoleHistory[index];
+
+      if (text.indexOf(currentText) !== -1 && !matches.includes(text)) {
+        const isTrimmed = text.length > 80;
+        const name = isTrimmed ? `${text.slice(0, 80)}..` : text;
+        const item = new vscode.CompletionItem(
+          name,
+          vscode.CompletionItemKind.Value
+        );
+        if (isTrimmed) {
+          item.documentation = text;
+        }
+        item.detail = 'Command History';
+        item.insertText = text;
+        item.range = new vscode.Range(
+          pos.line,
+          0,
+          pos.line,
+          currentText.length
+        );
+        items.push(item);
+        matches.push(text);
+      }
+    }
+
+    return items;
+  }
 }
 
 module.exports = MagikConsole;
