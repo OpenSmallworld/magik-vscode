@@ -181,7 +181,7 @@ Capturing output is controlled by the setting `magik-vscode.enableOutputToConsol
 4. Run npm install inside the Magik extension (requires Node.js to be installed):
 
     cd %USERPROFILE%\\.vscode\extensions\magik-vscode<br>
-	set the http and https proxies
+	set the http and https proxies<br>
     npm install
 
 
@@ -197,9 +197,11 @@ Capturing output is controlled by the setting `magik-vscode.enableOutputToConsol
 Note: A npm update is required to update the dependencies after updating this extension.
 
 I would recommend using these other extensions:
-* Bracket Pair Colorizer 2
 * Git Lens
 * vscode-icons
+* Partial Diff
+* XML Tools
+* Bookmarks
 
 <br>
 
@@ -416,6 +418,15 @@ https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 <br>
 
 ## Release Notes
+
+### 0.2.1
+
+* Added class, global and parameter highlighting.
+* Add Magik Console Editor auto complete for command history.
+* Enabled class comments in Class Browser.
+* Added Magik dark theme.
+* Updated default code navigation shortcuts.
+* Added config option to switch between searching with Class Browser or Method Search List.
 
 ### 0.2.0
 
