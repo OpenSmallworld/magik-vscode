@@ -1,0 +1,114 @@
+{
+    "plugin": {
+        "prefix": "plugin",
+        "body": "<plugin name=\"${1:plugin_name}\" class_name=\"${2:class_name}\"/>",
+        "description": "Smallworld Plugin"
+    },
+    "property": {
+        "prefix": "property",
+        "body": "<property name=\"${1:property_name}\" value=\"${2:value}\"/>",
+        "description": "Single Smallworld Plugin Property"
+    },
+    "plugin_with_properties": {
+        "prefix": "plugin_with_properties",
+        "body": [
+            "<plugin name=\"${1:plugin_name}\" class_name=\"${2:class_name}\">",
+            "\t<properties>",
+            "\t\t<property name=\"${3:property_name}\" value=\"${4:value}\"/>",
+            "\t</properties>",
+            "</plugin>"
+        ],
+        "description": "Smallworld Plugin With Properties"
+    },
+    "spatial_context": {
+        "prefix": "spatial_context",
+        "body": "<spatial_context name=\"${1:spatial_context_name}\" ace_name=\"${2:ace_name}\" universe_name=\"${3:universe_name}\"/>",
+        "description": "Smallworld Spatial Context"
+    },
+    "handle": {
+        "prefix": "handle",
+        "body": "<handle plugin_name=\"${1:plugin_name}\"/>"
+    },
+    "action": {
+        "prefix": "action",
+        "body": "<action name=\"${1:plugin}.${2:action}\"/>",
+        "description": "Smallworld Action"
+    },
+    "accelerator": {
+        "prefix": "accelerator",
+        "body": "<accelerator id=\"${1:id}\" name=\"${2:plugin}.${3:action}\"/>",
+        "description": "Smallworld Accelerator"
+    },
+    "toolbar": {
+        "prefix": "toolbar",
+        "body": "<toolbar name=\"${1:toolbar_name}\"/>",
+        "description": "Smallworld Toolbar"
+    },
+    "toolbar_with_action": {
+        "prefix": "toolbar_with_action",
+        "body": [
+            "<toolbar name=\"${1:toolbar_name}\">",
+            "\t<action name=\"${2:plugin}.${3:action}\"/>",
+            "</toolbar>"
+            ],
+        "description": "Smallworld Toolbar With Action"
+    },
+    "dock_with_toolbar": {
+        "prefix": "dock_with_toolbar",
+        "body": [
+            "<dock name=\"${1|top,bottom,left,right|}\">",
+            "\t<toolbar name=\"${2:toolbar_name}\"/>",
+            "</dock>"
+            ],
+        "description": "Smallworld Dock With Toolbar"
+    },
+    "sub_menu_with_action": {
+        "prefix": "sub_menu_with_action",
+        "body": [
+            "<sub_menu name=\"${1:sub_menu_name}\">",
+            "\t<action name=\"${2:plugin}.${3:action}\"/>",
+            "</sub_menu>"
+            ],
+        "description": "Smallworld Submenu With Action"
+    },
+    "menu_with_action": {
+        "prefix": "menu_with_action",
+        "body": [
+            "<menu name=\"${1:menu_name}\">",
+            "\t<action name=\"${2:plugin}.${3:action}\"/>",
+            "</menu>"
+            ],
+        "description": "Smallworld Menu With Action"
+    },
+    "tab_box_with_plugin": {
+        "prefix": "tab_box_with_plugin",
+        "body": [
+            "<tab_box tabs_position=\"${1|top,bottom,left,right|}\">",
+            "\t<plugin plugin_name=\"${2:plugin_name}\"/>",
+            "</tab_box>"
+            ],
+        "description": "Smallworld Tab Box With Plugin"
+    },
+    "paned_window": {
+        "prefix": "paned_window",
+        "body": [
+            "<paned_window side_by_side=\"${1|yes,no|}\">",
+            "</paned_window>"
+            ],
+        "description": "Smallworld Paned Window"
+    },
+    "statusbar_with_pane": {
+        "prefix": "statusbar_with_pane",
+        "body": [
+            "<statusbar>",
+            "\t<pane id=\"${1:pane_id}\" style=\"${2|innie,outie,flat|}\" width=\"${3:150}\" springy=\"${4|true,false|}\"/>",
+            "</statusbar>"
+        ],
+        "description": "Smallworld Statusbar With Pane"
+    },
+    "pane": {
+        "prefix": "pane",
+        "body": "<pane id=\"${1:pane_id}\" style=\"${2|innie,outie,flat|}\" width=\"${3:150}\" springy=\"${4|true,false|}\"/>",
+        "description": "Smallworld Pane"
+    }
+}

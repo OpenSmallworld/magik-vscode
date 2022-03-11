@@ -54,6 +54,17 @@
                     ".def"
                 ],
                 "configuration": "./definition-configuration.json"
+            },
+            {
+                "id": "translation",
+                "aliases": [
+                    "Translation",
+                    "translation"
+                ],
+                "extensions": [
+                    ".trn"
+                ],
+                "configuration": "./languages/translation-configuration.json"
             }
         ],
         "grammars": [
@@ -84,6 +95,18 @@
             {
                 "language": "magik",
                 "path": "./snippets/magik.snippets.json"
+            },
+            {
+                "language": "message",
+                "path": "./snippets/message.snippets.json"
+            },
+            {
+                "language": "translation",
+                "path": "./snippets/translation.snippets.json"
+            },
+            {
+                "language": "xml",
+                "path": "./snippets/xml.snippets.json"
             }
         ],
         "breakpoints": [

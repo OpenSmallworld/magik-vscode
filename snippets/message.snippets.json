@@ -1,0 +1,7 @@
+{
+    "msg": {
+        "prefix": "message",
+        "body": ":${1:id}\t\t\t${2:string}",
+        "description": "Smallworld Message"
+    }
+}
