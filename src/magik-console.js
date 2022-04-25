@@ -10,17 +10,26 @@ const magikUtils = require('./magik-utils');
 const TEMP_FILENAME = 'vscode_temp.magik';
 const CONSOLE_TEMP_FILENAME = 'vscode_console_temp.txt';
 const OUTPUT_TEMP_FILENAME = 'vscode_output_temp.txt';
+const CONSOLE_HISTORY_FILENAME = 'vscode_console_history.txt';
 
-const MAX_HISTORY = 200;
+const MAX_HISTORY = 500;
 
 class MagikConsole {
-  constructor(magikVSCode) {
+  constructor(magikVSCode, context) {
     this.magikVSCode = magikVSCode;
 
     this._isCompiling = false;
     this._consoleHistory = [];
     this._consoleIndex = undefined;
     this._outputToConsole = false;
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand('magik.clearConsoleHistory', () =>
+        this.clearConsoleHistory()
+      )
+    );
+
+    this.loadConsoleHistory();
 
     this._monitorOutput();
   }
@@ -38,6 +47,11 @@ class MagikConsole {
   _outputTempFile() {
     const tempDir = os.tmpdir();
     return path.join(tempDir, OUTPUT_TEMP_FILENAME);
+  }
+
+  _consoleHistoryFile() {
+    const ext = vscode.extensions.getExtension('GE-Smallworld.magik-vscode');
+    return path.join(ext.extensionPath, CONSOLE_HISTORY_FILENAME);
   }
 
   isConsoleDoc(doc) {
@@ -466,6 +480,35 @@ class MagikConsole {
     }
 
     return items;
+  }
+
+  loadConsoleHistory() {
+    const historyFile = this._consoleHistoryFile();
+
+    try {
+      fs.accessSync(historyFile, fs.constants.R_OK);
+      const input = fs.readFileSync(historyFile).toString();
+      if (input.length === 0) {
+        this._consoleHistory = [];
+      } else {
+        this._consoleHistory = input.split('||\n');
+      }
+      this._consoleIndex = undefined;
+    } catch (err) {}
+  }
+
+  saveConsoleHistory() {
+    const historyFile = this._consoleHistoryFile();
+    const output = this._consoleHistory.join('||\n');
+
+    try {
+      fs.writeFileSync(historyFile, output);
+    } catch (err) {}
+  }
+
+  clearConsoleHistory() {
+    this._consoleHistory = [];
+    this._consoleIndex = undefined;
   }
 }
 

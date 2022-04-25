@@ -382,7 +382,7 @@ class MagikLinter {
         }
       }
 
-      const indentText = indent === 0 ? '' : new Array(indent + 1).join('\t');
+      const indentText = '\t'.repeat(indent);
 
       lineIndents.push(indent);
 
@@ -401,6 +401,7 @@ class MagikLinter {
         );
         edit.replace(doc.uri, range, indentText);
       }
+
 
       if (firstRow + row === lastRow) break;
 

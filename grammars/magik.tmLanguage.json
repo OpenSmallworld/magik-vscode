@@ -92,6 +92,10 @@
 					"match": "\\b(_local|_global|_dynamic|_constant|_import)\\b"
 				},
 				{
+					"name": "storage.type.class.magik",
+					"match": "\\b(_package)\\b"
+				},
+				{
 					"name": "storage.type.function.magik",
 					"match": "\\b(_proc|_endproc|_block|_endblock|_lock|_endlock|_locking)\\b"
 				},
@@ -100,8 +104,8 @@
 					"match": "\\b(_optional|_scatter|_gather|_allresults)\\b"
 				},
 				{
-					"name": "storage.type.function.magik",
-					"match": "\\b(_private|_iter|_abstract|_package)\\b"
+					"name": "storage.modifier.function.magik",
+					"match": "\\b(_private|_iter|_abstract)\\b"
 				},
 				{
 					"name": "keyword.operator.arithmetic.magik",
@@ -118,7 +122,7 @@
 				{
 					"begin": "(def_slotted_exemplar|def_mixin)\\s*\\(",
 					"beginCaptures": {
-						"1": {"name": "storage.type.function.magik"}
+						"1": {"name": "storage.type.class.magik"}
 					},
 					"end": "(:[\\w!?]+)\\s*(,|\\))",
 					"endCaptures": {

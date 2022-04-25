@@ -9,6 +9,8 @@ const MagikSymbolProvider = require('./magik-symbols');
 const MagikSession = require('./magik-session');
 const MagikSemantics = require('./magik-semantics');
 
+let magikVSCode;
+
 class MagikConfigurationProvider {
   resolveDebugConfiguration(folder, config) {
     if (!config.type && !config.request && !config.name) {
@@ -63,7 +65,8 @@ class MagikDebugAdapterDescriptorFactory {
 
 function activate(context) {
   const symbolProvider = new MagikSymbolProvider(vscode, context);
-  const magikVSCode = new MagikVSCode(symbolProvider, context);
+
+  magikVSCode = new MagikVSCode(symbolProvider, context);
 
   symbolProvider.magikVSCode = magikVSCode;
 
@@ -89,4 +92,12 @@ function activate(context) {
   context.subscriptions.push(factory);
 }
 
-exports.activate = activate;
+
+function deactivate() {
+  magikVSCode.magikConsole.saveConsoleHistory();
+}
+
+module.exports = {
+  activate,
+  deactivate,
+};

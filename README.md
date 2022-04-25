@@ -175,26 +175,36 @@ Capturing output is controlled by the setting `magik-vscode.enableOutputToConsol
 
 ## Installation
 
-1. Download and install Visual Studio Code from - https://code.visualstudio.com/Download. Choose the System Installer.
-2. Add the extension to Visual Stddio Code by cloning the repo to %USERPROFILE%\\.vscode\extensions
-3. Download and install the npm installer from - https://nodejs.org/en/download/.
-4. Run npm install inside the Magik extension (requires Node.js to be installed):
+Download and install Visual Studio Code from - https://code.visualstudio.com/Download. Choose the System Installer.<br>
+This extension can be installed by using the VSIX extension file (Option 1) or manually (Option 2).
+
+### Option 1: Install from the VSIX extension file
+Using the Install from VSIX command in the Extensions view command dropdown, or the Extensions: Install from VSIX command in the Command Palette, point to the .vsix file in this repo.
+
+
+### Option 2: Manual Install
+1. Add the extension to Visual Studio Code by cloning the repo to %USERPROFILE%\\.vscode\extensions
+2. Download and install the npm installer from - https://nodejs.org/en/download/.
+3. Run npm install inside the Magik extension (requires Node.js to be installed):
 
     cd %USERPROFILE%\\.vscode\extensions\magik-vscode<br>
-	set the http and https proxies<br>
+	set http and https proxies if required<br>
     npm install
-
-
-5. VS Code Settings:
-    * Enable `Editor: Format on Type` in the VS Code settings to allow adding _ and auto indentation.
-    * Add the command `magik.gotoClipboardText` to `Terminal > Integrated: Commands To Skip Shell`.
-    * Enable `Terminal > Integrated: Copy On Selection` to allow jump to source from the terminal using **F3**.
-
-5. Restart VS Code if it is already running.
 
 <br>
 
-Note: A npm update is required to update the dependencies after updating this extension.
+### VS Code Settings:
+* Enable `Editor: Format on Type` in the VS Code settings to allow adding _ and auto indentation.
+* Add the command `magik.gotoClipboardText` to `Terminal > Integrated: Commands To Skip Shell`.
+* Enable `Terminal > Integrated: Copy On Selection` to allow jump to source from the terminal using **F3**.
+
+<br>
+
+Notes:<br>
+Restart VS Code if it is already running after adding this extension.<br>
+A npm update is required to update the dependencies after updating this extension.
+
+<br>
 
 I would recommend using these other extensions:
 * Git Lens
@@ -310,14 +320,6 @@ I would recommend using these other extensions:
     For example, this is useful for loading a test file or new module into the session.
     * You can jump to source from the terminal by selecting a method name (or class.method) and pressing **F3**. Requires the steps in 2. in the Installation notes above.
     * Use Alt+Click to move the cursor in the terminal.
-    * For a light theme and Bracket Pair Colorizer 2 use these colours in the settings:
-        ```
-        "bracket-pair-colorizer-2.colors": [
-            "333333",
-            "f57c00",
-            "9c27b0"
-        ],
-        ```
     * To add an icon for Magik files with vscode-icons add the following to the settings (adding your user name):
         ```
         "vsicons.customIconFolderPath": "C:/Users/<user_name>/.vscode/extensions/magik-vscode/icons/",
@@ -325,6 +327,7 @@ I would recommend using these other extensions:
             { "icon": "magik", "extensions": ["magik"], "format": "png" }
         ],
         ```
+        Note: The extension folder name will be of the form 'ge-smallworld.magik-vscode-0.2.2' if installed from a VSIX file.
 
 <br>
 
@@ -419,10 +422,17 @@ https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 
 ## Release Notes
 
+### 0.2.2
+
+* Magik Console Editor history is now persistent between VS Code sessions.
+* Added Magik Darker and Magik Light themes.
+* Fixed formatting error after pressing return.
+* Added VS Code extension file for manual installs.
+
 ### 0.2.1
 
 * Added class, global and parameter highlighting.
-* Add Magik Console Editor auto complete for command history.
+* Added Magik Console Editor auto complete for command history.
 * Enabled class comments in Class Browser.
 * Added Magik dark theme.
 * Updated default code navigation shortcuts.

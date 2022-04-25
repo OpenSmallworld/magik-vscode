@@ -2,8 +2,10 @@
     "name": "magik-vscode",
     "displayName": "Magik VS Code",
     "description": "Magik language support for VS Code",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "publisher": "GE-Smallworld",
+    "license": "MIT",
+    "repository": "https://github.com/OpenSmallworld/magik-vscode",
     "engines": {
         "vscode": "^1.23.0"
     },
@@ -11,7 +13,7 @@
         "Programming Languages",
         "Debuggers"
     ],
-    "icon": "./icons/target_128x128.png",
+    "icon": "icons/target_128x128.png",
     "activationEvents": [
         "onLanguage:magik",
         "onCommand:magik.refreshSymbols",
@@ -75,9 +77,19 @@
         ],
         "themes": [
             {
+                "label": "Light Magik",
+                "uiTheme": "vs",
+                "path": "./themes/magik-light.json"
+            },
+            {
                 "label": "Dark Magik",
                 "uiTheme": "vs-dark",
                 "path": "./themes/magik-dark.json"
+            },
+            {
+                "label": "Darker Magik",
+                "uiTheme": "vs-dark",
+                "path": "./themes/magik-darker.json"
             }
         ],
         "snippets": [
@@ -251,6 +263,10 @@
             {
                 "command": "magik.smallworldNinja",
                 "title": "Smallworld Ninja"
+            },
+            {
+                "command": "magik.clearConsoleHistory",
+                "title": "Magik Clear Console History"
             }
         ],
         "keybindings": [

@@ -24,7 +24,7 @@ class MagikVSCode {
     this.resolveSymbols = true;
 
     this.symbolProvider = symbolProvider;
-    this.magikConsole = new MagikConsole(this);
+    this.magikConsole = new MagikConsole(this, context);
 
     this.magikClassBrowser = new MagikClassBrowser(this, context);
 
