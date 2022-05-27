@@ -173,7 +173,8 @@ class MagikClassBrowser {
       vscode.Uri.joinPath(
         this._extensionUri,
         'node_modules',
-        'vscode-codicons',
+        '@vscode',
+        'codicons',
         'dist',
         'codicon.css'
       )
@@ -182,7 +183,8 @@ class MagikClassBrowser {
       vscode.Uri.joinPath(
         this._extensionUri,
         'node_modules',
-        'vscode-codicons',
+        '@vscode',
+        'codicons',
         'dist',
         'codicon.ttf'
       )
@@ -199,17 +201,15 @@ class MagikClassBrowser {
 					Use a content security policy to only allow loading images from https or from our extension directory,
 					and only allow scripts that have a specific nonce.
 				-->
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; font-src ${codiconsFontUri}; style-src ${
-      webview.cspSource
-    } ${codiconsUri}; script-src 'nonce-${nonce}';"></meta>
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; font-src ${webview.cspSource} ${codiconsFontUri}; style-src ${webview.cspSource} ${codiconsUri}; script-src 'nonce-${nonce}';"></meta>
 
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-				<link href="${styleResetUri}" rel="stylesheet">
-				<link href="${styleVSCodeUri}" rel="stylesheet">
-				<link href="${styleMainUri}" rel="stylesheet">
+				<link href="${styleResetUri}" rel="stylesheet"/>
+				<link href="${styleVSCodeUri}" rel="stylesheet"/>
+				<link href="${styleMainUri}" rel="stylesheet"/>
 
-				<link href="${codiconsUri}" rel="stylesheet" />
+				<link href="${codiconsUri}" rel="stylesheet"/>
 
 				<title>Magik Class Browser</title>
 			</head>

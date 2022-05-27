@@ -136,8 +136,10 @@
         break;
       case 'setFocus':
         if (!methodInput.classList.contains('disabled')) {
-          methodInput.focus();
-          methodInput.setSelectionRange(0, methodInput.value.length);
+          setTimeout(() => {
+            methodInput.focus();
+            methodInput.setSelectionRange(0, methodInput.value.length);
+          }, 200);
         }
         break;
       case 'search':

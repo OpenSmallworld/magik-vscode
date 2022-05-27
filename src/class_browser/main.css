@@ -89,7 +89,7 @@ body {
 .codicon {
 	color : var(--vscode-symbolIcon-methodForeground);
 	padding-top: 0.1em;
-	padding-right: 0.3em;
+	padding-right: 0.4em;
 }
 
 .basic {

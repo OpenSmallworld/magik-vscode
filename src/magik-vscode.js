@@ -855,12 +855,18 @@ class MagikVSCode {
         row,
         index + methodName.length
       );
+      const loc = new vscode.Location(doc.uri, range);
+
+      let name = symbolName || methodName;
+      if (defTest.type === vscode.SymbolKind.Function) {
+        name = `${name}   (Private)`
+      }
+
       const sym = new vscode.SymbolInformation(
-        symbolName || methodName,
+        name,
         defTest.type,
-        range,
-        doc.uri,
-        className
+        className,
+        loc
       );
       return sym;
     }
@@ -1198,26 +1204,31 @@ class MagikVSCode {
       pos.character - def.currentWord.length
     );
 
-    // Test for _super(classname)
-    const superMatch = text
-      .substring(0, start)
-      .match(/_super\s*\(\s*([\w!?]+)\s*\)\s*\.\s*$/);
     let query;
     let command;
     let inherit = false;
-
-    if (superMatch) {
-      query = `^${superMatch[1]}$.^${def.currentWord}$`;
-      command = `vs_goto("^${def.currentWord}$", "${superMatch[1]}")`;
-    } else if (def.className) {
-      inherit = def.previousWord === '_super' ? '_true' : '_false';
-      query = `^${def.className}$.^${def.currentWord}$`;
-      command = `vs_goto("^${def.currentWord}$", "${
-        def.className
-      }", ${inherit})`;
+    const classData = this.symbolProvider.classData[def.currentWord];
+    if (classData && (start === 0 || text[start - 1] !== '.')) {
+      query = `^${def.currentWord}$.`;
+      command = `vs_goto("^${def.currentWord}$.")`;
     } else {
-      query = `^${def.currentWord}$`;
-      command = `vs_goto("^${def.currentWord}$")`;
+      // Test for _super(classname)
+      const superMatch = text
+        .substring(0, start)
+        .match(/_super\s*\(\s*([\w!?]+)\s*\)\s*\.\s*$/);
+
+      if (superMatch) {
+        query = `^${superMatch[1]}$.^${def.currentWord}$`;
+        command = `vs_goto("^${def.currentWord}$", "${superMatch[1]}")`;
+      } else if (def.className) {
+        inherit = def.previousWord === '_super' ? '_true' : '_false';
+        query = `^${def.className}$.^${def.currentWord}$`;
+        command = `vs_goto("^${def.currentWord}$", "${def.className
+          }", ${inherit})`;
+      } else {
+        query = `^${def.currentWord}$`;
+        command = `vs_goto("^${def.currentWord}$")`;
+      }
     }
 
     await this.gotoFromQuery(query, command, inherit, false, firstColumn);
@@ -2223,11 +2234,41 @@ class MagikVSCode {
               );
               hoverString += `${lineSeparator}$(symbol-method)\u2002[Go To Definition](${gotoCommand} "Go To Definition")`;
             }
+
+            // Show Peek if pointing at current word
+            const editor = vscode.window.activeTextEditor;
+            const currentWord = magikUtils.currentWord(doc, editor.selection.end);
+            if (currentText === currentWord) {
+              const peekDefCommand = 'command:editor.action.peekDefinition';
+              const peekRefCommand = 'command:editor.action.referenceSearch.trigger';
+              hoverString += `${lineSeparator}$(open-preview)\u2002[Peek Definition](${peekDefCommand} "Peek Definition")  | [Peek References](${peekRefCommand} "Peek References")`;
+            }
           }
         }
       }
 
       const classData = this.symbolProvider.classData[currentText];
+      if (classData) {
+        let searchCommand;
+        if (
+          vscode.workspace.getConfiguration('magik-vscode')
+            .searchWithClassBrowser
+        ) {
+          searchCommand = vscode.Uri.parse(
+            `command:magik.searchClassBrowser?${encodeURIComponent(
+              JSON.stringify([{className: `^${currentText}$`, methodName: ''}])
+            )}`
+          );
+        } else {
+          searchCommand = vscode.Uri.parse(
+            `command:magik.searchSymbols?${encodeURIComponent(
+              JSON.stringify([{query: `^${currentText}$.`}])
+            )}`
+          );
+        }
+        hoverString += `${lineSeparator}$(list-flat)\u2002[Search Class](${searchCommand} "Search class methods")`;
+      }
+
       if (
         classData &&
         classData.sourceFile &&

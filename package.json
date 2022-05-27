@@ -386,7 +386,6 @@
                 "key": "f7",
                 "when": "editorTextFocus && editorLangId == message"
             },
-
             {
                 "command": "editor.action.referenceSearch.trigger",
                 "key": "ctrl+oem_comma",
@@ -402,7 +401,6 @@
                 "key": "alt+oem_comma",
                 "when": "editorHasDefinitionProvider && editorTextFocus && !isInEmbeddedEditor"
             },
-
             {
                 "command": "magik.goto",
                 "key": "alt+oem_period",
@@ -423,7 +421,6 @@
                 "key": "alt+right",
                 "when": "editorHasDefinitionProvider && editorTextFocus && !isInEmbeddedEditor && editorLangId != magik"
             },
-
             {
                 "key": "ctrl+g",
                 "command": "workbench.action.findInFiles",
@@ -576,7 +573,7 @@
         "prettier": "prettier --write \"src/**/*.js\""
     },
     "dependencies": {
-        "@vscode/codicons": "^0.0.26",
+        "@vscode/codicons": "^0.0.30",
         "bluebird": "^3.7.2",
         "chokidar": "^3.5.1",
         "findit": "^2.0.0",
