@@ -1,8 +1,8 @@
 'use strict';
 
 const vscode = require('vscode'); // eslint-disable-line
-const magikUtils = require('./magik-utils');
-const magikVar = require('./magik-variables');
+const MagikUtils = require('./utils/magik-utils');
+const MagikVar = require('./magik-variables');
 
 const TOKEN_TYPES = ['class', 'parameter', 'variable'];
 const TOKEN_MODIFIERS = ['readonly', 'defaultLibrary'];
@@ -45,19 +45,19 @@ class MagikSemantics {
       if (/^\s*_pragma/.test(line)) continue;
 
       const reg = /[\w!?]+/g;
-      const text = magikUtils.stringBeforeComment(line);
-      const testString = magikUtils.removeStrings(text);
+      const text = MagikUtils.stringBeforeComment(line);
+      const testString = MagikUtils.removeStrings(text);
       let startIndex = 0;
       let match;
 
       if (row === endRow) {
         assignedVars = undefined;
       } else if (row === 0 || this._regionStartTest(line)) {
-        const region = magikUtils.getRegion(doc, false, startRow + row);
+        const region = MagikUtils.getRegion(doc, false, startRow + row);
         const regionLines = region.lines;
 
         if (regionLines) {
-          assignedVars = magikVar.getVariables(
+          assignedVars = MagikVar.getVariables(
             regionLines,
             region.firstRow,
             classNames,

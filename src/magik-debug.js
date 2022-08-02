@@ -283,7 +283,7 @@ class MagikDebugSession extends vscodeDebug.DebugSession {
       }
     }
 
-    const sourceLines = this._magikVSCode.getFileLines(sourcePath);
+    const sourceLines = this._magikVSCode.magikFiles.getFileLines(sourcePath);
 
     if (sourceLines) {
       const conditions = {};

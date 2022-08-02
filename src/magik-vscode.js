@@ -5,30 +5,29 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const chokidar = require('chokidar');
-const magikUtils = require('./magik-utils');
-const magikVar = require('./magik-variables');
+const MagikUtils = require('./utils/magik-utils');
+const MagikVar = require('./magik-variables');
 const MagikConsole = require('./magik-console');
 const MagikClassBrowser = require('./magik-class-browser');
+const MagikFiles = require('./utils/magik-files');
 
 const TERMINAL_TB_REG = /^([\w!?]+)\.([\w!?\(\)\[\]\^]+)\s+\([\w\d\s\\\/\.:!]+\d+\)/;
 const TERMINAL_DEBUG_TB_REG = /^(?:\[\d+\])?\s+([\w!?\(\)\[\]\^]+)\s\.{2,}\s([\w!?]+)\s+/;
 const PATH_REG = /(?:\s|[(['"]|^)((\w:)?[^.'"()[\]]+?\.[^.'"()[\]]+?)(:(\d+))?(?:\s|[)\]'"]|$)/;
 
 const SYMBOLS_FILENAME = 'vscode_symbols.txt';
-const FILE_CACHE_SIZE = 100;
 
 class MagikVSCode {
   constructor(symbolProvider, context) {
-    this.fileCache = [];
     this.currentSymbols = [];
     this.resolveSymbols = true;
 
     this.symbolProvider = symbolProvider;
     this.magikConsole = new MagikConsole(this, context);
-
     this.magikClassBrowser = new MagikClassBrowser(this, context);
+    this.magikFiles = new MagikFiles(this, context);
 
-    this.symbolFileWatcher = undefined;
+    this._symbolFileWatcher = undefined;
 
     this._initialise(context);
   }
@@ -49,9 +48,6 @@ class MagikVSCode {
       ['runTestClass', this._runTestClass],
       ['compileMessages', this._compileMessages],
       ['compileExtensionMagik', this._compileExtensionMagik],
-      ['openFile', this._openFile],
-      ['newBuffer', this._newMagikBuffer],
-      ['newConsole', this._newMagikConsole],
       ['gotoClipboardText', this._gotoClipboardText],
       ['smallworldNinja', this._startSmallworldNinja],
     ];
@@ -114,11 +110,7 @@ class MagikVSCode {
 
     context.subscriptions.push(
       vscode.workspace.onDidSaveTextDocument((doc) => {
-        try {
-          this._updateFileCache(doc);
-        } catch (error) {
-          console.error(error);
-        }
+        this.magikFiles.updateFileCache(doc);
 
         if (this.magikConsole.isConsoleDoc(doc)) {
           this.magikConsole.restartMonitor();
@@ -130,42 +122,23 @@ class MagikVSCode {
   }
 
   _checkFileAfterSaveSymbols() {
-    if (this.symbolFileWatcher === undefined) {
+    if (this._symbolFileWatcher === undefined) {
       const fileDir = os.tmpdir();
       const symbolFile = path.join(fileDir, SYMBOLS_FILENAME);
       const watcher = chokidar.watch(symbolFile);
-      this.symbolFileWatcher = watcher;
+      this._symbolFileWatcher = watcher;
 
       watcher.on('add', () => {
         watcher.close();
-        this.symbolFileWatcher = undefined;
+        this._symbolFileWatcher = undefined;
         vscode.commands.executeCommand('magik.checkFile', {});
-      });
-    }
-  }
-
-  _openFile(args) {
-    if (args.fileName) {
-      const workbenchConfig = vscode.workspace.getConfiguration('workbench');
-      const preview = workbenchConfig.editor.enablePreviewFromCodeNavigation;
-      const viewColumn = args.firstColumn ? vscode.ViewColumn.One : undefined;
-      let selection;
-
-      if (args.lineNumber !== undefined) {
-        selection = new vscode.Range(args.lineNumber, 0, args.lineNumber, 0);
-      }
-
-      vscode.window.showTextDocument(vscode.Uri.file(args.fileName), {
-        preview,
-        viewColumn,
-        selection,
       });
     }
   }
 
   _runMagik(args) {
     if (args.text) {
-      magikUtils.sendToTerminal(args.text);
+      MagikUtils.sendToTerminal(args.text);
     }
   }
 
@@ -184,7 +157,7 @@ class MagikVSCode {
 
     const doc = editor.document;
     const {fileName} = doc;
-    const classNames = magikUtils.allClassNames(doc);
+    const classNames = MagikUtils.allClassNames(doc);
     const saveSymbols = classNames.length > 0;
     let classNamesStr;
 
@@ -201,7 +174,7 @@ class MagikVSCode {
     }
 
     if (doc.isDirty) {
-      const lines = this.getDocLines(doc);
+      const lines = MagikFiles.getDocLines(doc);
 
       lines.unshift(`# Output:Loading file '${fileName}'...`);
 
@@ -262,8 +235,8 @@ class MagikVSCode {
 
     const doc = editor.document;
     const selection = editor.selection;
-    const packageName = magikUtils.getPackageName(doc);
-    const className = magikUtils.currentClassName(
+    const packageName = MagikUtils.getPackageName(doc);
+    const className = MagikUtils.currentClassName(
       doc,
       selection.end.line,
       selection.start.line
@@ -294,14 +267,14 @@ class MagikVSCode {
   }
 
   async _compileMethod() {
-    const lines = magikUtils.currentRegion(true).lines;
+    const lines = MagikUtils.currentRegion(true).lines;
     if (!lines) {
       return this._compileRegion();
     }
 
     const editor = vscode.window.activeTextEditor;
     const doc = editor.document;
-    const packageName = magikUtils.getPackageName(doc);
+    const packageName = MagikUtils.getPackageName(doc);
 
     const parts = lines[0].split('.');
     const className = parts[0]
@@ -313,7 +286,7 @@ class MagikVSCode {
 
     if (parts.length > 1) {
       methodName = parts[1].trim();
-      let index = methodName.search(magikUtils.INVALID_CHAR);
+      let index = methodName.search(MagikUtils.INVALID_CHAR);
       if (index === -1) index = methodName.length;
       methodName = methodName.slice(0, index);
       if (parts[1].includes('(')) {
@@ -356,15 +329,15 @@ class MagikVSCode {
   }
 
   async _compileRegion() {
-    const region = magikUtils.currentRegion(false);
+    const region = MagikUtils.currentRegion(false);
     const lines = region.lines;
     if (!lines) return;
 
     const editor = vscode.window.activeTextEditor;
     const doc = editor.document;
     const fileName = path.basename(doc.fileName);
-    const packageName = magikUtils.getPackageName(doc);
-    const className = magikUtils.currentClassName(
+    const packageName = MagikUtils.getPackageName(doc);
+    const className = MagikUtils.currentClassName(
       doc,
       region.lastRow,
       region.firstRow
@@ -411,42 +384,6 @@ class MagikVSCode {
     }
   }
 
-  async _newMagikBuffer(name, outputText, viewColumn) {
-    const prefix = name === undefined ? 'buffer' : name;
-    const dateStr = new Date().toLocaleDateString().replace(/(\\|\/)/g, '_');
-    const fileName = `${prefix} ${dateStr}`;
-    const tempDir = os.tmpdir();
-    let tempFile = path.join(tempDir, `${fileName}.magik`);
-    let count = 1;
-
-    while (fs.existsSync(tempFile)) {
-      tempFile = path.join(tempDir, `${fileName} (${count}).magik`);
-      count++;
-    }
-
-    const str = outputText || '';
-
-    fs.writeFileSync(tempFile, str);
-
-    const lastRow = str.split('\n').length;
-    const range = new vscode.Range(lastRow, 0, lastRow, 0);
-    vscode.window.showTextDocument(vscode.Uri.file(tempFile), {
-      selection: range,
-      preview: false,
-      viewColumn,
-    });
-  }
-
-  async _newMagikConsole() {
-    await this._newMagikBuffer(
-      'console',
-      `${magikUtils.MAGIK_PROMPT} \n`,
-      vscode.ViewColumn.Beside
-    );
-
-    this.magikConsole.restartMonitor();
-  }
-
   async _gotoClipboardText() {
     // To search for selection from the terminal ensure copyOnSelection is set to true:
     // "terminal.integrated.copyOnSelection": true
@@ -487,7 +424,7 @@ class MagikVSCode {
     if (symbolsLength === 0) {
       if (magikCommand) {
         this.magikConsole.showIntegratedTerminal();
-        await magikUtils.sendToTerminal(magikCommand);
+        await MagikUtils.sendToTerminal(magikCommand);
       }
       return;
     }
@@ -636,14 +573,14 @@ class MagikVSCode {
 
   async handleTerminalLink(link) {
     if (link.data.fileName) {
-      this._openFile(link.data);
+      this.magikFiles.openFile(link.data);
     } else {
       await this.gotoFromQuery(link.data.query, link.data.command, false, true);
     }
   }
 
   findDefinition(fileName, word, kind) {
-    const lines = this.getFileLines(fileName);
+    const lines = this.magikFiles.getFileLines(fileName);
     if (!lines) return;
 
     const lineCount = lines.length;
@@ -651,7 +588,7 @@ class MagikVSCode {
     let defineTest;
     let defineTestMultiLine;
 
-    const invalidIndex = word.search(magikUtils.INVALID_CHAR);
+    const invalidIndex = word.search(MagikUtils.INVALID_CHAR);
 
     if (invalidIndex !== -1) {
       // Search for method def only
@@ -683,17 +620,17 @@ class MagikVSCode {
     }
 
     for (let row = 0; row < lineCount; row++) {
-      let text = magikUtils.stringBeforeComment(lines[row]);
+      let text = MagikUtils.stringBeforeComment(lines[row]);
       let index = methodTest ? text.search(methodTest) : -1;
 
       if (defineTest && index === -1) {
         index = text.search(defineTest);
 
         if (index === -1 && text.search(defineTestMultiLine) !== -1) {
-          const nextResult = magikUtils.nextWordInFile(lines, row + 1, 0, true);
+          const nextResult = MagikUtils.nextWordInFile(lines, row + 1, 0, true);
           if (nextResult.word === word) {
             row = nextResult.row;
-            text = magikUtils.stringBeforeComment(lines[row]);
+            text = MagikUtils.stringBeforeComment(lines[row]);
             index = 0;
           }
         }
@@ -708,7 +645,7 @@ class MagikVSCode {
   }
 
   _findGlobal(fileName, word) {
-    const lines = this.getFileLines(fileName);
+    const lines = this.magikFiles.getFileLines(fileName);
     if (!lines) return;
 
     const searchName = word.replace(/\?/g, '\\?');
@@ -725,7 +662,7 @@ class MagikVSCode {
     );
 
     for (let row = 0; row < lineCount; row++) {
-      let text = magikUtils.stringBeforeComment(lines[row]);
+      let text = MagikUtils.stringBeforeComment(lines[row]);
       let index = text.search(globalTest);
 
       if (index === -1) {
@@ -733,10 +670,10 @@ class MagikVSCode {
       }
 
       if (index === -1 && text.search(defineTestMultiLine) !== -1) {
-        const nextResult = magikUtils.nextWordInFile(lines, row + 1, 0, true);
+        const nextResult = MagikUtils.nextWordInFile(lines, row + 1, 0, true);
         if (nextResult.word === word) {
           row = nextResult.row;
-          text = magikUtils.stringBeforeComment(lines[row]);
+          text = MagikUtils.stringBeforeComment(lines[row]);
           index = 0;
         }
       }
@@ -752,7 +689,7 @@ class MagikVSCode {
   // TODO - only looking in current directory
   async provideReferences(doc, pos) {
     const locs = [];
-    const current = magikUtils.currentWord(doc, pos);
+    const current = MagikUtils.currentWord(doc, pos);
     if (current === '') return locs;
 
     // const lineCount = doc.lineCount;
@@ -783,11 +720,11 @@ class MagikVSCode {
 
     const currentFileName = doc.fileName;
     const currentDir = path.dirname(currentFileName);
-    const files = this._getMagikFilesInDirectory(currentDir);
+    const files = MagikFiles.getMagikFilesInDirectory(currentDir);
 
     for (let i = 0; i < files.length; i++) {
       const fileName = files[i];
-      const fileLines = this.getFileLines(fileName);
+      const fileLines = this.magikFiles.getFileLines(fileName);
 
       if (fileLines) {
         const lineCount = fileLines.length;
@@ -829,7 +766,7 @@ class MagikVSCode {
       defTest.type === vscode.SymbolKind.Method ||
       defTest.type === vscode.SymbolKind.Function
     ) {
-      const res = magikUtils.getClassAndMethodName(text);
+      const res = MagikUtils.getClassAndMethodName(text);
       if (res.methodName) {
         className = res.className;
         methodName = res.methodName;
@@ -837,9 +774,9 @@ class MagikVSCode {
       }
     } else {
       const pos = new vscode.Position(row, index + 1);
-      const nextResult = magikUtils.nextWord(doc, pos, true);
+      const nextResult = MagikUtils.nextWord(doc, pos, true);
       if (nextResult.word) {
-        className = magikUtils.currentClassName(doc, pos.line);
+        className = MagikUtils.currentClassName(doc, pos.line);
         methodName = nextResult.word;
         row = nextResult.row;
         text = doc.lineAt(row).text;
@@ -883,14 +820,14 @@ class MagikVSCode {
     }
 
     const startLine = editor.selection.active.line - 1;
-    const testsLength = magikUtils.DEFINITION_TESTS.length;
+    const testsLength = MagikUtils.DEFINITION_TESTS.length;
 
     for (let row = startLine; row > 0; row--) {
       const text = doc.lineAt(row).text;
 
       if (text.trim().length > 10) {
         for (let i = 0; i < testsLength; i++) {
-          const defTest = magikUtils.DEFINITION_TESTS[i];
+          const defTest = MagikUtils.DEFINITION_TESTS[i];
           const sym = this._getDefinitionSymbol(doc, row, text, defTest);
           if (sym) {
             this._gotoSymbol(sym);
@@ -913,14 +850,14 @@ class MagikVSCode {
 
     const startLine = editor.selection.active.line + 1;
     const lineCount = doc.lineCount;
-    const testsLength = magikUtils.DEFINITION_TESTS.length;
+    const testsLength = MagikUtils.DEFINITION_TESTS.length;
 
     for (let row = startLine; row < lineCount; row++) {
       const text = doc.lineAt(row).text;
 
       if (text.trim().length > 10) {
         for (let i = 0; i < testsLength; i++) {
-          const defTest = magikUtils.DEFINITION_TESTS[i];
+          const defTest = MagikUtils.DEFINITION_TESTS[i];
           const sym = this._getDefinitionSymbol(doc, row, text, defTest);
           if (sym) {
             this._gotoSymbol(sym);
@@ -935,7 +872,7 @@ class MagikVSCode {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
 
-    const region = magikUtils.currentRegion();
+    const region = MagikUtils.currentRegion();
     if (!region.lines) return;
 
     const doc = editor.document;
@@ -980,7 +917,7 @@ class MagikVSCode {
   // TODO - currently only looking for definitions on one line
   provideDocumentSymbols(doc) {
     const symbols = [];
-    const testsLength = magikUtils.DEFINITION_TESTS.length;
+    const testsLength = MagikUtils.DEFINITION_TESTS.length;
     const lineCount = doc.lineCount;
 
     for (let row = 0; row < lineCount; row++) {
@@ -988,7 +925,7 @@ class MagikVSCode {
 
       if (text.trim().length > 10) {
         for (let i = 0; i < testsLength; i++) {
-          const defTest = magikUtils.DEFINITION_TESTS[i];
+          const defTest = MagikUtils.DEFINITION_TESTS[i];
           const sym = this._getDefinitionSymbol(doc, row, text, defTest);
           if (sym) {
             symbols.push(sym);
@@ -1050,7 +987,7 @@ class MagikVSCode {
 
   _getCurrentReceiver(doc, pos, previousWord) {
     if (['_self', '_super', '_clone'].includes(previousWord)) {
-      return magikUtils.currentClassName(doc, pos.line);
+      return MagikUtils.currentClassName(doc, pos.line);
     }
 
     const currentText = doc.lineAt(pos.line).text;
@@ -1070,7 +1007,7 @@ class MagikVSCode {
       return match[1];
     }
 
-    const region = magikUtils.currentRegion(false, pos.line);
+    const region = MagikUtils.currentRegion(false, pos.line);
     const lines = region.lines;
     const firstRow = region.firstRow;
     const end = pos.line - firstRow + 1;
@@ -1080,8 +1017,8 @@ class MagikVSCode {
       const row = firstRow + i;
       const lineText = lines[i];
 
-      magikVar.findAssignedVariables(lines, firstRow, i, assignedVars);
-      magikVar.findLocalVariables(
+      MagikVar.findAssignedVariables(lines, firstRow, i, assignedVars);
+      MagikVar.findLocalVariables(
         lineText,
         row,
         assignedVars,
@@ -1099,15 +1036,15 @@ class MagikVSCode {
   }
 
   async _getCurrentDefinitionSymbol(doc, pos) {
-    let currentWord = magikUtils.currentWord(doc, pos);
+    let currentWord = MagikUtils.currentWord(doc, pos);
     if (!currentWord) return {};
 
     const text = doc.lineAt(pos.line).text;
     const start = text.indexOf(currentWord, pos.character - currentWord.length);
 
-    currentWord = magikUtils.getMethodName(text, currentWord, start);
+    currentWord = MagikUtils.getMethodName(text, currentWord, start);
 
-    const previousWord = magikUtils.previousWord(doc, pos);
+    const previousWord = MagikUtils.previousWord(doc, pos);
     let classString = previousWord;
     let symbol;
     let className;
@@ -1258,7 +1195,7 @@ class MagikVSCode {
 
     // Revert to checking some files...
 
-    const current = magikUtils.currentWord(doc, pos);
+    const current = MagikUtils.currentWord(doc, pos);
     const currentFileName = doc.fileName;
     const currentDir = path.dirname(currentFileName);
     const doneFileNames = [];
@@ -1270,7 +1207,7 @@ class MagikVSCode {
     doneFileNames.push(currentFileName);
 
     // Check other open files
-    for (const fileName of this._currentMagikFiles()) {
+    for (const fileName of MagikFiles.currentMagikFiles()) {
       if (
         !doneFileNames.includes(fileName) &&
         path.extname(fileName) === '.magik'
@@ -1282,7 +1219,7 @@ class MagikVSCode {
     }
 
     // Check other magik files from the directory
-    const files = this._getMagikFilesInDirectory(currentDir);
+    const files = MagikFiles.getMagikFilesInDirectory(currentDir);
 
     for (let i = 0; i < files.length; i++) {
       const fileName = files[i];
@@ -1293,17 +1230,6 @@ class MagikVSCode {
         doneFileNames.push(fileName);
       }
     }
-  }
-
-  _getMagikFilesInDirectory(dir) {
-    const magikFiles = [];
-    const files = fs.readdirSync(dir);
-    files.forEach((file) => {
-      if (path.extname(file) === '.magik') {
-        magikFiles.push(path.join(dir, file));
-      }
-    });
-    return magikFiles;
   }
 
   resolveSymbolCompletion(sym) {
@@ -1430,10 +1356,10 @@ class MagikVSCode {
       items = this.magikConsole.getConsoleCompletionItems(currentText, pos);
     }
 
-    const currentWord = magikUtils.currentWord(doc, pos);
+    const currentWord = MagikUtils.currentWord(doc, pos);
     if (!currentWord) return items;
 
-    const previousWord = magikUtils.previousVarInString(
+    const previousWord = MagikUtils.previousVarInString(
       currentText,
       pos.character
     );
@@ -1467,11 +1393,11 @@ class MagikVSCode {
       currentWord,
       pos.character - currentWord.length
     );
-    const previousChar = magikUtils.previousCharacter(currentText, index);
+    const previousChar = MagikUtils.previousCharacter(currentText, index);
     let length;
 
     if (previousChar === '.') {
-      const slots = magikUtils.localSlots(doc, pos);
+      const slots = MagikUtils.localSlots(doc, pos);
       length = slots.length;
       for (let i = 0; i < length; i++) {
         const slotName = slots[i];
@@ -1502,7 +1428,7 @@ class MagikVSCode {
       }
 
       if (/^\s*_pragma\s*\(/.test(currentText)) {
-        const pragmaWords = magikUtils.PRAGMA_WORDS;
+        const pragmaWords = MagikUtils.PRAGMA_WORDS;
         length = pragmaWords.length;
         for (let i = 0; i < length; i++) {
           const pragmaWord = pragmaWords[i];
@@ -1522,7 +1448,7 @@ class MagikVSCode {
       if (!inComment && currentText.startsWith(currentWord)) {
         const methodComplete = 'method'.startsWith(currentWord);
         if (methodComplete || 'private'.startsWith(currentWord)) {
-          const className = magikUtils.currentClassName(doc, pos.line);
+          const className = MagikUtils.currentClassName(doc, pos.line);
           if (className) {
             const name = `_method ${className}`;
             const privateName = `_private _method ${className}`;
@@ -1557,7 +1483,7 @@ class MagikVSCode {
         }
 
         if ('pragma'.startsWith(currentWord)) {
-          const lastPragma = magikUtils.lastPragma(doc, pos.line);
+          const lastPragma = MagikUtils.lastPragma(doc, pos.line);
           if (lastPragma) {
             const item = new vscode.CompletionItem(
               lastPragma,
@@ -1571,7 +1497,7 @@ class MagikVSCode {
         }
       }
 
-      const vars = magikVar.getMethodVariables(
+      const vars = MagikVar.getMethodVariables(
         pos,
         this.symbolProvider.classNames,
         this.symbolProvider.classData,
@@ -1593,7 +1519,7 @@ class MagikVSCode {
       }
 
       if (!inComment) {
-        const keywords = magikUtils.MAGIK_KEYWORDS;
+        const keywords = MagikUtils.MAGIK_KEYWORDS;
         length = keywords.length;
         for (let i = 0; i < length; i++) {
           const key = keywords[i];
@@ -1748,7 +1674,7 @@ class MagikVSCode {
       return help;
     }
 
-    const fileLines = this.getFileLines(sym.location.uri.fsPath);
+    const fileLines = this.magikFiles.getFileLines(sym.location.uri.fsPath);
     if (!fileLines) return;
 
     const startLine = sym.location.range.start.line;
@@ -1770,7 +1696,7 @@ class MagikVSCode {
       }
     }
 
-    const methodParams = magikUtils.getMethodParams(lines, 0, false);
+    const methodParams = MagikUtils.getMethodParams(lines, 0, false);
     const params = [];
     const paramNames = [];
     let paramString = '';
@@ -1853,7 +1779,7 @@ class MagikVSCode {
   prepareRename(doc, pos) {
     const err = new Error('Cannot rename current word');
 
-    const currentWord = magikUtils.currentWord(doc, pos);
+    const currentWord = MagikUtils.currentWord(doc, pos);
     if (!currentWord) throw err;
 
     const currentText = doc.lineAt(pos.line).text;
@@ -1862,24 +1788,24 @@ class MagikVSCode {
       pos.character - currentWord.length
     );
 
-    if (magikUtils.withinString(currentText, currentIndex)) throw err;
+    if (MagikUtils.withinString(currentText, currentIndex)) throw err;
 
     const ignorePrev = ['.', ':', '%'];
-    const previousChar = magikUtils.previousCharacter(
+    const previousChar = MagikUtils.previousCharacter(
       currentText,
       currentIndex
     );
 
     if (ignorePrev.includes(previousChar)) throw err;
 
-    const region = magikUtils.currentRegion(true);
+    const region = MagikUtils.currentRegion(true);
     if (!region.lines) throw err;
   }
 
   provideRenameEdits(doc, pos, newName) {
     const currentUri = doc.uri;
-    const currentWord = magikUtils.currentWord(doc, pos);
-    const region = magikUtils.currentRegion(true);
+    const currentWord = MagikUtils.currentWord(doc, pos);
+    const region = MagikUtils.currentRegion(true);
     const lines = region.lines;
     const firstRow = region.firstRow;
     const end = lines.length;
@@ -1901,7 +1827,7 @@ class MagikVSCode {
       while (match = wordTest.exec(lineText)) { // eslint-disable-line
         const index = match.index;
 
-        if (!magikUtils.withinString(lineText, index)) {
+        if (!MagikUtils.withinString(lineText, index)) {
           const range = new vscode.Range(row, index, row, index + wordLength);
           edit.replace(currentUri, range, newName);
         }
@@ -1972,7 +1898,7 @@ class MagikVSCode {
     if (pos.line < 0 || pos.line > doc.lineCount - 1) return false;
 
     const lineText = doc.lineAt(pos.line).text;
-    const text = magikUtils.stringBeforeComment(lineText);
+    const text = MagikUtils.stringBeforeComment(lineText);
 
     return pos.character > text.length;
   }
@@ -2119,7 +2045,7 @@ class MagikVSCode {
     const methodDef = /(^|\s)_method\s/.test(lineText);
     const currentText = inSelection
       ? this.selectedText()
-      : magikUtils.currentWord(doc, pos);
+      : MagikUtils.currentWord(doc, pos);
 
     if (currentText) {
       const truncatedText =
@@ -2217,7 +2143,7 @@ class MagikVSCode {
               addGoto = false;
 
               if (
-                magikUtils.previousCharacter(lineText, currentIndex) === '.' ||
+                MagikUtils.previousCharacter(lineText, currentIndex) === '.' ||
                 (startTest.test(lineText) &&
                   pos.line !== 0 &&
                   /\.\s*$/.test(doc.lineAt(pos.line - 1).text))
@@ -2237,7 +2163,7 @@ class MagikVSCode {
 
             // Show Peek if pointing at current word
             const editor = vscode.window.activeTextEditor;
-            const currentWord = magikUtils.currentWord(doc, editor.selection.end);
+            const currentWord = MagikUtils.currentWord(doc, editor.selection.end);
             if (currentText === currentWord) {
               const peekDefCommand = 'command:editor.action.peekDefinition';
               const peekRefCommand = 'command:editor.action.referenceSearch.trigger';
@@ -2288,12 +2214,12 @@ class MagikVSCode {
     }
 
     if (methodDef) {
-      const lines = magikUtils.currentRegion(true, pos.line).lines;
+      const lines = MagikUtils.currentRegion(true, pos.line).lines;
 
       if (lines) {
         await this.symbolProvider.loadSymbols();
 
-        const res = magikUtils.getClassAndMethodName(lines[0]);
+        const res = MagikUtils.getClassAndMethodName(lines[0]);
         const methodName = res.methodName;
 
         if (methodName) {
@@ -2385,12 +2311,12 @@ class MagikVSCode {
       line = args.position.line;
     }
 
-    const lines = magikUtils.currentRegion(true, line).lines;
+    const lines = MagikUtils.currentRegion(true, line).lines;
     if (!lines) return;
 
     await this.symbolProvider.loadSymbols();
 
-    const res = magikUtils.getClassAndMethodName(lines[0]);
+    const res = MagikUtils.getClassAndMethodName(lines[0]);
     if (res.methodName) {
       const parents = [];
       this._parentClasses(res.className, parents);
@@ -2416,7 +2342,7 @@ class MagikVSCode {
     await this.symbolProvider.loadSymbols();
 
     const doc = editor.document;
-    const classNames = magikUtils.allClassNames(doc);
+    const classNames = MagikUtils.allClassNames(doc);
     const testClasses = [];
 
     for (const className of classNames) {
@@ -2463,100 +2389,6 @@ class MagikVSCode {
       'start_ninja',
       `"${ext.extensionPath}"`
     );
-  }
-
-  _currentMagikFiles() {
-    const fileNames = [];
-    for (const doc of vscode.workspace.textDocuments) {
-      if (doc.languageId === 'magik') {
-        fileNames.push(doc.fileName);
-      }
-    }
-    return fileNames;
-  }
-
-  getDocLines(doc) {
-    const lines = [];
-    const linesLength = doc.lineCount;
-    for (let i = 0; i < linesLength; i++) {
-      lines.push(doc.lineAt(i).text);
-    }
-    return lines;
-  }
-
-  // Update file cache after saving a file.
-  _updateFileCache(doc) {
-    const fileName = doc.fileName;
-    const cacheLength = this.fileCache.length;
-
-    for (let index = 0; index < cacheLength; index++) {
-      const data = this.fileCache[index];
-
-      if (data[0] === fileName) {
-        data[1] = this.getDocLines(doc);
-        break;
-      }
-    }
-  }
-
-  getFileLines(fileName) {
-    if (!fileName || fileName === '') return;
-
-    try {
-      fs.accessSync(fileName, fs.constants.R_OK);
-    } catch (err) {
-      return;
-    }
-
-    let openDoc;
-
-    for (const doc of vscode.workspace.textDocuments) {
-      if (doc.fileName === fileName) {
-        if (doc.isDirty) {
-          // Use lines from unsaved editor
-          return this.getDocLines(doc);
-        }
-        openDoc = doc;
-        break;
-      }
-    }
-
-    const cacheLength = this.fileCache.length;
-
-    for (let index = 0; index < cacheLength; index++) {
-      const data = this.fileCache[index];
-
-      if (data[0] === fileName) {
-        if (index > Math.floor(FILE_CACHE_SIZE * 0.75) - 1) {
-          this.fileCache.splice(index, 1);
-          this.fileCache.unshift(data);
-        }
-        return data[1];
-      }
-    }
-
-    let lines;
-    if (openDoc) {
-      lines = this.getDocLines(openDoc);
-    } else {
-      try {
-        lines = fs
-          .readFileSync(fileName)
-          .toString()
-          .split('\n');
-      } catch (err) {
-        vscode.window.showWarningMessage(`Cannot open file: ${fileName}`);
-        return;
-      }
-    }
-
-    this.fileCache.unshift([fileName, lines]);
-
-    if (cacheLength === FILE_CACHE_SIZE) {
-      this.fileCache.pop();
-    }
-
-    return lines;
   }
 
   isDevLoaded() {

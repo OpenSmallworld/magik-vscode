@@ -2,7 +2,7 @@
 
 const WebSocket = require('ws');
 const Net = require('net');
-const SlapProtocol = require('./debug/SlapProtocol');
+const SlapProtocol = require('./debug/slap-protocol');
 
 class MagikDebuggerConnection {
   constructor(url) {

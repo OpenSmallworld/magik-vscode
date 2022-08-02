@@ -5,7 +5,8 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const chokidar = require('chokidar');
-const magikUtils = require('./magik-utils');
+const MagikUtils = require('./utils/magik-utils');
+const MagikFiles = require('./utils/magik-files');
 
 const TEMP_FILENAME = 'vscode_temp.magik';
 const CONSOLE_TEMP_FILENAME = 'vscode_console_temp.txt';
@@ -22,6 +23,12 @@ class MagikConsole {
     this._consoleHistory = [];
     this._consoleIndex = undefined;
     this._outputToConsole = false;
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand('magik.newConsole', () =>
+        this._newMagikConsole()
+      )
+    );
 
     context.subscriptions.push(
       vscode.commands.registerCommand('magik.clearConsoleHistory', () =>
@@ -110,7 +117,7 @@ class MagikConsole {
   }
 
   _revealLastRow(doc) {
-    const editor = magikUtils.getDocEditor(doc);
+    const editor = MagikUtils.getDocEditor(doc);
     if (editor) {
       const lastRow = doc.lineCount - 1;
       const range = new vscode.Range(lastRow, 0, lastRow, 0);
@@ -175,12 +182,12 @@ class MagikConsole {
       }
     }
 
-    await magikUtils.sendToTerminal(stringToSend);
+    await MagikUtils.sendToTerminal(stringToSend);
   }
 
   _updateHistory(regionLines) {
     const consoleLines = [];
-    const promptReg = new RegExp(`^${magikUtils.MAGIK_PROMPT}`);
+    const promptReg = new RegExp(`^${MagikUtils.MAGIK_PROMPT}`);
 
     for (const regionLine of regionLines) {
       if (!promptReg.test(regionLine)) {
@@ -208,7 +215,7 @@ class MagikConsole {
     edit.insert(
       doc.uri,
       insertPos,
-      `\n${result}\n${magikUtils.MAGIK_PROMPT} \n`
+      `\n${result}\n${MagikUtils.MAGIK_PROMPT} \n`
     );
     await vscode.workspace.applyEdit(edit);
 
@@ -219,7 +226,7 @@ class MagikConsole {
     const tempFile = this._tempFile();
     const consoleTempFile = this._consoleTempFile();
 
-    const promptReg = new RegExp(`^${magikUtils.MAGIK_PROMPT}\\s*$`);
+    const promptReg = new RegExp(`^${MagikUtils.MAGIK_PROMPT}\\s*$`);
 
     for (let i = 0; i < lines.length; i++) {
       const lineText = lines[i];
@@ -240,14 +247,14 @@ class MagikConsole {
       const watcher = chokidar.watch(consoleTempFile);
       watcher.on(
         'change',
-        magikUtils.debounce(async () => {
+        MagikUtils.debounce(async () => {
           watcher.close();
           this._doReadConsoleTemp(doc, regionLines);
         }, 100)
       );
     }
 
-    await magikUtils.sendToTerminal('vs_console_load()');
+    await MagikUtils.sendToTerminal('vs_console_load()');
   }
 
   async compileText(doc, lines, regionLines) {
@@ -261,7 +268,7 @@ class MagikConsole {
       return;
     }
 
-    const promptReg = new RegExp(`^${magikUtils.MAGIK_PROMPT}\\s*$`);
+    const promptReg = new RegExp(`^${MagikUtils.MAGIK_PROMPT}\\s*$`);
     const doc = editor.document;
     const lastRow = doc.lineCount;
     const startLine = editor.selection.active.line || 0;
@@ -325,14 +332,14 @@ class MagikConsole {
     const insertPos = new vscode.Position(lastRow + 1, 0);
     const prefix = doc.lineAt(lastRow).text === '' ? '' : '\n';
 
-    const editor = magikUtils.getDocEditor(doc);
+    const editor = MagikUtils.getDocEditor(doc);
     let updateCurrentRow = false;
     if (editor) {
       const currentRow = editor.selection.active.line || 0;
       updateCurrentRow = doc.lineCount - 1 === currentRow;
     }
 
-    edit.insert(doc.uri, insertPos, `${prefix}\n${magikUtils.MAGIK_PROMPT} \n`);
+    edit.insert(doc.uri, insertPos, `${prefix}\n${MagikUtils.MAGIK_PROMPT} \n`);
     await vscode.workspace.applyEdit(edit);
 
     if (updateCurrentRow) {
@@ -370,7 +377,7 @@ class MagikConsole {
     }
     const newOutput = outputLines.join('\n');
 
-    const editor = magikUtils.getDocEditor(doc);
+    const editor = MagikUtils.getDocEditor(doc);
     let updateCurrentRow = false;
     if (editor) {
       const currentRow = editor.selection.active.line || 0;
@@ -418,11 +425,11 @@ class MagikConsole {
         if (this.usingConsoleDoc()) {
           if (!this._outputToConsole) {
             this._outputToConsole = true;
-            await magikUtils.sendToTerminal('vs_monitor_output(_true)');
+            await MagikUtils.sendToTerminal('vs_monitor_output(_true)');
           }
         } else if (this._outputToConsole) {
           this._outputToConsole = false;
-          await magikUtils.sendToTerminal('vs_monitor_output(_false)');
+          await MagikUtils.sendToTerminal('vs_monitor_output(_false)');
         }
       }
     }, 2500);
@@ -430,13 +437,13 @@ class MagikConsole {
     const watcher = chokidar.watch(outputTempFile);
     watcher.on(
       'add',
-      magikUtils.debounce(async () => {
+      MagikUtils.debounce(async () => {
         await this._updateConsoleDoc();
       }, 100)
     );
     watcher.on(
       'change',
-      magikUtils.debounce(async () => {
+      MagikUtils.debounce(async () => {
         await this._updateConsoleDoc();
       }, 100)
     );
@@ -509,6 +516,16 @@ class MagikConsole {
   clearConsoleHistory() {
     this._consoleHistory = [];
     this._consoleIndex = undefined;
+  }
+
+  async _newMagikConsole() {
+    await MagikFiles.newMagikBuffer(
+      'console',
+      `${MagikUtils.MAGIK_PROMPT} \n`,
+      vscode.ViewColumn.Beside
+    );
+
+    this.restartMonitor();
   }
 }
 

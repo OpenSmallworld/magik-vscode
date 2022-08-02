@@ -2,10 +2,10 @@
 
 const Promise = require('bluebird');
 
-const EndianBuffer = require('./EndianBuffer');
+const EndianBuffer = require('./endian-buffer');
 const fs = Promise.promisifyAll(require('fs'));
 
-const envvarReplacer = require('./envvarReplacer');
+const EnvvarReplacer = require('./envvar-replacer');
 
 const SLAP_REQUEST_TYPES = {
   THREAD_LIST: 0,
@@ -616,7 +616,7 @@ class SlapProtocol {
     const message = new EndianBuffer(data, this.isLittleEndian);
     const filename = message.readSlapString(16);
 
-    const actualFilename = envvarReplacer.replace(filename, process.env);
+    const actualFilename = EnvvarReplacer.replace(filename, process.env);
     let contents;
     try {
       contents = fs.readFileSync(actualFilename).toString('utf-8');

@@ -1,9 +1,10 @@
 'use strict';
 
 const vscode = require('vscode'); // eslint-disable-line
-const magikUtils = require('./magik-utils');
-const magikFormat = require('./magik-format');
-const magikVar = require('./magik-variables');
+const MagikUtils = require('./utils/magik-utils');
+const MagikFormat = require('./magik-format');
+const MagikVar = require('./magik-variables');
+const MagikFiles = require('./utils/magik-files');
 
 const METHOD_IGNORE_PREV_CHARS = [' ', '\t', ',', '(', '[', '{'];
 const METHOD_IGNORE_WORDS = ['0e', 'exemplar'];
@@ -193,7 +194,7 @@ class MagikLinter {
     const textLength = text.length;
 
     // Don't update in a comment
-    const noStrings = magikUtils.removeStrings(text);
+    const noStrings = MagikUtils.removeStrings(text);
     const hashIndex = noStrings.indexOf('#');
     if (hashIndex !== -1 && hashIndex < textLength) return;
 
@@ -209,20 +210,20 @@ class MagikLinter {
     let keywords;
     switch (ch) {
       case '.':
-        keywords = magikUtils.MAGIK_OBJECT_KEYWORDS;
+        keywords = MagikUtils.MAGIK_OBJECT_KEYWORDS;
         break;
       case ',':
-        keywords = magikUtils.MAGIK_VARIABLE_KEYWORDS;
+        keywords = MagikUtils.MAGIK_VARIABLE_KEYWORDS;
         break;
       case '(':
         keywords = ['super', 'proc', 'loopbody'];
         break;
       case ')':
-        keywords = magikUtils.MAGIK_VARIABLE_KEYWORDS;
+        keywords = MagikUtils.MAGIK_VARIABLE_KEYWORDS;
         break;
       default:
         // space, return and empty string
-        keywords = magikUtils.MAGIK_KEYWORDS;
+        keywords = MagikUtils.MAGIK_KEYWORDS;
     }
     const keywordsLength = keywords.length;
     const separators = ['.', '(', ',', ')'];
@@ -242,7 +243,7 @@ class MagikLinter {
           if (ch === '') {
             if (
               length === textLength ||
-              text[textLength - length - 1].search(magikUtils.INVALID_CHAR) ===
+              text[textLength - length - 1].search(MagikUtils.INVALID_CHAR) ===
                 0
             ) {
               // Make the change now before checking the indentation
@@ -256,7 +257,7 @@ class MagikLinter {
             }
           } else if (
             length + 1 === textLength ||
-            text[textLength - length - 2].search(magikUtils.INVALID_CHAR) === 0
+            text[textLength - length - 2].search(MagikUtils.INVALID_CHAR) === 0
           ) {
             return vscode.TextEdit.insert(
               new vscode.Position(pos.line, pos.character - length - 1),
@@ -269,7 +270,7 @@ class MagikLinter {
   }
 
   _cancelAssignIndent(testString, startKeyword) {
-    let cancelWords = magikUtils.END_ASSIGN_WORDS;
+    let cancelWords = MagikUtils.END_ASSIGN_WORDS;
     if (startKeyword) {
       for (const [start, end] of STATEMENT_PAIRS) {
         if (startKeyword === start) {
@@ -317,9 +318,9 @@ class MagikLinter {
     if (/[({,]$/.test(testString)) {
       return true;
     }
-    const endWordsLength = magikUtils.END_WORDS.length;
+    const endWordsLength = MagikUtils.END_WORDS.length;
     for (let i = 0; i < endWordsLength; i++) {
-      if (testString.endsWith(magikUtils.END_WORDS[i])) {
+      if (testString.endsWith(MagikUtils.END_WORDS[i])) {
         return true;
       }
     }
@@ -328,13 +329,13 @@ class MagikLinter {
 
   _startProcTest(testString) {
     const match = testString.match(START_PROC);
-    return match && !magikUtils.withinString(testString, match.index);
+    return match && !MagikUtils.withinString(testString, match.index);
   }
 
   _endStatementTest(testString) {
     // Contains _endproc but not at start of line or _endif at end
     const match = testString.match(DEC_STATEMENT);
-    return match && !magikUtils.withinString(testString, match.index);
+    return match && !MagikUtils.withinString(testString, match.index);
   }
 
   /*
@@ -373,9 +374,9 @@ class MagikLinter {
 
       // Don't reduce indent when chaining method calls when line starts with ').'
       if (testString[0] !== '#' && !/^\)\.\s*(#|$)/.test(testString)) {
-        const decWordsLength = magikUtils.INDENT_DEC_WORDS.length;
+        const decWordsLength = MagikUtils.INDENT_DEC_WORDS.length;
         for (let i = 0; i < decWordsLength; i++) {
-          if (testString.startsWith(magikUtils.INDENT_DEC_WORDS[i])) {
+          if (testString.startsWith(MagikUtils.INDENT_DEC_WORDS[i])) {
             indent--;
             break;
           }
@@ -411,15 +412,15 @@ class MagikLinter {
           arrowAssignRows[arrowAssignRows.length - 1]++;
         }
       } else {
-        testString = magikUtils.stringBeforeComment(testString).trim();
+        testString = MagikUtils.stringBeforeComment(testString).trim();
 
         if (arrowAssignRows.length > 0) {
           if (row === arrowAssignRows.slice(-1)[0] + 1) {
-            const startAssignWordsLength = magikUtils.START_ASSIGN_WORDS.length;
+            const startAssignWordsLength = MagikUtils.START_ASSIGN_WORDS.length;
             let assignIndentKeyword;
             for (let i = 0; i < startAssignWordsLength; i++) {
-              if (testString.startsWith(magikUtils.START_ASSIGN_WORDS[i])) {
-                assignIndentKeyword = magikUtils.START_ASSIGN_WORDS[i];
+              if (testString.startsWith(MagikUtils.START_ASSIGN_WORDS[i])) {
+                assignIndentKeyword = MagikUtils.START_ASSIGN_WORDS[i];
                 assignIndentKeywords.push(assignIndentKeyword);
                 break;
               }
@@ -485,9 +486,9 @@ class MagikLinter {
               indent--;
             }
           } else {
-            const incWordsLength = magikUtils.INDENT_INC_WORDS.length;
+            const incWordsLength = MagikUtils.INDENT_INC_WORDS.length;
             for (let i = 0; i < incWordsLength; i++) {
-              const iWord = magikUtils.INDENT_INC_WORDS[i];
+              const iWord = MagikUtils.INDENT_INC_WORDS[i];
               if (testString === iWord || testString.startsWith(`${iWord} `)) {
                 indent++;
                 outdentWords[indent] = INDENT_PAIRS[iWord];
@@ -508,9 +509,9 @@ class MagikLinter {
           indent++;
           arrowAssignRows.push(row);
         } else {
-          const endWordsLength = magikUtils.END_WORDS.length;
+          const endWordsLength = MagikUtils.END_WORDS.length;
           for (let i = 0; i < endWordsLength; i++) {
-            if (testString.endsWith(magikUtils.END_WORDS[i])) {
+            if (testString.endsWith(MagikUtils.END_WORDS[i])) {
               indent++;
               tempIndent = true;
               break;
@@ -519,13 +520,13 @@ class MagikLinter {
         }
 
         // Remove strings before counting brackets
-        const noStrings = magikUtils.removeStrings(testString);
+        const noStrings = MagikUtils.removeStrings(testString);
 
-        matches = noStrings.match(magikUtils.INC_BRACKETS);
+        matches = noStrings.match(MagikUtils.INC_BRACKETS);
         if (matches) {
           indent += matches.length;
         }
-        matches = noStrings.match(magikUtils.DEC_BRACKETS);
+        matches = noStrings.match(MagikUtils.DEC_BRACKETS);
         if (matches) {
           indent -= matches.length;
         }
@@ -551,7 +552,7 @@ class MagikLinter {
       await this._addUnderscore(editor.document, pos, '');
 
       // Update current line and preceeding lines
-      const {lines, firstRow} = magikUtils.indentRegion();
+      const {lines, firstRow} = MagikUtils.indentRegion();
       if (lines) {
         await this._indentMagikLines(lines, firstRow, pos.line, true);
       }
@@ -559,22 +560,22 @@ class MagikLinter {
   }
 
   async _indentRegion(lastRow) {
-    const {lines, firstRow} = magikUtils.indentRegion();
+    const {lines, firstRow} = MagikUtils.indentRegion();
     if (lines) {
       await this._indentMagikLines(lines, firstRow, lastRow);
     }
   }
 
   async _formatRegion() {
-    const {lines, firstRow} = magikUtils.indentRegion();
+    const {lines, firstRow} = MagikUtils.indentRegion();
     if (lines) {
       const lastRow = firstRow + lines.length - 1;
       await this._indentMagikLines(lines, firstRow);
-      await magikFormat.removeSpacesBetweenBrackets(firstRow, lastRow);
-      await magikFormat.removeSpacesAfterMethodName(firstRow, lastRow);
-      await magikFormat.addSpaceAfterComma(firstRow, lastRow);
-      await magikFormat.addSpacesAroundOperators(firstRow, lastRow);
-      await magikFormat.checkSymbolPipe(firstRow, lastRow);
+      await MagikFormat.removeSpacesBetweenBrackets(firstRow, lastRow);
+      await MagikFormat.removeSpacesAfterMethodName(firstRow, lastRow);
+      await MagikFormat.addSpaceAfterComma(firstRow, lastRow);
+      await MagikFormat.addSpacesAroundOperators(firstRow, lastRow);
+      await MagikFormat.checkSymbolPipe(firstRow, lastRow);
     }
   }
 
@@ -582,7 +583,7 @@ class MagikLinter {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
 
-    const lines = this.magikVSCode.getDocLines(editor.document);
+    const lines = MagikFiles.getDocLines(editor.document);
     await this._indentMagikLines(lines, 0);
   }
 
@@ -590,16 +591,16 @@ class MagikLinter {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
 
-    const lines = this.magikVSCode.getDocLines(editor.document);
+    const lines = MagikFiles.getDocLines(editor.document);
     const lastRow = lines.length - 1;
 
     await this._indentMagikLines(lines, 0);
-    await magikFormat.removeSpacesBetweenBrackets(0, lastRow);
-    await magikFormat.removeSpacesAfterMethodName(0, lastRow);
-    await magikFormat.addSpaceAfterComma(0, lastRow);
-    await magikFormat.addSpacesAroundOperators(0, lastRow);
-    await magikFormat.checkSymbolPipe(0, lastRow);
-    await magikFormat.addNewlineAfterDollar(0, lastRow);
+    await MagikFormat.removeSpacesBetweenBrackets(0, lastRow);
+    await MagikFormat.removeSpacesAfterMethodName(0, lastRow);
+    await MagikFormat.addSpaceAfterComma(0, lastRow);
+    await MagikFormat.addSpacesAroundOperators(0, lastRow);
+    await MagikFormat.checkSymbolPipe(0, lastRow);
+    await MagikFormat.addNewlineAfterDollar(0, lastRow);
   }
 
   // async _getLineIndents(lines, firstRow) {
@@ -615,7 +616,7 @@ class MagikLinter {
   async provideOnTypeFormattingEdits(doc, pos, ch) {
     try {
       if (ch === '\n') {
-        await magikFormat.wrapComment(pos.line - 1, ch);
+        await MagikFormat.wrapComment(pos.line - 1, ch);
         if (
           vscode.workspace.getConfiguration('magik-vscode')
             .enableAutoIndentation
@@ -629,7 +630,7 @@ class MagikLinter {
         }
       } else {
         if (ch === ' ') {
-          await magikFormat.wrapComment(pos.line, ch);
+          await MagikFormat.wrapComment(pos.line, ch);
         }
         const edit = await this._addUnderscore(doc, pos, ch);
         if (edit) {
@@ -734,19 +735,19 @@ class MagikLinter {
   ) {
     if (this.symbolProvider.classNames.length === 0) return;
 
-    const names = magikUtils.getClassAndMethodName(lines[0]);
+    const names = MagikUtils.getClassAndMethodName(lines[0]);
     const currentClassName = names.className;
     const lineLength = lines.length - 1;
 
     for (let i = 1; i < lineLength; i++) {
       const row = firstRow + i;
       const line = lines[i];
-      const text = magikUtils.stringBeforeComment(line);
-      const testString = magikUtils.removeStrings(text);
+      const text = MagikUtils.stringBeforeComment(line);
+      const testString = MagikUtils.removeStrings(text);
       let startIndex = 0;
       let match;
 
-      while (match = magikUtils.VAR_TEST.exec(testString)) { // eslint-disable-line
+      while (match = MagikUtils.VAR_TEST.exec(testString)) { // eslint-disable-line
         const name = match[0];
         let index = match.index;
 
@@ -756,13 +757,13 @@ class MagikLinter {
           !METHOD_IGNORE_PREV_CHARS.includes(testString[index - 2]) &&
           !METHOD_IGNORE_WORDS.includes(name)
         ) {
-          const methodName = magikUtils.getMethodName(testString, name, index);
+          const methodName = MagikUtils.getMethodName(testString, name, index);
           let className;
           let inherit;
 
           index = text.indexOf(name, startIndex);
 
-          const prevWord = magikUtils.previousVarInString(text, index);
+          const prevWord = MagikUtils.previousVarInString(text, index);
           if (prevWord === '_self' || prevWord === '_clone') {
             className = currentClassName;
           } else if (prevWord === '_super') {
@@ -812,7 +813,7 @@ class MagikLinter {
 
             if (paramString && paramString !== '') {
               // console.log(methodName, className, `'${paramString}'`);
-              const args = magikUtils.findArgs(
+              const args = MagikUtils.findArgs(
                 lines,
                 firstRow,
                 i,
@@ -922,7 +923,7 @@ class MagikLinter {
     }
 
     if (noComment) {
-      const names = magikUtils.getClassAndMethodName(firstLine);
+      const names = MagikUtils.getClassAndMethodName(firstLine);
       const errorString = names.methodName ? names.methodName : firstLine;
       const errorIndex = firstLine.indexOf(errorString);
       const range = new vscode.Range(
@@ -985,7 +986,7 @@ class MagikLinter {
 
     if (decisionCount - returnCount + 2 > 10) {
       const firstLine = lines[0];
-      const names = magikUtils.getClassAndMethodName(firstLine);
+      const names = MagikUtils.getClassAndMethodName(firstLine);
       const errorString = names.methodName ? names.methodName : firstLine;
       const errorIndex = firstLine.indexOf(errorString);
       const range = new vscode.Range(
@@ -1017,7 +1018,7 @@ class MagikLinter {
 
     if (count > 40) {
       const firstLine = lines[0];
-      const names = magikUtils.getClassAndMethodName(firstLine);
+      const names = MagikUtils.getClassAndMethodName(firstLine);
       const errorString = names.methodName ? names.methodName : firstLine;
       const errorIndex = firstLine.indexOf(errorString);
       const range = new vscode.Range(
@@ -1053,12 +1054,12 @@ class MagikLinter {
 
       if (sym.kind === vscode.SymbolKind.Method) {
         const startLine = sym.location.range.start.line;
-        const region = magikUtils.currentRegion(true, startLine);
+        const region = MagikUtils.currentRegion(true, startLine);
         const {lines} = region;
 
         if (lines) {
           const {firstRow} = region;
-          const assignedVars = magikVar.getVariables(
+          const assignedVars = MagikVar.getVariables(
             lines,
             firstRow,
             this.symbolProvider.classNames,

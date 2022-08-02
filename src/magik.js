@@ -67,7 +67,6 @@ function activate(context) {
   const symbolProvider = new MagikSymbolProvider(vscode, context);
 
   magikVSCode = new MagikVSCode(symbolProvider, context);
-
   symbolProvider.magikVSCode = magikVSCode;
 
   new MagikLinter(magikVSCode, symbolProvider, context); // eslint-disable-line

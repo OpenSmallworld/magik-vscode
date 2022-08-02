@@ -141,7 +141,7 @@ class MagikClassBrowser {
   _getHtmlForWebview(webview) {
     // Get the local path to main script run in the webview, then convert it to a uri we can use in the webview.
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'src', 'class_browser', 'main.js')
+      vscode.Uri.joinPath(this._extensionUri, 'src', 'class-browser', 'main.js')
     );
 
     // Do the same for the stylesheet.
@@ -149,7 +149,7 @@ class MagikClassBrowser {
       vscode.Uri.joinPath(
         this._extensionUri,
         'src',
-        'class_browser',
+        'class-browser',
         'reset.css'
       )
     );
@@ -157,7 +157,7 @@ class MagikClassBrowser {
       vscode.Uri.joinPath(
         this._extensionUri,
         'src',
-        'class_browser',
+        'class-browser',
         'vscode.css'
       )
     );
@@ -165,7 +165,7 @@ class MagikClassBrowser {
       vscode.Uri.joinPath(
         this._extensionUri,
         'src',
-        'class_browser',
+        'class-browser',
         'main.css'
       )
     );

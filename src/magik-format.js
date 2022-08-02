@@ -1,7 +1,7 @@
 'use strict';
 
 const vscode = require('vscode'); // eslint-disable-line
-const magikUtils = require('./magik-utils');
+const MagikUtils = require('./utils/magik-utils');
 
 async function addSpaceAfterComma(firstRow, lastRow) {
   const editor = vscode.window.activeTextEditor;
@@ -10,14 +10,14 @@ async function addSpaceAfterComma(firstRow, lastRow) {
 
   for (let row = firstRow; row < lastRow + 1; row++) {
     const lineText = doc.lineAt(row).text;
-    const text = magikUtils.stringBeforeComment(lineText);
+    const text = MagikUtils.stringBeforeComment(lineText);
     const reg = /(?<!%),(?!( |$))/g;
     let match;
 
       while (match = reg.exec(text)) { // eslint-disable-line
       const index = match.index;
 
-      if (!magikUtils.withinString(text, index)) {
+      if (!MagikUtils.withinString(text, index)) {
         const insertPos = new vscode.Position(row, index + 1);
         edit.insert(doc.uri, insertPos, ' ');
       }
@@ -36,7 +36,7 @@ async function removeSpacesAfterMethodName(firstRow, lastRow) {
 
   for (let row = firstRow; row < lastRow + 1; row++) {
     const lineText = doc.lineAt(row).text;
-    const text = magikUtils.stringBeforeComment(lineText);
+    const text = MagikUtils.stringBeforeComment(lineText);
     const reg = /[\w!?]+\.[\w!?]+\s+\(/g;
     let match;
 
@@ -44,7 +44,7 @@ async function removeSpacesAfterMethodName(firstRow, lastRow) {
       const spaceMatch = /\s+/.exec(match[0]);
       const index = match.index + spaceMatch.index;
 
-      if (!magikUtils.withinString(text, index)) {
+      if (!MagikUtils.withinString(text, index)) {
         const spaceMatchLength = spaceMatch[0].length;
         const range = new vscode.Range(
           row,
@@ -69,14 +69,14 @@ async function removeSpacesBetweenBrackets(firstRow, lastRow) {
 
   for (let row = firstRow; row < lastRow + 1; row++) {
     const lineText = doc.lineAt(row).text;
-    const text = magikUtils.stringBeforeComment(lineText);
+    const text = MagikUtils.stringBeforeComment(lineText);
     let reg = /(?<!%)[([{]\s+/g;
     let match;
 
     while (match = reg.exec(text)) { // eslint-disable-line
       const index = match.index;
 
-      if (!magikUtils.withinString(text, index)) {
+      if (!MagikUtils.withinString(text, index)) {
         const matchLength = match[0].length;
         const range = new vscode.Range(
           row,
@@ -93,7 +93,7 @@ async function removeSpacesBetweenBrackets(firstRow, lastRow) {
     while (match = reg.exec(text)) { // eslint-disable-line
       const index = match.index;
 
-      if (index !== 0 && !magikUtils.withinString(text, index)) {
+      if (index !== 0 && !MagikUtils.withinString(text, index)) {
         const matchLength = match[0].length;
         const range = new vscode.Range(
           row,
@@ -122,7 +122,7 @@ async function addSpacesAroundOperators(firstRow, lastRow) {
 
   for (let row = firstRow; row < lastRow + 1; row++) {
     const lineText = doc.lineAt(row).text;
-    const text = magikUtils.stringBeforeComment(lineText);
+    const text = MagikUtils.stringBeforeComment(lineText);
     const firstCharIndex = text.search(/\S/);
     const lastIndex = text.length;
     const reg = /(?<!%)( *)([\^+\-*/]?<<[|]?|>>|\*\*|~=|<>|>=?|<=?|\de\+|\+|-|\*|\/)(\s*)/g;
@@ -133,7 +133,7 @@ async function addSpacesAroundOperators(firstRow, lastRow) {
 
       if (
         !ignoreCases.test(match[2]) &&
-        !magikUtils.withinString(text, index)
+        !MagikUtils.withinString(text, index)
       ) {
         let insert = true;
         let insertText;
@@ -264,14 +264,14 @@ async function checkSymbolPipe(firstRow, lastRow) {
 
   for (let row = firstRow; row < lastRow + 1; row++) {
     const lineText = doc.lineAt(row).text;
-    const text = magikUtils.stringBeforeComment(lineText);
+    const text = MagikUtils.stringBeforeComment(lineText);
     const reg = /:([\w!?]+)\|(\??\^?(\(\)(<<)?|<<))\|/g;
     let match;
 
       while (match = reg.exec(text)) { // eslint-disable-line
       const index = match.index;
 
-      if (!magikUtils.withinString(text, index)) {
+      if (!MagikUtils.withinString(text, index)) {
         const matchLength = match[0].length;
         const range = new vscode.Range(
           row,
