@@ -175,5 +175,165 @@
 	        "## -----------------------"
         ],
         "description": "Deprecated Statement"
+    },
+	"abstract_method": {
+        "prefix": "abstract_method",
+        "body": [
+            "_pragma(classify_level=basic, topic={${1:topic_name}}, usage={redefinable,subclassable})",
+            "_abstract _method ${2}$TM_FILENAME_BASE.${3:method_name}()",
+            "\t## Function: ${3:method_name}",
+            "\t## Arguments: ",
+            "\t## Returns: ",
+            "\t$0",
+            "_endmethod",
+            "$",
+            "\n"
+        ],
+        "description": "Magik Abstract Method Definition"
+    },
+    "catch": {
+        "prefix": "catch",
+        "body": [
+            "_catch @${1:condition-name}",
+            "\t$0",
+            "_endcatch",
+            "\n"
+        ],
+        "description": "Magik _catch"
+    },
+    "constructor" : {
+        "prefix" : "constructor",
+        "body" : [
+            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:topic_name}}, usage={${3|external,internal,subclassable,redefinable|}})",
+            "_method $TM_FILENAME_BASE.new()",
+            "\t## Function: ",
+            "\t## Arguments: ",
+            "\t## Returns: ",
+            "\t >> _clone.init()",
+            "_endmethod",
+            "$",
+            "_pragma(classify_level=restricted, topic={${2:topic_name}}, usage={internal}",
+            "_private _method $TM_FILENAME_BASE.init()",
+            "\t## Function: ",
+            "\t## Arguments: ",
+            "\t## Returns: ",
+            "\t >> _self",
+            "_endmethod",
+            "$",
+            "\n",
+            "$0"
+        ],
+        "description" : "methods new() and init() to construct object"
+    },
+    "define_binary_operator_case" : {
+        "prefix" : "binary" ,
+        "body" : [ 
+            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:topic_name}}, usage={internal})",
+            "define_binary_operator_case( ${3:name}, ${4:lhs}, ${5:rhs}, ${6:procedure} )",
+            "$",
+            "\n",
+            "$0"
+        ],
+        "description" : "Magik define binary operator"
+    },
+    "define_shared_constant": {
+        "prefix": "shconstant",
+        "body": [
+            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:topic_name}}, usage={${3|external,internal,subclassable,redefinable|})",
+            "${4}$TM_FILENAME_BASE.define_shared_constant(:${5:name}, _unset, :${6|public,private|})",
+            "$",
+            "\n"
+        ],
+        "description": "Magik define_shared_constant Statement"
+    },
+    "define_shared_variable": {
+        "prefix": "shvariable",
+        "body": [
+			"_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:topic_name}}, usage={${3|external,internal,subclassable,redefinable|})",
+            "${4}$TM_FILENAME_BASE.define_shared_variable(:${5:name}, _unset, :${6|public,private|})",
+            "$",
+            "\n"
+        ],
+        "description": "Magik define_shared_variable Statement"
+    },
+    "def_mixin": {
+        "prefix": "mixin",
+        "body": [
+            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:class_name}}, usage={${3|external,internal,subclassable,redefinable|}})",
+            "def_mixin(:${4}$TM_FILENAME_BASE,",
+            "\t{",
+            "\t\t{:${5:slot_name}, _unset}",
+            "\t})",
+            "$",
+            "\n"
+        ],
+        "description": "Magik Mixin Definition"
+    },
+     "handling": {
+        "prefix": "handling",
+        "body": [
+            "_handling ${1|_default,error, warning,condition-name|} _with ${2:handler}",
+            "\n"
+        ],
+        "description": "Magik _handling"
+    },
+    "iter_method": {
+        "prefix": "iter_method",
+        "body": [
+            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|},topic={${2:topic_name}}, usage={${3|external,internal,subclassable,redefinable|}})",
+            "_iter _method ${4}$TM_FILENAME_BASE.${5:method_name}()",
+            "\t## Function: ${5:method_name}",
+            "\t## Arguments: ",
+            "\t## Returns: ",
+            "\t$0",
+            "\t_loopbody(${6:a_thing})",
+            "_endmethod",
+            "$",
+            "\n"
+        ],
+        "description": "Magik iter Method Definition"
+    },
+    "lock": {
+        "prefix": "lock",
+        "body": [
+            "_lock ${1:a_thing}",
+            "\t$0",
+            "_endlock",
+            "\n"
+        ],
+        "description": "Magik _lock"
+    },
+    "over": {
+        "prefix": "over",
+        "body": [
+            "_over $0",
+            "_loop",
+            "\t",
+            "_endloop",
+            "\n"
+        ],
+        "description": "Magik _over Loop Statement"
+    },
+	"proc": {
+        "prefix": "proc",
+        "body": [
+            "_proc @${1:proc-name} () ",
+            "\t$0",
+            "_endproc",
+            "$",
+            "\n"
+        ],
+        "description": "Magik _proc"
+    },
+    "pseudo_slot": {
+        "prefix": "pseudo",
+        "body": [
+            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:topic_name}}, usage={${3|external,internal,subclassable,redefinable|})",
+            "${4}$TM_FILENAME_BASE.define_pseudo_slot(:${5:slot_name}, _unset, :${6|public,private|})",
+            "$",
+            "\n",
+            "$0"
+        ],
+        "description": "Magik define_pseudo_slot Statement"
     }
 }
