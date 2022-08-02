@@ -10,7 +10,7 @@
         "description": "Magik If Statement"
     },
     "if_then_else": {
-        "prefix": "if else",
+        "prefix": "if_else",
         "body": [
             "_if ${1:condition}",
             "_then",
@@ -78,7 +78,7 @@
         "description": "Magik Method Definition"
     },
     "private_method": {
-        "prefix": "private method",
+        "prefix": "private_method",
         "body": [
             "_pragma(classify_level=restricted, topic={$1}, usage={internal})",
             "_private _method ${1:class_name}.${2:method_name}()",
