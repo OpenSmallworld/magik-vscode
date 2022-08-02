@@ -237,7 +237,7 @@
         "description" : "Magik define binary operator"
     },
     "define_shared_constant": {
-        "prefix": "shconstant",
+        "prefix": "define_shared_constant",
         "body": [
             "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:topic_name}}, usage={${3|external,internal,subclassable,redefinable|})",
             "${4}$TM_FILENAME_BASE.define_shared_constant(:${5:name}, _unset, :${6|public,private|})",
@@ -247,7 +247,7 @@
         "description": "Magik define_shared_constant Statement"
     },
     "define_shared_variable": {
-        "prefix": "shvariable",
+        "prefix": "define_shared_variable",
         "body": [
 			"_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:topic_name}}, usage={${3|external,internal,subclassable,redefinable|})",
             "${4}$TM_FILENAME_BASE.define_shared_variable(:${5:name}, _unset, :${6|public,private|})",
