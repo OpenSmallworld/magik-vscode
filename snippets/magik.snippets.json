@@ -204,7 +204,7 @@
     "constructor" : {
         "prefix" : "constructor",
         "body" : [
-            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:topic_name}}, usage={${3|external,internal,subclassable,redefinable|}})",
+            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2}}, usage={${3|external,internal,subclassable,redefinable|}})",
             "_method $TM_FILENAME_BASE.new()",
             "\t## Function: ",
             "\t## Arguments: ",
@@ -212,7 +212,7 @@
             "\t >> _clone.init()",
             "_endmethod",
             "$",
-            "_pragma(classify_level=restricted, topic={${2:topic_name}}, usage={internal}",
+            "_pragma(classify_level=restricted, topic={${2}}, usage={internal}",
             "_private _method $TM_FILENAME_BASE.init()",
             "\t## Function: ",
             "\t## Arguments: ",
@@ -228,7 +228,7 @@
     "define_binary_operator_case" : {
         "prefix" : "binary" ,
         "body" : [ 
-            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:topic_name}}, usage={internal})",
+            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2}}, usage={internal})",
             "define_binary_operator_case( ${3:name}, ${4:lhs}, ${5:rhs}, ${6:procedure} )",
             "$",
             "\n",
@@ -239,7 +239,7 @@
     "define_shared_constant": {
         "prefix": "define_shared_constant",
         "body": [
-            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:topic_name}}, usage={${3|external,internal,subclassable,redefinable|})",
+            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2}}, usage={${3|external,internal,subclassable,redefinable|})",
             "${4}$TM_FILENAME_BASE.define_shared_constant(:${5:name}, _unset, :${6|public,private|})",
             "$",
             "\n"
@@ -249,7 +249,7 @@
     "define_shared_variable": {
         "prefix": "define_shared_variable",
         "body": [
-			"_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:topic_name}}, usage={${3|external,internal,subclassable,redefinable|})",
+			"_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2}}, usage={${3|external,internal,subclassable,redefinable|})",
             "${4}$TM_FILENAME_BASE.define_shared_variable(:${5:name}, _unset, :${6|public,private|})",
             "$",
             "\n"
@@ -257,9 +257,9 @@
         "description": "Magik define_shared_variable Statement"
     },
     "def_mixin": {
-        "prefix": "mixin",
+        "prefix": "def_mixin",
         "body": [
-            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:class_name}}, usage={${3|external,internal,subclassable,redefinable|}})",
+            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2}}, usage={${3|external,internal,subclassable,redefinable|}})",
             "def_mixin(:${4}$TM_FILENAME_BASE,",
             "\t{",
             "\t\t{:${5:slot_name}, _unset}",
@@ -328,7 +328,7 @@
     "pseudo_slot": {
         "prefix": "pseudo",
         "body": [
-            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:topic_name}}, usage={${3|external,internal,subclassable,redefinable|})",
+            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2}}, usage={${3|external,internal,subclassable,redefinable|})",
             "${4}$TM_FILENAME_BASE.define_pseudo_slot(:${5:slot_name}, _unset, :${6|public,private|})",
             "$",
             "\n",
