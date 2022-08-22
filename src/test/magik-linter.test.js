@@ -54,9 +54,11 @@ describe('Magik Linter indentation', () => {
         '_then',
         'write(i, " is odd")',
         '_endif',
+        '_finally',
+        'write("end")',
         '_endloop'
       ],
-      expectedIndent: [0, 0, 1, 1, 2, 1, 0]
+      expectedIndent: [0, 0, 1, 1, 2, 1, 0, 1, 0]
     },
     {
       description: 'proc statement with assignment',
@@ -103,7 +105,53 @@ describe('Magik Linter indentation', () => {
         'write("hello")'
       ],
       expectedIndent: [0, 1, 1, 0]
-    }
+    },
+    {
+      description: 'vector brackets',
+      magikLines: [
+        'a << {',
+        '{"hello"},',
+        '{"world"}',
+        '}',
+        'a[1]'
+      ],
+      expectedIndent: [0, 1, 1, 0, 0]
+    },
+    {
+      description: 'try statement',
+      magikLines: [
+        '_try _with cond',
+        '# some code',
+        '',
+        '_when error',
+        'write(cond.report_contents_string)',
+        '_endtry'
+      ],
+      expectedIndent: [0, 1, 1, 0, 1, 0]
+    },
+    {
+      description: 'protection statement',
+      magikLines: [
+        '_protect',
+        '# some code',
+        '_protection',
+        '# some code',
+        '_endprotect'
+      ],
+      expectedIndent: [0, 1, 0, 1, 0]
+    },
+    {
+      description: 'invalid if statement',
+      magikLines: [
+        '_if _true',
+        '_then',
+        'write("hello")',
+        '_endif',
+        '_else',
+        '_endif'
+      ],
+      expectedIndent: [0, 0, 1, 0, -1, -1]
+    },
   ];
 
   testIndentLines.forEach((data) => {

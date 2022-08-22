@@ -1,3 +1,4 @@
 node_modules
 *.vsix
 vscode_console_history.txt
+coverage/

@@ -383,7 +383,7 @@ class MagikLinter {
         }
       }
 
-      const indentText = '\t'.repeat(indent);
+      const indentText = '\t'.repeat(Math.max(indent, 0));
 
       lineIndents.push(indent);
 
