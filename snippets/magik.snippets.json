@@ -97,7 +97,7 @@
         "prefix": ["define_slot_access", "slot"],
         "body": [
             "_pragma(classify_level=restricted, topic={$1}, usage={internal})",
-            "$TM_FILENAME_BASE.define_slot_access(:${2:slot-name}, :${3|read,write|}, :${4|public,private,read_only|})",
+            "$TM_FILENAME_BASE.define_slot_access(:${2:slot_name}, :${3|read,write|}, :${4|public,private,read_only|})",
             "$",
             "\n"
         ],
@@ -127,8 +127,8 @@
             "condition.define_condition(:${1:name},",
             "\t${2:parent_name},",
             "\t${3:data_name_list},",
-            "\t${4:optional reporter},",
-            "\t${5:message_accessor})",
+            "\t${4:optional_reporter},",
+            "\t${5:optional_message_accessor})",
             "$"
         ],
         "description": "Magik Condition Definition"
@@ -282,9 +282,9 @@
         "body": [
             "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|},topic={${2}}, usage={${3|external,internal,subclassable,redefinable|}})",
             "_iter _method $TM_FILENAME_BASE.${5:iter_method_name}()",
-            "\t## Function: ${4:method_name}",
+            "\t## Function: ${4}",
             "\t## Arguments: ",
-            "\t## Returns: ",
+            "\t## Returns: ${6}",
             "\t$0",
             "\t_loopbody(${6:a_thing})",
             "_endmethod",
@@ -317,7 +317,8 @@
 	"proc": {
         "prefix": "proc",
         "body": [
-            "_proc @${1:proc_name} () ",
+            "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2}})",
+            "_proc @${3:proc_name} ($4) ",
             "\t$0",
             "_endproc",
             "$",
