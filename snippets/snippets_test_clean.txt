@@ -20,8 +20,8 @@ method
 iter
 proc
 block
-for_loop
-if_then
+for
+if
 else
 lock
 protect
