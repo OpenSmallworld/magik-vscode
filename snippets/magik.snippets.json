@@ -67,8 +67,8 @@
         "prefix": "method",
         "body": [
             "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2:topic_name}}, usage={${3|external,internal,subclassable,redefinable|}})",
-            "_method ${4}$TM_FILENAME_BASE.${5:method_name}()",
-            "\t## Function: ${5}",
+            "_method $TM_FILENAME_BASE.${4:method_name}()",
+            "\t## Function: ${4}",
             "\t## Arguments: ",
             "\t## Returns: ",
             "\t$0",
@@ -82,8 +82,8 @@
         "prefix": "private",
         "body": [
             "_pragma(classify_level=restricted, topic={$1:topic_name}, usage={internal})",
-            "_private _method ${2}$TM_FILENAME_BASE.${3:method_name}()",
-            "\t## Function: ${3}",
+            "_private _method $TM_FILENAME_BASE.${2:method_name}()",
+            "\t## Function: ${2}",
             "\t## Arguments: ",
             "\t## Returns: ",
             "\t$0",
@@ -94,9 +94,9 @@
         "description": "Magik Private Method Definition"
     },
     "slot": {
-        "prefix": "define_slot_access",
+        "prefix": ["define_slot_access", "slot"],
         "body": [
-            "_pragma(classify_level=restricted, topic={$1}, usage={internal})",
+            "_pragma(classify_level=restricted, topic={$1:topic_name}, usage={internal})",
             "${2}$TM_FILENAME_BASE.define_slot_access(:${3:name}, :${4|read,write|}, :${5|public,private,read_only|})",
             "$",
             "\n"
@@ -104,7 +104,7 @@
         "description": "Magik Slot Definition"
     },
     "property": {
-        "prefix": "def_property",
+        "prefix": ["def_property","property"],
         "body": [
             "_pragma(classify_level=restricted, topic={$1}, usage={internal})",
             "${2}$TM_FILENAME_BASE.def_property(:${3:name},",
@@ -134,12 +134,12 @@
         "description": "Magik Condition Definition"
     },
     "exemplar": {
-        "prefix": "def_slotted_exemplar",
+        "prefix": ["def_slotted_exemplar","exemplar"],
         "body": [
             "_pragma(classify_level=basic, topic={$1})",
-            "def_slotted_exemplar(:${2}$TM_FILENAME_BASE,",
+            "def_slotted_exemplar(:$TM_FILENAME_BASE,",
             "\t{",
-            "\t\t{:${3:slot_name}, _unset}",
+            "\t\t{:${2:slot_name}, _unset}",
             "\t})",
             "$",
             "\n"
@@ -177,11 +177,11 @@
         "description": "Deprecated Statement"
     },
 	"abstract_method": {
-        "prefix": "abstract_method",
+        "prefix": "abstract",
         "body": [
             "_pragma(classify_level=basic, topic={${1:topic_name}}, usage={redefinable,subclassable})",
-            "_abstract _method ${2}$TM_FILENAME_BASE.${3:method_name}()",
-            "\t## Function: ${3:method_name}",
+            "_abstract _method $TM_FILENAME_BASE.${2:method_name}()",
+            "\t## Function: ${2:method_name}",
             "\t## Arguments: ",
             "\t## Returns: ",
             "\t$0",
@@ -202,7 +202,7 @@
         "description": "Magik _catch"
     },
     "constructor" : {
-        "prefix" : "constructor",
+        "prefix" : "new_and_init",
         "body" : [
             "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2}}, usage={${3|external,internal,subclassable,redefinable|}})",
             "_method $TM_FILENAME_BASE.new()",
@@ -237,32 +237,32 @@
         "description" : "Magik define binary operator"
     },
     "define_shared_constant": {
-        "prefix": "define_shared_constant",
+        "prefix": ["define_shared_constant","constant"],
         "body": [
             "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2}}, usage={${3|external,internal,subclassable,redefinable|})",
-            "${4}$TM_FILENAME_BASE.define_shared_constant(:${5:name}, _unset, :${6|public,private|})",
+            "$TM_FILENAME_BASE.define_shared_constant(:${4:name}, _unset, :${5|public,private|})",
             "$",
             "\n"
         ],
         "description": "Magik define_shared_constant Statement"
     },
     "define_shared_variable": {
-        "prefix": "define_shared_variable",
+        "prefix": ["define_shared_variable","variable"],
         "body": [
 			"_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2}}, usage={${3|external,internal,subclassable,redefinable|})",
-            "${4}$TM_FILENAME_BASE.define_shared_variable(:${5:name}, _unset, :${6|public,private|})",
+            "$TM_FILENAME_BASE.define_shared_variable(:${4:name}, _unset, :${5|public,private|})",
             "$",
             "\n"
         ],
         "description": "Magik define_shared_variable Statement"
     },
     "def_mixin": {
-        "prefix": "def_mixin",
+        "prefix": ["def_mixin","mixin"],
         "body": [
             "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2}}, usage={${3|external,internal,subclassable,redefinable|}})",
-            "def_mixin(:${4}$TM_FILENAME_BASE,",
+            "def_mixin(:$TM_FILENAME_BASE,",
             "\t{",
-            "\t\t{:${5:slot_name}, _unset}",
+            "\t\t{:${4:slot_name}, _unset}",
             "\t})",
             "$",
             "\n"
@@ -278,15 +278,15 @@
         "description": "Magik _handling"
     },
     "iter_method": {
-        "prefix": "iter_method",
+        "prefix": ["iter_method","iter"],
         "body": [
             "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|},topic={${2:topic_name}}, usage={${3|external,internal,subclassable,redefinable|}})",
-            "_iter _method ${4}$TM_FILENAME_BASE.${5:method_name}()",
-            "\t## Function: ${5:method_name}",
+            "_iter _method $TM_FILENAME_BASE.${5:method_name}()",
+            "\t## Function: ${4:method_name}",
             "\t## Arguments: ",
             "\t## Returns: ",
             "\t$0",
-            "\t_loopbody(${6:a_thing})",
+            "\t_loopbody(${5:a_thing})",
             "_endmethod",
             "$",
             "\n"
@@ -329,7 +329,7 @@
         "prefix": "pseudo",
         "body": [
             "_pragma(classify_level=${1|basic,advanced,restricted,debug,deprecated|}, topic={${2}}, usage={${3|external,internal,subclassable,redefinable|})",
-            "${4}$TM_FILENAME_BASE.define_pseudo_slot(:${5:slot_name}, _unset, :${6|public,private|})",
+            "$TM_FILENAME_BASE.define_pseudo_slot(:${4:slot_name}, _unset, :${5|public,private|})",
             "$",
             "\n",
             "$0"
