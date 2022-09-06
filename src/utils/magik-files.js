@@ -3,23 +3,22 @@
 const vscode = require('vscode'); // eslint-disable-line
 const fs = require('fs');
 const os = require('os');
+const path = require('path');
 
 const FILE_CACHE_SIZE = 250;
 
 class MagikFiles {
-  constructor(magikVSCode, context) {
+  constructor(context) {
     this.fileCache = [];
-
-    this.magikVSCode = magikVSCode;
 
     context.subscriptions.push(vscode.commands.registerCommand(
       'magik.newBuffer',
-      (args) => this.newMagikBuffer(args)
+      (args) => MagikFiles.newMagikBuffer(args)
     ));
 
     context.subscriptions.push(vscode.commands.registerCommand(
-      'magik.openFIle',
-      (args) => this.openFile(args)
+      'magik.openFile',
+      (args) => MagikFiles.openFile(args)
     ));
   }
 
@@ -108,7 +107,7 @@ class MagikFiles {
         const data = this.fileCache[index];
 
         if (data[0] === fileName) {
-          data[1] = this.getDocLines(doc);
+          data[1] = MagikFiles.getDocLines(doc);
           break;
         }
       }
@@ -132,7 +131,7 @@ class MagikFiles {
       if (doc.fileName === fileName) {
         if (doc.isDirty) {
           // Use lines from unsaved editor
-          return this.getDocLines(doc);
+          return MagikFiles.getDocLines(doc);
         }
         openDoc = doc;
         break;
@@ -155,7 +154,7 @@ class MagikFiles {
 
     let lines;
     if (openDoc) {
-      lines = this.getDocLines(openDoc);
+      lines = MagikFiles.getDocLines(openDoc);
     } else {
       try {
         lines = fs

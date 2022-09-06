@@ -1044,6 +1044,8 @@ class MagikLinter {
 
     await this.symbolProvider.loadSymbols();
 
+    const isConsole = this.magikVSCode.magikConsole.isConsoleDoc(doc);
+
     const diagnostics = [];
     const methodNames = {};
     const symbols = this.magikVSCode.currentSymbols;
@@ -1069,7 +1071,6 @@ class MagikLinter {
           );
           this._checkUnusedVariables(assignedVars, diagnostics);
           this._checkClassNameVariables(assignedVars, diagnostics);
-          this._checkPublicComment(doc, lines, firstRow, diagnostics);
           // eslint-disable-next-line
           await this._checkMethodCalls(
             lines,
@@ -1078,8 +1079,12 @@ class MagikLinter {
             methodNames,
             diagnostics
           );
-          this._checkMethodComplexity(lines, firstRow, diagnostics);
-          this._checkMethodLength(lines, firstRow, diagnostics);
+
+          if (!isConsole) {
+            this._checkPublicComment(doc, lines, firstRow, diagnostics);
+            this._checkMethodComplexity(lines, firstRow, diagnostics);
+            this._checkMethodLength(lines, firstRow, diagnostics);
+          }
         }
       }
     }

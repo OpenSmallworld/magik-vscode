@@ -25,7 +25,7 @@ class MagikVSCode {
     this.symbolProvider = symbolProvider;
     this.magikConsole = new MagikConsole(this, context);
     this.magikClassBrowser = new MagikClassBrowser(this, context);
-    this.magikFiles = new MagikFiles(this, context);
+    this.magikFiles = new MagikFiles(context);
 
     this._symbolFileWatcher = undefined;
 
@@ -573,7 +573,7 @@ class MagikVSCode {
 
   async handleTerminalLink(link) {
     if (link.data.fileName) {
-      this.magikFiles.openFile(link.data);
+      MagikFiles.openFile(link.data);
     } else {
       await this.gotoFromQuery(link.data.query, link.data.command, false, true);
     }
@@ -784,13 +784,22 @@ class MagikVSCode {
     }
 
     if (className) {
-      const fromIndex = text.indexOf('.');
-      index = text.indexOf(methodName, fromIndex);
+      // const fromIndex = text.indexOf('.');
+      // index = text.indexOf(methodName, fromIndex);
+      // const range = new vscode.Range(
+      //   row,
+      //   index,
+      //   row,
+      //   index + methodName.length
+      // );
+
+      const region = MagikUtils.getRegion(doc, false, row);
+      const lastRow = region.lastRow ?? row;
       const range = new vscode.Range(
         row,
-        index,
-        row,
-        index + methodName.length
+        0,
+        lastRow,
+        doc.lineAt(lastRow).text.length
       );
       const loc = new vscode.Location(doc.uri, range);
 
