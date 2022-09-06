@@ -234,6 +234,13 @@ class MagikSymbolProvider {
     return sym;
   }
 
+  getGlobalSymbol(globalName) {
+    const data = this.globalData[globalName];
+    if (data) {
+      return this._getGlobalSymbol(globalName, data.sourceFile, data);
+    }
+  }
+
   _matchScore(string, query) {
     const length = query.length;
     if (length > string.length) return 0;

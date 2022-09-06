@@ -406,6 +406,14 @@ class MagikVSCode {
     vscode.commands.executeCommand('editor.unfold', {});
   }
 
+  _searchWithClassBrowser(query) {
+    const queryParts = query.split('.');
+    const queryLength = queryParts.length;
+    const className = queryLength > 1 ? queryParts[0] : '';
+    const methodName = queryLength > 1 ? queryParts[1] : queryParts[0];
+    this.magikClassBrowser.search(className, methodName);
+  }
+
   async gotoFromQuery(
     query,
     magikCommand,
@@ -422,7 +430,11 @@ class MagikVSCode {
     let symbolsLength = symbols.length;
 
     if (symbolsLength === 0) {
-      if (magikCommand) {
+      if (
+        vscode.workspace.getConfiguration('magik-vscode').searchWithClassBrowser
+      ) {
+        this._searchWithClassBrowser(query);
+      } else if (magikCommand) {
         this.magikConsole.showIntegratedTerminal();
         await MagikUtils.sendToTerminal(magikCommand);
       }
@@ -436,11 +448,7 @@ class MagikVSCode {
     } else if (
       vscode.workspace.getConfiguration('magik-vscode').searchWithClassBrowser
     ) {
-      const queryParts = query.split('.');
-      const queryLength = queryParts.length;
-      const className = queryLength > 1 ? queryParts[0] : '';
-      const methodName = queryLength > 1 ? queryParts[1] : queryParts[0];
-      this.magikClassBrowser.search(className, methodName);
+      this._searchWithClassBrowser(query);
       return;
     } else {
       // Repeat symbol query with no max number and show candidates in quick pick
@@ -1172,8 +1180,23 @@ class MagikVSCode {
         command = `vs_goto("^${def.currentWord}$", "${def.className
           }", ${inherit})`;
       } else {
-        query = `^${def.currentWord}$`;
-        command = `vs_goto("^${def.currentWord}$")`;
+        let index = def.currentWord.search(MagikUtils.INVALID_CHAR);
+        if (index === -1) index = def.currentWord.length;
+        const name = def.currentWord.slice(0, index);
+        const globalSym = this.symbolProvider.getGlobalSymbol(name);
+
+        if (globalSym) {
+          const resSymbol = this.resolveWorkspaceSymbol(globalSym);
+          if (resSymbol) {
+            this._gotoSymbol(resSymbol, firstColumn);
+            return;
+          }
+          query = `^${name}$`;
+          command = `vs_goto("^${name}$")`;
+        } else {
+          query = `^${def.currentWord}$`;
+          command = `vs_goto("^${def.currentWord}$")`;
+        }
       }
     }
 
