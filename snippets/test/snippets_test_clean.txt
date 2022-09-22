@@ -1,0 +1,40 @@
+##
+## template empty test file for the VScode Magik snippets
+##
+## Save as "snippets_test.magik"
+## Move cursor to the end of each word and <ctrl> <space> to expand
+## Compare with snippet_test.magik_golden.txt
+## 
+text_encoding
+exemplar
+slot
+constant
+variable
+property
+pseudo
+new_and_init
+abstract
+private
+deprecated
+method
+iter
+proc
+block
+for
+if
+else
+lock
+protect
+try
+while
+over
+catch
+handling
+mixin
+pragma
+binary
+condition
+
+
+
+

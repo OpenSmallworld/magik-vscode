@@ -1,0 +1,200 @@
+##
+## template empty test file for the VScode Magik snippets
+##
+## Save as "snippets_test.magik"
+## Move cursor to the end of each word and <ctrl> <space> to expand
+## Compare with snippet_test.magik_golden.txt
+## 
+#% text_encoding = iso8859_1
+_package sw
+$
+
+
+_pragma(classify_level=restricted, topic={}, usage={internal})
+snippets_test.define_slot_access(:slot_name, :read, :public)
+$
+
+
+
+
+
+_pragma(classify_level=basic, topic={}, usage={external)
+snippets_test.define_shared_constant(:constant_name, _unset, :public)
+$
+
+
+_pragma(classify_level=basic, topic={}, usage={external)
+snippets_test.define_shared_variable(:variable_name, _unset, :public)
+$
+
+
+_pragma(classify_level=restricted, topic={}, usage={internal})
+snippets_test.def_property(:property_name,
+    :type, :string,
+    :default_value, "")
+$
+
+
+_pragma(classify_level=basic, topic={}, usage={subclassable)
+snippets_test.define_pseudo_slot(:pseudo_slot_name, _unset, :public)
+$
+
+
+
+_pragma(classify_level=basic, topic={}, usage={external})
+_method snippets_test.new()
+    ## Function: 
+    ## Arguments: 
+    ## Returns: 
+     >> _clone.init()
+_endmethod
+$
+_pragma(classify_level=restricted, topic={}, usage={internal}
+_private _method snippets_test.init()
+    ## Function: 
+    ## Arguments: 
+    ## Returns: 
+     >> _self
+_endmethod
+$
+
+
+
+_pragma(classify_level=basic, topic={}, usage={redefinable,subclassable})
+_abstract _method snippets_test.abstract_method_name()
+    ## Function: abstract_method_name
+    ## Arguments: 
+    ## Returns: 
+    
+_endmethod
+$
+
+
+_pragma(classify_level=restricted, topic={}, usage={internal})
+_private _method snippets_test.private_method_name()
+    ## Function: private_method_name
+    ## Arguments: 
+    ## Returns: 
+    
+_endmethod
+$
+
+
+## -------Deprecated------
+## Reason     : Obsolete
+## Use instead: 
+## Action     : Restricted at next release.
+## -----------------------
+_pragma(classify_level=basic, topic={}, usage={external})
+_method snippets_test.method_name()
+    ## Function: method_name
+    ## Arguments: 
+    ## Returns: 
+    
+_endmethod
+$
+
+
+_pragma(classify_level=basic,topic={}, usage={external})
+_iter _method snippets_test.iter_method_name()
+    ## Function: 
+    ## Arguments: 
+    ## Returns: a_thing
+    
+    _loopbody(a_thing)
+_endmethod
+$
+
+
+
+
+_pragma(classify_level=basic, topic={})
+_proc @proc_name () 
+    
+_endproc
+$
+
+
+
+
+
+
+
+
+
+_block
+    
+_endblock
+_for element _over iterator
+_loop
+    
+_endloop
+_if condition
+_then
+    
+_endif
+_if condition
+_then
+    
+_else
+    
+_endif
+_lock a_thing
+    
+_endlock
+
+
+_protect
+    
+_protection
+    
+_endprotect
+_try _with cond
+    
+_when error
+    
+_endtry
+_while condition
+_loop
+    
+_endloop
+_over 
+_loop
+    
+_endloop
+
+
+_catch @condition_name
+    
+_endcatch
+
+
+_handling _default _with handler
+
+
+_pragma(classify_level=basic, topic={}, usage={external})
+def_mixin(:snippets_test,
+    {
+        {:slot_name, _unset}
+    })
+$
+
+
+_pragma(classify_level=basic, topic={}, usage={external})
+
+_pragma(classify_level=basic, topic={}, usage={internal})
+define_binary_operator_case( name, lhs, rhs, procedure )
+$
+
+
+
+_pragma(classify_level=basic)
+condition.define_condition(:name,
+    parent_name,
+    data_name_list,
+    optional_reporter,
+    optional_message_accessor)
+$
+
+
+

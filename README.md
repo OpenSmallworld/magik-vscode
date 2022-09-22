@@ -397,6 +397,11 @@ I would recommend using these other extensions:
     "magik-vscode.enableOutputToConsoleFile"
     ```
 
+* Enable tab completion in editor, for snippet abbreviations (`off` by default)
+    ```json
+    "editor.tabCompletion": "only-snippets"
+    ```
+    
 <br>
 
 ## Known Issues
