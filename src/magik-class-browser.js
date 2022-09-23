@@ -53,39 +53,48 @@ class MagikClassBrowser {
     }
   }
 
+  _cbFile() {
+    const tempDir = os.tmpdir();
+    return path.join(tempDir, CB_FILENAME);
+  }
+
   _initWatcher() {
     this._closeWatcher();
 
-    const fileDir = os.tmpdir();
-    const cbFile = path.join(fileDir, CB_FILENAME);
-    const watcher = chokidar.watch(cbFile);
-    this._cbFileWatcher = watcher;
+    this._cbFileWatcher = chokidar.watch(this._cbFile());
 
-    watcher.on('add', () => {
-      if (!this._view) {
-        return;
-      }
-
-      this._closeWatcher();
-
-      const data = {};
-      const lines = fs
-        .readFileSync(cbFile)
-        .toString()
-        .split('\n');
-
-      fs.unlinkSync(cbFile);
-
-      for (const line of lines) {
-        const parts = line.split('|');
-        data[parts[0]] = parts[1] || '';
-      }
-
-      this._envVariables = data;
-
-      this._disconnect();
-      this._initConnect(data);
+    this._cbFileWatcher.on('add', () => {
+      this._cbFileUpdated();
     });
+  }
+
+  _cbFileUpdated() {
+    if (!this._view) {
+      return;
+    }
+
+    const waitToConnect = this._childProcess !== undefined;
+    this._disconnect();
+
+    const cbFile = this._cbFile();
+    const data = {};
+    const lines = fs.readFileSync(cbFile).toString().split('\n');
+
+    fs.unlinkSync(cbFile);
+
+    for (const line of lines) {
+      const parts = line.split('|');
+      data[parts[0]] = parts[1] || '';
+    }
+
+    this._envVariables = data;
+    if (waitToConnect) {
+      setTimeout(() => {
+        this._initConnect(data);
+      }, 500);
+    } else {
+      this._initConnect(data);
+    }
   }
 
   _setFocus() {
@@ -454,7 +463,7 @@ class MagikClassBrowser {
       command,
       {stdio: 'pipe', maxBuffer: 10 * 1024 * 1024},
       (err) => {
-        if (err) {
+        if (err && !err.killed) {
           vscode.window.showWarningMessage(
             `Cannot connect to method finder:\n${err.message}`
           );
@@ -499,8 +508,8 @@ class MagikClassBrowser {
   }
 
   _getMaxResults() {
-    let maxResults = vscode.workspace.getConfiguration('magik-vscode')
-      .maxClassBrowserResults;
+    let maxResults =
+      vscode.workspace.getConfiguration('magik-vscode').maxClassBrowserResults;
     if (maxResults < 0) {
       maxResults = 1;
     } else if (maxResults > 20000) {
