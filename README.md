@@ -401,7 +401,7 @@ I would recommend using these other extensions:
     ```json
     "editor.tabCompletion": "only-snippets"
     ```
-    
+
 <br>
 
 ## Known Issues
@@ -426,6 +426,15 @@ https://github.build.ge.com/smallworld-sw5x/magik-vscode/issues
 <br>
 
 ## Release Notes
+
+### 0.2.3
+
+* Improvements to snippets to support completion of Magik code.
+* Added search class, peek definition and peek references to hover actions.
+* Added automated tests for formating and linting.
+* Improved go to definition of globals.
+* Fixed definition ranges to show current method in breadcrumbs.
+* Fixed reconnecting to the method finder.
 
 ### 0.2.2
 
