@@ -180,6 +180,7 @@ This extension can be installed by using the VSIX extension file (Option 1) or m
 
 ### Option 1: Install from the VSIX extension file
 Using the Install from VSIX command in the Extensions view command dropdown, or the Extensions: Install from VSIX command in the Command Palette, point to the .vsix file in this repo.
+Note. If you have previously installed manually then delete %USERPROFILE%\\.vscode\extensions\magik-vscode first and clone the repo elsewhere to access the .vsix file.
 
 
 ### Option 2: Manual Install
