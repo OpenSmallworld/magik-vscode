@@ -15,33 +15,35 @@ Whether you are new to Magik or a long time veteran we you will find features of
 
 Here is the quickest way to get started Programming Magik.
 
-1. Install version [GE Vernova Smallworld](https://www.ge.com/digital/applications/smallworld-gis-geospatial-asset-management).
+1. Install the version of [Smallworld GNM (formerly Smallworld)](https://www.ge.com/digital/applications/smallworld-gis-geospatial-asset-management) that corresponds to your needs (including Smallworld GNM components and custom code).
 2. Install the [VS Code Magik extension](https://marketplace.visualstudio.com/items?itemName=ge-smallworld.magik-vscode).
-3. Start a Smallworld session by typing the sequence `<F2>` then `Z` and follow the instructions to start the session (for start a product session) or
+3. Start a Smallworld session by typing the sequence `<F2>` then `Z` and follow the instructions to start the session (to start a _product_ session) or
 start your custom session from the command line of a terminal.  
-4. Once the session has started, type `<ALT>+M` to initialize the interface with the running Magik session.
+4. Once the session has started, while a Magik code file editor has the focus, type `<ALT>+M` to initialize the interface with the running Magik session.
 
 ![magik-vscode](./docs/images/basic_screenshot.png)
 
 ## What's next
 
-You can use the following hotkeys to compile your code and run your tests in the Magik session.
+Once you are able to start a Magik session and associate the session with your editor, you are ready to start programming Magik.  If you are new to program Magik in Smallworld GNM, go over to the [Application Development section](https://smallworld.gedigitalenergy.com/documentation/sw53/en/swDocs5.htm#../Subsystems/AppDev/Content/A_Navigation/Pages/HomeAppDev5.htm?TocPath=Technology%2520platform%257CApplication%2520Development%2520(Magik)%257C_____1) on the Smallworld GNM documentation web sight.
 
- Hotkey | Description
---------|-------------
- `<CTRL>+<SHFT>+F7`   |Load the module and compile the code for the focused VS Code Magik file.  As we don't normally load tests when we start a Magik session, this is often a good way to force your test modules to open.  As they should be dependent on MUnit, it will also load MUnit.  The session in the focused terminal used to compile the code.
- `<CTRL>+F7` | Compile the Magik code for the focused VS Code Magik editor.  This is standard way to compile or recompile a Magik file.  The session in the focused terminal used to compile the code.
- `<CTRL>+<ALT>+F7` | Run all the tests in the MUnit test case in the focused VS Code Magic editor.  The file must be a subclass of test_case or the command is ignored. The session in the focused terminal used to run the test case.
- `<ALT>+F7` | Run a single test method in the MUnit test case in the focused VS Code Magik editor.  The test method where the edit cursor is placed determines the test to be run.  If the cursor is not in a test method (i.e. a method whose name starts with test_) or if the class is not a subclass of test_case the request is ignored.  The session in the focused terminal used to run the test case.  This is the fastest way to run a single test method.
- `<CTRL>+<ALT>+P` | Open the command palette to chose a command from VS Code and the loaded extensions.  Type `Magik` to see the commands for the VS Code Magik extension
+If you are already familiar with Magik and Smallworld, the read through the [Feature highlights](#feature-highlights) for more on using the VS Code extension to help you write Magik code.
 
 ## Feature highlights
 
+* See [Compiling code and running tests](./docs/compiling.md) to understand how to compile code in your session.
+* See [Using the class browser](./docs/navigation.md) to understand how to use the class browser tool and navigate in VS Code.
+* See [Formatting and Editing](./docs/formatting.md) for information on formatting Magik code and using editing templates.
+* See [Linting and Debugging](./docs/debugging.md) for information on code problems with the Linter and using the Magik debugger.
+
 ## Setting up your environment
 
-For more on how to starting session and configuring your Magik environment see the documentation
-[here](./docs/getting_started.md).
+For more on how to start a Magik session and configuring your Magik environment see the [Getting Started](./docs/getting_started.md) documentation
 
 ## Contributing
 
+We welcome your contributions and thank you for working to improve the Magik development experience in VS Code. If you would like to help work on the VS Code Magik extension, see our [contribution guide](./docs/contributing.md) to learn how to build and run the VS Code Magik extension locally and contribute to the project.
+
 ## License
+
+[Apache License, Version 2.0 (the "License")](./copyright-magik-vscode.md)
