@@ -2,7 +2,7 @@
 
 You can use the following hotkeys to compile your code and run your tests in the Magik session.
 
- <div style="width:140px">Hotkey</div>  | Description
+ Hotkey | Description
 --------|-------------
  `<CTRL>+<SHFT>+F7`   |Load the module and compile the code for the focused VS Code Magik file.  As we don't normally load tests when we start a Magik session, this is often a good way to force your test modules to open.  As they should be dependent on MUnit, it will also load MUnit.  The session in the focused terminal used to compile the code.
  `<CTRL>+F7` | Compile the Magik code for the focused VS Code Magik editor.  This is standard way to compile or recompile a Magik file.  The session in the focused terminal used to compile the code.
