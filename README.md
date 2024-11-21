@@ -29,6 +29,8 @@ Once you are able to start a Magik session and associate the session with your e
 
 If you are already familiar with Magik and Smallworld, the read through the [Feature highlights](#feature-highlights) for more on using the VS Code extension to help you write Magik code.
 
+The hotkey `<CTRL>+<SHFT>+P` is used to open the command pallet in Visual Studio Code.  You can first open the command pallet, then type _magik_ to discover the features of the VS Code Magic extension.
+
 ## Feature highlights
 
 * See [Compiling code and running tests](./docs/compiling.md) to understand how to compile code in your session.
