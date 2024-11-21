@@ -2,7 +2,7 @@
 
 The Magik Extension provides a number of tools for code navigation.  The table below summarizes the hotkeys used to activate the navigation tools and describes their use.
 	
-<div style="width:140px">Hotkey</div>  | Description
+Hotkey | Description
 --------|-------------
 `F3` or `<ALT>+.` or `<ALT>+<Right Arrow>`| By placing the edit cursor on a method name and typing `F3`, `<ALT>+.` or `<ALT>+<Right Arrow> you can navigate to the definition of the method.  When we hover over the method, we can see the equivalent _goto_ item in the hover popup.
 `<ALT>-<Left Arrow>` | Navigate to the previous location.
@@ -43,3 +43,5 @@ You can locate the class browser either in the terminal window or as a panel (as
 The class browser dialogue itself allows the user to type either class name or method name text to perform searches in the loaded class files.  The radio buttons allow user to filter the results, to show the argument names and to see the method documentation text as required.  Clicking on the method will open the method implementation in a magik text editor (if the source code can be located locally).  Additional information from the method pragmas are also displayed in the class browser method line.
 
 ![Position Class Browser](./images/class_browser.png)
+
+#### Go back to [README](../README.md) for more on the Magik extension for VS Code
