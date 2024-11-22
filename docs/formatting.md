@@ -41,3 +41,5 @@ Once the snippet is activated, the template text is shown with fields that can b
 You can create custom snippet at the project (directory) or user (global) level using the menu item _File >> Preferences >> Configure Snippets_.  Use the _scope_ attributes to indicate the language that the snippet applies to in multi-language snippet files.  For more information on creating and using snippets see [Snippets in Visual Studio code](https://code.visualstudio.com/docs/editor/userdefinedsnippets).
 
 > Go back to [README](../README.md) for more on the Magik extension for VS Code
+
+> Go to next topic [Linting and Debugging](./debugging.md).

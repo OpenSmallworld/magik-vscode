@@ -27,7 +27,7 @@ start your custom session from the command line of a terminal.
 
 Once you are able to start a Magik session and associate the session with your editor, you are ready to start programming Magik.  If you are new to program Magik in Smallworld GNM, go over to the [Application Development section](https://smallworld.gedigitalenergy.com/documentation/sw53/en/swDocs5.htm#../Subsystems/AppDev/Content/A_Navigation/Pages/HomeAppDev5.htm?TocPath=Technology%2520platform%257CApplication%2520Development%2520(Magik)%257C_____1) on the Smallworld GNM documentation web sight.
 
-If you are already familiar with Magik and Smallworld, the read through the [Feature highlights](#feature-highlights) for more on using the VS Code extension to help you write Magik code.
+If you are already familiar with Magik and Smallworld, the read through the Feature highlights below for more information on using the VS Code extension to help you write Magik code.
 
 The hotkey `<CTRL>+<SHFT>+P` is used to open the command pallet in Visual Studio Code.  You can first open the command pallet, then type _magik_ to discover the features of the VS Code Magic extension.
 

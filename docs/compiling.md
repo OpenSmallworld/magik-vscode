@@ -22,3 +22,5 @@ Below is a screenshot showing a typical session where the code is first compiled
 We see the VS Code magik extension will execute commands at the magik prompt with procedures that have been loaded from the `vscode_dev.magik` script.  First, `vs_load_file()` is called to load and compile the test case (in this instance, while loading the dependencies) and then `vs_run_test()` is used to execute the test (this time specifying both the test case and the test method to run).
 
 > Go back to [README](../README.md) for more on the Magik extension for VS Code
+
+> Go to next topic [The Class Browser and Navigation](./navigation.md).

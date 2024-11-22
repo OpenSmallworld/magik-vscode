@@ -51,3 +51,5 @@ Finally, when a traceback is raised during a running magik session, the tracebac
 ![Position Class Browser](./images/traceback_navigation.png)
 
 > Go back to [README](../README.md) for more on the Magik extension for VS Code
+
+> Go to next topic [Formatting and Editing](./formatting.md).
