@@ -44,4 +44,10 @@ The class browser dialogue itself allows the user to type either class name or m
 
 ![Position Class Browser](./images/class_browser.png)
 
-#### Go back to [README](../README.md) for more on the Magik extension for VS Code
+## Traceback Navigation
+
+Finally, when a traceback is raised during a running magik session, the traceback text in the session terminal can be used to navigate to the code associated with the traceback.  Simply click on a line of the traceback and you can navigate to the code file that is mentioned in the traceback (note, sometimes the terminal windows is not wide enough to keep the location information on one line and this may cause the code file search to fail).
+
+![Position Class Browser](./images/traceback_navigation.png)
+
+> Go back to [README](../README.md) for more on the Magik extension for VS Code
