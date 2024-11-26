@@ -20,7 +20,7 @@ This provides the following functionality:
 * Search - search for the target member in _Folder_, _Module_, _Product_ or VS Code _Workspace_.
 * Search Definitions - copy the text to the class browser for searching via class browser.
 * Go To Definition - navigate to the definition of the method under the cursor.
-* Peek Definition or Peek References - open the _Peek_ popup and show the definition or the definition and references.
+* Peek Definition or Peek References - open the _Peek_ popup and show the method implementation or the implementation and references to the method.
 
 ![Definition in Peek](./images/definition_in_peek.png)
 
@@ -30,9 +30,9 @@ When we select the _references_ in the peek window, we see all the locations whe
 
 ## The Class Browser
 
-The Class Browser in VS Code provides a user interface dialogue that interacts with the magik _method finder_.  When the edit focus and cursor is in a magik file, the hotkey `<CTR>+b` will open the dialogue and connect it to the method finder.  You can open the class browser using the hotkey `<CTRL>+b` when the keyboard focus is in a magik code file or with the menu item _view >> Open View..._ (type ) 
+The Class Browser in VS Code provides a user interface dialogue that interacts with the Magik _method finder_.  When the edit focus and cursor is in a Magik file, the hotkey `<CTR>+b` will open the dialogue and connect it to the method finder.  You can open the class browser using the hotkey `<CTRL>+b` when the keyboard focus is in a Magik code file or with the menu item _view >> Open View..._ (type _Magik class browser_) 
 
-The class browser in VS Code is a dialogue window that can be moved and in a number of areas allowing you to decide the most appropriate location based on your preferences and hardware.  The screenshot below shows some of the possibilities.
+The class browser in VS Code is a dialogue window that can be moved into a number of areas allowing you to decide the most appropriate location based on your preferences and hardware.  The screenshot below shows some of the possibilities.
 
 ![View Class Browser](./images/view_class_browser.png)
 
@@ -40,15 +40,15 @@ You can locate the class browser either in the terminal window or as a panel (as
 
 ![Position Class Browser](./images/position_class_browser.png)
 
-The class browser dialogue itself allows the user to type either class name or method name text to perform searches in the loaded class files.  The radio buttons allow user to filter the results, to show the argument names and to see the method documentation text as required.  Clicking on the method will open the method implementation in a magik text editor (if the source code can be located locally).  Additional information from the method pragmas are also displayed in the class browser method line.
+The class browser dialogue itself allows the user to type either class name or method name text to perform searches in the loaded class files.  The radio buttons allow user to filter the results, to show the argument names and to see the method documentation text as required.  Clicking on the method will open the method implementation in a Magik text editor (if the source code can be located).  Additional information from the method pragmas are also displayed in the class browser method line.
 
-![Position Class Browser](./images/class_browser.png)
+![The Class Browser](./images/class_browser.png)
 
 ## Traceback Navigation
 
-Finally, when a traceback is raised during a running magik session, the traceback text in the session terminal can be used to navigate to the code associated with the traceback.  Simply click on a line of the traceback and you can navigate to the code file that is mentioned in the traceback (note, sometimes the terminal windows is not wide enough to keep the location information on one line and this may cause the code file search to fail).
+Finally, when a traceback is raised during a running Magik session, the traceback text in the session terminal can be used to navigate to the code associated with the traceback.  Simply `<CTRL>` click on a line of the traceback and you can navigate to the code file that is mentioned in the traceback (note, sometimes the terminal windows is not wide enough to keep the location information on one line and this may cause the code file search to fail).
 
-![Position Class Browser](./images/traceback_navigation.png)
+![Traceback Navigation](./images/traceback_navigation.png)
 
 > Go back to [README](../README.md) for more on the Magik extension for VS Code
 

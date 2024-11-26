@@ -1,6 +1,6 @@
 # Getting Started with Magik Sessions
 
-Once you have installed the VS code extension for magik you should set the default character encodings for magik files.  If you are used to using files in different character sets it is important to know that VS Code with the Magik plugin does not respect the text encoding file header and so care must be taken when open files containing non-ascii characters.  VS Code will use UTF-8 as the default encoding, but I have had problems with this configuration for historic Magik projects.  It seems that ISO-8859-1 (Latin 1) is more often used and thus, I would recommend setting the default to ISO-8859-1, but care must be taken when working with other formats.  Saving a file in the wrong character encoding can damage the file making it difficult to recover (luckily these file are in generally in Git).  You can always see the encoding of the file in the information bar at the bottom of VS Code (see below).  Clicking on the encoding will allow you to save or open the file using a different encoding.  So, it is possible to reopen a file that was opened with an incorrect encoding by specifying the correct encoding.
+Once you have installed the VS code extension for Magik you should set the default character encodings for Magik files.  If you are used to using files in different character sets it is important to know that VS Code with the Magik plugin does not respect the text encoding file header and so care must be taken when open files containing non-ascii characters.  VS Code will use UTF-8 as the default encoding, but I have had problems with this configuration for historic Magik projects.  It seems that ISO-8859-1 (Latin 1) is more often used and thus, I would recommend setting the default to ISO-8859-1, but care must be taken when working with other formats.  Saving a file in the wrong character encoding can damage the file making it difficult to recover (luckily these file are in generally in Git).  You can always see the encoding of the file in the information bar at the bottom of VS Code (see below).  Clicking on the encoding will allow you to save or open the file using a different encoding.  So, it is possible to reopen a file that was opened with an incorrect encoding by specifying the correct encoding.
 
 ![File Encoding - Status bar](./images/encoding_statusbar.png)
 
@@ -10,7 +10,7 @@ You can easily configure the default encoding for Magik.  First open the setting
 
 ## Starting a Session
 
-Historically, in Emacs, the key sequence `<F2>+Z` could be use to bring up the GIS console where we can execute the run alias command to start a session.  In VS Code `<F2>+Z`, will start a sequence of user interface dialogues that will assist the user in creating the runalias.exe command.  The first dialogue expects that the user to pick the directory containing an alias file.  Typically this will be in the config directory in the target product.  The dialogue acts as a directory picker and does not show the files contained in the directory, so you have to know where to stop.  This is generally where you see the magik_sessions directory.  When you are in the correct directory, click on the Search for aliases button to select the directory.
+Historically, in Emacs, the key sequence `<F2>+Z` could be use to bring up the GIS console where we can execute the run alias command to start a session.  In VS Code `<F2>+Z`, will start a sequence of user interface dialogues that will assist the user in creating the runalias.exe command.  The first dialogue expects that the user to pick the directory containing an aliases file.  Typically this will be in the config directory in the target product.  The dialogue acts as a directory picker and does not show the files contained in the directory, so you have to know where to look.  This is generally where you see the magik_sessions directory.  When you are in the correct directory, click on the Search for aliases button to select the directory.
 
 ![Open Session - search alias](./images/session_search_alias.png)
 
@@ -30,7 +30,7 @@ In fact, this is not a very interesting way to start a session and, as in Emacs,
 
 For simple projects, we just have to specify the location of _runalias.exe_ then use the project `environment.bat` file and select the alias. For simple projects applications can be started with a command line like this:
 
-> C:\swEO533\core\bin\x86\runalias.exe -e environment.bat -a .\config\gis_aliases dms_sw_life_open -cli
+> PS\> C:\swEO533\core\bin\x86\runalias.exe -e environment.bat -a .\config\gis_aliases dms_sw_life_open -cli
 
 Projects will generally have their own strategy for starting sessions depending on the requirements, the sessions and the team that creates the startup scripts.
 
