@@ -1,6 +1,23 @@
+
 # Getting Started with Magik Sessions
 
-Once you have installed the VS code extension for Magik you should set the default character encodings for Magik files.  If you are used to using files in different character sets it is important to know that VS Code with the Magik plugin does not respect the text encoding file header and so care must be taken when open files containing non-ascii characters.  VS Code will use UTF-8 as the default encoding, but I have had problems with this configuration for historic Magik projects.  It seems that ISO-8859-1 (Latin 1) is more often used and thus, I would recommend setting the default to ISO-8859-1, but care must be taken when working with other formats.  Saving a file in the wrong character encoding can damage the file making it difficult to recover (luckily these file are in generally in Git).  You can always see the encoding of the file in the information bar at the bottom of VS Code (see below).  Clicking on the encoding will allow you to save or open the file using a different encoding.  So, it is possible to reopen a file that was opened with an incorrect encoding by specifying the correct encoding.
+Before discussing how to start a Magik session in the VS Code extension it is useful to consider how the extension can be installed and configured.
+
+## Installation
+
+The GE Magik VS code extension is now integrated with the [VS Code marketplace](https://marketplace.visualstudio.com/vscode).  The extension can be found by searching in the extension side-tab using the _Search Extensions in Marketplace_ text edit and typing, for example, _Magik_ as shown below.  There are several Magik language extensions, but we want the one called _Magik VS Code_ that is provided by _GE Smallworld_.  This extension is associated with the VS Code extension in Open Smallworld on the public GitHub at [OpenSmallworld magik-vscode](https://github.com/OpenSmallworld/magik-vscode).  This repository is a publication of the internal GE magik-vscode repository.
+
+![Installation from VS code](./images/install_from_vscode.png)
+
+Normally you can easily install the extension by clicking on the install button, but in some cases this has may fail due to security or proxy settings on the machine in question.  This is not a problem be we can easily download the installer for the plugin from the VS Code Market Place at [Magik VS Code Extension](https://marketplace.visualstudio.com/items?itemName=ge-smallworld.magik-vscode).  This is delivered as a VSIX file (basically a Visual Studio Installer bundle).  The file should be downloaded and unblocked to a known location (e.g. downloads) as you would for any other files.   We can then install the file using the extra options menu button (...) at the top of the _Plugins tool_ as shown in the screenshot below.
+
+![Installation from VS code](./images/install_from_vsx_file.png)
+
+Once you have installed the Magik plugin, when you open a Magik source code file, you should see the Magik code colouring immediately.
+
+## Managing Character Encodings
+
+After installing the VS code extension for Magik, you should set the default character encodings for Magik files.  If you are used to using files in different character sets it is important to know that VS Code with the Magik plugin does not respect the text encoding file header and so care must be taken when open files containing non-ascii characters.  VS Code will use UTF-8 as the default encoding, but I have had problems with this configuration for historic Magik projects.  It seems that ISO-8859-1 (Latin 1) is more often used and thus, I would recommend setting the default to ISO-8859-1, but care must be taken when working with other formats.  Saving a file in the wrong character encoding can damage the file making it difficult to recover (luckily these file are in generally in Git).  You can always see the encoding of the file in the information bar at the bottom of VS Code (see below).  Clicking on the encoding will allow you to save or open the file using a different encoding.  So, it is possible to reopen a file that was opened with an incorrect encoding by specifying the correct encoding.
 
 ![File Encoding - Status bar](./images/encoding_statusbar.png)
 
@@ -32,7 +49,7 @@ For simple projects, we just have to specify the location of _runalias.exe_ then
 
 > PS\> C:\swEO533\core\bin\x86\runalias.exe -e environment.bat -a .\config\gis_aliases dms_sw_life_open -cli
 
-Projects will generally have their own strategy for starting sessions depending on the requirements, the sessions and the team that creates the startup scripts.
+Projects will generally have their own strategy for starting sessions depending on the requirements, the sessions and the team that creates the startup scripts. For more information on starting Smallworld session see the  [Launcher program](https://smallworld-gnm.gevernova.com/documentation/sw53/en/swDocs5.htm#../Subsystems/Core/Content/Sessions/LauncherProgram.htm?TocPath=Technology%2520platform%257CCore%257CMagik%2520sessions%257C_____5) page on the Smallworld GNM documentation website.
 
 > Go back to [README](../README.md) for more on the Magik extension for VS Code
 
