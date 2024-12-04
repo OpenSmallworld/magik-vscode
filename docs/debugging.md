@@ -11,7 +11,7 @@ The Magik debugger is still a work in progress and may exhibit unpredictable beh
 
 1. Compile the code to be debugged.
 2. Start a Magik session that references the Smallworld _mda_ DLL file using the Java agent path argument.  It might be useful to create a special debugging alias that defines the java command line argument as part of the SW_LAUNCH_JAVA_ARGS (see below).
-3. When the session starts activate the VS Code Magik extension using the `<ALT>+M` hotkey.
+3. When the session starts activate the VS Code Magik extension using the `<CTRL>+<ALT>+M` hotkey.
 4. Open Magik files and optionally set break points.
 5. With the Magik file as the current editing document, open the debug tab from the left side tool panels and click on _Run and Debug_.  You should see the threads in the call stack appear and you should see any break points.
 6. Use your application normally.  The code should stop on the break points and allow you to inspect the state of the objects.

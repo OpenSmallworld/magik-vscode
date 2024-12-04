@@ -112,7 +112,7 @@ $
 
 _pragma(classify_level=debug)
 ## Jump to source in VS Code
-_global _constant vs_goto <<
+_global  vs_goto <<
 _proc @vs_goto( method_string, _optional class_string, super? )
 
 	_global mfind

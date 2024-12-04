@@ -19,7 +19,7 @@ Here is the quickest way to get started Programming Magik.
 2. Install the [VS Code Magik extension](https://marketplace.visualstudio.com/items?itemName=ge-smallworld.magik-vscode).
 3. Start a Smallworld session by typing the sequence `<F2>` then `Z` and follow the instructions to start the session (to start a _product_ session) or
 start your custom session from the command line of a terminal using the _runalias.exe_ application (typically found in _core\bin\x86_ of your Smallworld installation).  See the topic [Launcher program](https://smallworld-gnm.gevernova.com/documentation/sw53/en/swDocs5.htm#../Subsystems/Core/Content/Sessions/LauncherProgram.htm?TocPath=Technology%2520platform%257CCore%257CMagik%2520sessions%257C_____5) on the Smallworld GNM documentation website for more details.  
-4. Once the session has started, while a Magik code file editor has the focus, type `<ALT>+M` to initialize the interface with the running Magik session.
+4. Once the session has started, while a Magik code file editor has the focus, type `<CTRL>+<ALT>+M` to initialize the interface with the running Magik session.
 
 ![magik-vscode](./docs/images/basic_screenshot.png)
 
