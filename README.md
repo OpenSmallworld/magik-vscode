@@ -1,6 +1,6 @@
 # Magik for Visual Studio Code
 
-The [VS Code Magik extension](https://marketplace.visualstudio.com/items?itemName=ge-smallworld.magik-vscode) provides rich language support for the Magik programming language used in GE Vernova Smallworld GIS platform.
+The [VS Code Magik extension](https://marketplace.visualstudio.com/items?itemName=ge-smallworld.magik-vscode) provides rich support for the Magik programming language used in the GE Vernova Smallworld Geo Network Management (GNM) platform.
 
 ## Requirements
 
@@ -9,7 +9,7 @@ The [VS Code Magik extension](https://marketplace.visualstudio.com/items?itemNam
 
 ## Quick Start
 
-Welcome to the world of Magik programming for Smallworld GIS!
+Welcome to the world of Magik programming for Smallworld GNM!
 
 Whether you are new to Magik or a long time veteran, you will find features of this extension that can improve your development experience.
 
@@ -23,11 +23,11 @@ start your custom session from the command line of a terminal using the _runalia
 
 ![magik-vscode](./docs/images/basic_screenshot.png)
 
-## What's next
+## What's Next
 
 Once you are able to start a Magik session and associate the session with your editor, you are ready to start programming Magik.  If you are new to programming Magik in Smallworld GNM, go over to the [Application Development section](https://smallworld.gedigitalenergy.com/documentation/sw53/en/swDocs5.htm#../Subsystems/AppDev/Content/A_Navigation/Pages/HomeAppDev5.htm?TocPath=Technology%2520platform%257CApplication%2520Development%2520(Magik)%257C_____1) on the Smallworld GNM documentation web sight.
 
-If you are already familiar with Magik and Smallworld, read through the Feature highlights below for more information on using the VS Code extension to help you write Magik code.
+If you are already familiar with Magik and Smallworld, read through the feature highlights below for more information on using the VS Code extension to help you write Magik code.
 
 The hotkey `<CTRL>+<SHFT>+P` is used to open the command palette in Visual Studio Code.  You can first open the command palette, then type _magik_ to discover the features of the VS Code Magic extension.
 
@@ -40,7 +40,7 @@ The hotkey `<CTRL>+<SHFT>+P` is used to open the command palette in Visual Studi
 
 ## Setting up your environment
 
-For more on how to start a Magik session and configuring your Magik environment see the [Getting Started](./docs/getting_started.md) documentation
+For more on how to start a Magik session and configuring your Magik environment see the [Getting Started](./docs/getting_started.md) documentation.
 
 ## Contributing
 

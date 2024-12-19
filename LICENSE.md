@@ -2,7 +2,7 @@
 
 &copy; 2018 General Electric Company or its Affiliates
 
-This product is Class C software. 
+This product is Class C software.
 
 The Class C Software category for GE indicates that Software is provided “AS IS” without warranty. 
 Software Support Services are not available.
