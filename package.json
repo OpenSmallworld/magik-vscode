@@ -2,7 +2,7 @@
     "name": "magik-vscode",
     "displayName": "Magik VS Code",
     "description": "Magik language support for VS Code",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "publisher": "GE-Smallworld",
     "license": "MIT",
     "repository": "https://github.com/OpenSmallworld/magik-vscode",
