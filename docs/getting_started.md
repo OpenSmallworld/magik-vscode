@@ -33,7 +33,7 @@ Historically, in Emacs, the key sequence `<F2>+Z` could be use to bring up the G
 
 Next a dialogue opens requesting the user to find the _runalias.exe_ file.  This is the program that builds and launches the Java command to start the Smallworld session.  The user is asked to select the file because if the environment variable `SMALLWORLD_GIS` is not defined, `runalias.exe` will define the variable relative to its location (it is in _core/bin/x86_ on Windows).
 
-[Open Session - search runalias](./images/session_runalias.png)
+![Open Session - search runalias](./images/session_runalias.png)
 
 Once the location of the _runalias.exe_ program has been selected, a drop down will appear from the VS Code search bar edit showing a list of aliases that can be started.
 

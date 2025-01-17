@@ -21,7 +21,11 @@ Magik source code can be debugged by attaching the a Java debugging agent to the
 7. The _Debug Console_ dialog at the bottom of the application can be used to inspect and manipulate the application while it is running.  For example, when the application is stepping through a method, the \_self reference is valid and can be used in the same way that it would be used in code, but the state of \_self is as it is in the running application.
 8. Stop debugging and stop the session.  Note that we have seen that the Magik debug remains active after the session has been stopped so it is a good idea to close Visual Studio Code and reopen it before starting another debug session.
 
-Below is an example of an alias that provides the agent path argument to run a debug session:
+Below is an example of an alias that provides the agent path argument to run a debug session.  This can also be put on the session command line with by adding an additional java argument like: 
+
+> j -agentpath:S:\SW535\2025-01-17\core\bin\x86\mda.dll
+
+where the _mda.dll_ is delivered with Smallworld.
 
 ![Debugging-alias](./images/debug_alias.png)
 
