@@ -1,0 +1,5736 @@
+#% text_encoding = iso8859_1
+_package sw
+$
+
+# This file contains some helpful development procedures to
+# use at the magik prompt.
+#
+#
+# Recommended steps before using these procedures:
+#
+# 1. (Optional) Set the global USER_REPOSITORY_PATHS to contain the local
+#    repository paths you are working on.
+#
+# 2. Use relocate_products() to point known products at your
+#    local repositories. (Make sure sw_core has a product.def)
+#
+# 3. Use load_changes() to compile any magik changes in your branch.
+#
+#
+#
+# Overview of procedures:
+#
+# -------------------------------------------------------------------
+# LOADING CODE:
+#
+# relocate_products()
+#   Points the known products at the user repositories.
+#
+# load_changes()
+#   Load the changed files (or modules) found in the current branch of a local repository.
+#
+# load_module()
+#   Loads the specified module.
+#   Searches for the module if not defined and adds the product.
+#
+# load_modules()
+#   Loads the specified module(s).
+#
+# load_class()
+#   Loads the source file for CLASS_OR_NAME which can be a class or a class name string.
+#
+# reload_class()
+#   Remex and reload the class and its subclasses.
+#
+# compile_messages()
+#   Ensures compiled message files in the specified module or in the module for the specified class
+#   are up to date.
+#
+# load_file_name()
+#   Load the module containing the specified file.
+#   Finds the file and adds products and loads prerequisite modules as necessary.
+#
+# open_changes()
+#   Opens any modified files in the named repository (or all repos).
+#
+#
+# -------------------------------------------------------------------
+# CLASS BROWSER:
+#
+# mfind() or mf()
+#   Simple class browser for use at the prompt and enables you to jump to source in Emacs.
+#
+# mjump()
+#   Send a method in the mfind results to Emacs.
+#
+# open_class() or oc()
+#   Opens the source file in Emacs for CLASS_OR_NAME which can be a class or a class name string.
+#
+#
+# -------------------------------------------------------------------
+# TEST:
+#
+# run_test()
+#   Runs any loaded tests matching the supplied test method name.
+#
+# run_tests()
+#   Runs the supplied collection of test cases.
+#
+# test_module()
+#   Runs all of the tests for the specified module.
+#
+# test_changes()
+#   Runs all of the tests for the modules containing changes in a repository.
+#
+# test_class()
+#   Searches the unit tests for references of the supplied class and runs those tests.
+#
+# run_all_tests()
+#   Run all tests in a product or module or specific test.
+#
+# run_sanity_test()
+#   Run a sanity scenario test.
+#
+#
+# -------------------------------------------------------------------
+# REVIEW:
+#
+# review_branch()
+#   Launches a visual diff on the changes in the named branch.
+#
+# changed_files()
+#   Returns a rope of files changed in the named branch.
+#
+# class_history()
+#   Activates the revision history for the source file for CLASS_OR_NAME which can be a class or a
+#   class name string.
+#
+# goto_branch()
+#   Updates the local repo at the specified path (or all repos) to the
+#   trunk or specified branch.
+#
+#
+# -------------------------------------------------------------------
+# FIND:
+#
+# get_objects() or mget()
+#   Returns a rope of objects with a name or class name matching A_STRING within the component
+#   A_COMPONENT.
+#
+# get_components()
+#   Returns a rope of components with a name or class name matching A_STRING in the component
+#   A_COMPONENT.
+#
+# get_type()
+#    Returns a rope of instances of the supplied class.
+#
+# get_gui()
+#   Searches for UI widgets matching the supplied string.
+#   Searches within all active UI or only the supplied container if provided.
+#
+#
+# -------------------------------------------------------------------
+# MISC:
+#
+# mdump()
+#   Saves a thread dump for the current system process to file and opens the file.
+#   Outputs Magik calls only if FILTER_MAGIK? is true.
+#   (Requires JDK for jstack)
+#
+# git_search()
+#   Search git commits for the supplied string.
+#   Uses 'git log -G' to find commits with modified lines matching the string and finds commits
+#   which modify files matching the string.
+#
+
+
+_pragma(classify_level=debug)
+##
+## A collection of path strings to locate local user repositories.
+##
+_global user_products_root << _if system.os_name _is :windows
+	_then >> "C:\projects\hg\"
+	_else >> system.pathname_down( system.getenv("HOME"), "projects", "hg" )
+	_endif
+$
+
+
+_pragma(classify_level=debug)
+##
+## Returns a rope of user repository paths.
+## Returns the global user_repository_paths if set, otherwise
+## searches the folder user_products_root (by default c:\projects\hg).
+## REPO_DIR_NAME defaults to "hg".
+##
+_global _constant user_repo_paths <<
+_proc @user_repo_paths(_optional repo_dir_name)
+
+	_if repo_dir_name _is _unset
+	_then
+		repo_dir_name << "hg"
+	_endif
+
+	_global user_products_root
+	_if user_products_root _is _unset
+	_then
+		user_products_root << _if system.os_name _is :windows
+			_then
+				>> "C:\projects\" + repo_dir_name + "\"
+			_else
+				>> system.pathname_down(system.getenv("HOME"),
+					"projects", repo_dir_name)
+			_endif
+	_endif
+
+	repo_paths << rope.new()
+
+	_try
+		dc << directory_channel.new(user_products_root)
+	_when file_no_access
+		write("Access denied to ", user_products_root)
+	_endtry
+
+	_if dc _is _unset
+	_then
+		_return repo_paths
+	_endif
+
+	_protect
+		_loop
+			_if (entry << dc.get_status()) _is _unset
+			_then
+				_leave
+			_endif
+			_if entry.type _is :directory
+			_then
+				pathname << system.canonicalise(entry.name)
+				_if system.file_exists?(system.pathname_down(pathname, ".git")) _orif
+					system.file_exists?(system.pathname_down(pathname, ".hg"))
+				_then
+					repo_paths.add_last(pathname)
+				_endif
+			_endif
+		_endloop
+	_protection
+		dc.close()
+	_endprotect
+
+	_return repo_paths
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## A collection of path strings to locate local user repositories.
+##
+_global user_repository_paths << user_repo_paths()
+$
+
+
+_pragma(classify_level=debug)
+##
+## Name of the default trunk branch name to use with local repositories.
+##
+_global default_trunk_branch_name <<
+	write_string("SW", smallworld_product.sw!version.major, smallworld_product.sw!version.minor, smallworld_product.sw!version.sub)
+$
+
+
+_pragma(classify_level=debug)
+##
+## Returns the version control name :git or :hg for the repo path.
+##
+_global vc_name <<
+_proc @vc_name( repo_path )
+
+	_if system.file_exists?( system.pathname_down( repo_path, ".git" ) )
+	_then
+		_return :git
+	_endif
+
+	_if system.file_exists?( system.pathname_down( repo_path, ".hg" ) )
+	_then
+		_return :hg
+	_endif
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Returns the current branch name for the repo path.
+##
+_global current_branch <<
+_proc @current_branch( repo_path )
+	_global vc_name
+
+	vc << vc_name( repo_path )
+	_if vc _is _unset
+	_then
+		_return
+	_endif
+
+	command << _if vc _is :git
+		   _then
+			   >> "git rev-parse --abbrev-ref HEAD"
+		   _else
+			   >> "hg branch"
+		   _endif
+
+	cmd_info << _allresults system.start_command_with_io( command, _false, _true, :output, repo_path )
+	branch_name << cmd_info[ 3 ].get_line()
+
+	_return branch_name
+
+_endproc
+$
+
+
+dev_doc("relocate_products() - Point the known products at the user repositories")
+_pragma(classify_level=debug)
+##
+## Points the known products at the user repositories.
+##
+## WARNING: Make sure sw_core has a product.def
+##
+_global _constant relocate_products <<
+_proc @relocate_products( _optional paths )
+
+	_global user_repository_paths
+	_if paths _is _unset
+	_then
+		paths << user_repository_paths
+	_endif
+
+	# Gather GMA module paths
+	gma_module_names << { :google_address_search,
+			      :map_tile_plugin,
+			      :streetview_addon,
+			      :swaf_address_search_gui,
+			      :tiled_dataset_acp,
+			      :tiled_dataset_magik_on_java,
+			      :tiled_dataset_som }
+
+	gma_module_paths << hash_table.new()
+
+	_for mod_name _over gma_module_names.fast_elements()
+	_loop
+		_if sw_module_manager.module_is_defined?( mod_name )
+		_then
+			a_module << sw_module_manager.module( mod_name )
+			gma_module_paths[ mod_name ] << a_module.full_directory
+		_endif
+	_endloop
+
+	ignore_dirs << {".hg", "alchemy", "build", "output", "scripts", "tools"}
+
+	_for repo_path _over paths.fast_elements()
+	_loop
+		_if system.file_exists?( repo_path )
+		_then
+			dc << directory_channel.new( repo_path )
+			_protect
+				_loop
+					_if ( entry << dc.get_status() ) _is _unset
+					_then
+						_leave
+					_endif
+					_if entry.type _is :directory
+					_then
+						a_path << entry.name
+						dir << system.pathname_components( a_path )
+						_if _not ignore_dirs.includes_by_equality?( dir )
+						_then
+							smallworld_product.relocate_products( a_path )
+						_endif
+					_endif
+				_endloop
+			_protection
+				dc.close()
+			_endprotect
+		_endif
+	_endloop
+
+	_for a_product _over smallworld_product.products.fast_elements()
+	_loop
+		init? << _false
+		prod_dir << a_product.directory
+		_for repo_path _over paths.fast_elements()
+		_loop
+			_if prod_dir.subseq(1, min(repo_path.size, prod_dir.size)) = repo_path
+			_then
+				init? << _true
+				_leave
+			_endif
+		_endloop
+		_if init?
+		_then
+			a_product.reinitialise()
+			a_product.compile_messages()
+			a_product.compile_module_messages()
+		_endif
+	_endloop
+
+	# Workaround for GMA source and resources
+	# Load gma source from local repo and reset module directory
+	_for mod_name, a_path _over gma_module_paths.fast_keys_and_elements()
+	_loop
+		_try
+			a_module << sw_module_manager.module( mod_name )
+			a_module.sys!slot(:source_directory) << a_path
+			sw_module_manager.reload_module_definition( mod_name )
+		_when sw_module_no_such_module
+		_endtry
+	_endloop
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Returns a local file path in a user repository if possible.
+##
+_global _constant check_source <<
+_proc @check_source( source_file )
+
+	_global user_repository_paths
+
+	_if source_file _is _unset _then _return _endif
+
+	source_file << system.canonicalise( source_file )
+
+	_if system.file_exists?( source_file )
+	_then
+		_return source_file
+	_endif
+
+	working_dir << system.canonicalise( system.working_directory )
+	sep << system.pathname_separator
+
+	_for pathname _over user_repository_paths.fast_elements()
+	_loop
+		repo_name << system.pathname_components( pathname )
+		index << source_file.index_of_seq( write_string(sep, repo_name, sep) )
+		_if index _isnt  _unset
+		_then
+			a_file << system.pathname_down(
+					  pathname,
+					  source_file.slice_to_end(index + repo_name.size + 2) )
+			_if system.file_exists?( a_file )
+			_then
+				_return a_file
+			_endif
+		_endif
+
+		index << source_file.index_of_seq( working_dir )
+		_if index _isnt  _unset
+		_then
+			a_file << system.pathname_down(
+					  pathname,
+					  source_file.slice_to_end(working_dir.size + 2) )
+			_if system.file_exists?( a_file )
+			_then
+				_return a_file
+			_endif
+		_endif
+	_endloop
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+## Open a file in VS Code
+_global _constant vs_open_file <<
+_proc @vs_open_file(file_path, _optional line_number, a_class, a_method)
+
+	command << write_string("cmd /c code -r ", file_path)
+
+	_if line_number _isnt _unset
+	_then
+		command << write_string("cmd /c code -r --goto ", file_path, ":", line_number)
+
+	_elif a_method _isnt _unset
+	_then
+		# Find the method declaration in the file to get the line number
+		class_name << a_method.owner.meta_at(:class_name)
+		method_name << a_method.name
+		last << method_name.subseq(method_name.size - 1, 2)
+
+		test << _if a_method.slot_accessor?
+			_then
+				>> write_string("*", class_name, "*.*define_slot_access*(*:", method_name, "*")
+			_elif last = "()"
+			_then
+				>> write_string("*_method *", class_name, "*.*", method_name.subseq(1, method_name.size - 2), "*(*")
+			_elif last = "<<"
+			_then
+				>> write_string("*_method *", class_name, "*.*", method_name.subseq(1, method_name.size - 2), "*<<*")
+			_else
+				>> write_string("*_method *", class_name, "*.*", method_name, "*")
+			_endif
+
+ 		_protect
+			input << external_text_input_stream.new( file_path )
+			line << 1
+			_loop
+				_if ( a_line << input.get_line() ) _is _unset
+				_then
+					_leave
+				_endif
+				_if a_line.matches?(test)
+				_then
+					col << a_line.size + 1
+					command << write_string("cmd /c code -r --goto ", file_path, ":", line, ":", col)
+					_leave
+				_endif
+				line +<< 1
+			_endloop
+		_protection
+			input.close()
+		_endprotect
+	_endif
+
+	system.do_command( command )
+
+_endproc
+$
+
+_pragma(classify_level=debug)
+## Open a file in Emacs
+_global _constant em_open_file <<
+_proc @em_open_file(file_path, _optional line_number, a_class, a_method)
+
+	!terminal!.put( %x.from_value(1) )
+	!terminal!.put( %F )
+	!terminal!.write( "file=", file_path, %newline )
+	_if line_number _isnt _unset
+	_then
+		!terminal!.write( "line=", line_number, %newline )
+	_elif a_method _isnt _unset
+	_then
+		method_name << a_method.name
+		class_name  << a_method.owner.meta_at(:class_name)
+		!terminal!.write( "class=", class_name,  %newline )
+		!terminal!.write( "method=", method_name, %newline )
+	_elif a_class _isnt _unset
+	_then
+		class_name << a_class.class_name.write_string
+		!terminal!.write( "class=", class_name,  %newline )
+	_endif
+	!terminal!.put( %x.from_value(5) )
+	# Only need to write something to get the Magik Prompt to be displayed
+	write(" ")
+
+_endproc
+$
+
+dev_doc("open_file(FILE_PATH) - Display the file in your current editor")
+_pragma(classify_level=debug)
+## Open a file in current IDE (vscode or emacs)
+_global _constant open_file <<
+_proc @open_file(file_path, _optional line_number, a_class, a_method)
+	
+	_global em_open_file, vs_open_file
+	
+	_if system.getenv( "TERM_PROGRAM" ) = "vscode" _andif 
+		vs_open_file _isnt _unset
+	_then 
+		vs_open_file(file_path, line_number, a_class, a_method)
+	_else
+		em_open_file(file_path, line_number, a_class, a_method)
+	_endif 
+	
+_endproc
+$
+
+
+dev_doc("changed_files(BRANCH_NAME) - Return files changed in the BRANCH_NAME (defaults to current branch)")
+_pragma(classify_level=debug)
+##
+## Returns a rope of files changed in the named branch.
+##
+## BRANCH_NAME defaults to the current branch for REPO_PATH.
+## REPO_PATH - the path or name of a repository.
+##  (e.g. "C:\projects\hg\pni" or "pni")
+##  Defaults to user_products_root + "corerepo"
+## TRUNK_BRANCH_NAME defaults to the global DEFAULT_TRUNK_BRANCH_NAME.
+##
+_global _constant changed_files <<
+_proc @changed_files( _optional branch_name, repo_path, trunk_branch_name, report? )
+
+	_global user_repository_paths
+	_global default_trunk_branch_name
+	_global vc_name
+	_global find_branches
+	_global current_branch
+
+	report? << report?.default( _true )
+
+	_if repo_path _isnt _unset _andif
+	    repo_path.index_of( system.pathname_separator ) _is _unset
+	_then
+		repo_path << _for pathname _over user_repository_paths.fast_elements()
+		             _loop
+				     name << system.pathname_components( pathname )
+				     _if name = repo_path
+				     _then
+					     _leave _with pathname
+				     _endif
+			     _endloop
+	_endif
+	_if repo_path _is _unset
+	_then
+		repo_path << system.pathname_down(user_products_root,  "corerepo")
+	_endif
+
+	vc << vc_name( repo_path )
+	_if vc _is _unset
+	_then
+		write( "No version control found" )
+		_return {}
+	_endif
+
+	_if trunk_branch_name _is _unset
+	_then
+		trunk_branch_name << default_trunk_branch_name
+	_endif
+
+	_if _not find_branches( trunk_branch_name, repo_path ).includes?( trunk_branch_name )
+	_then
+		write( "Trunk branch '", trunk_branch_name, "' not found" )
+		_return {}
+	_endif
+
+	_if branch_name _is _unset
+	_then
+		branch_name << current_branch( repo_path )
+
+	_elif _not find_branches( branch_name, repo_path ).includes?( branch_name )
+	_then
+		write( "Branch '", branch_name, "' not found" )
+		_return {}
+	_endif
+
+	_if report?
+	_then
+		write( "Searching for changes (" + branch_name + ")..." )
+	_endif
+
+	files << rope.new()
+
+	# Committed changes
+	_if vc _is :git
+	_then
+		command << write_string( "cmd /c git diff ",
+					 trunk_branch_name, "...", %", branch_name, %",
+					 " --name-only" )
+	_else
+		command << write_string( "cmd /c hg diff",
+					 " -R ", repo_path,
+					 " -r ", %", "max(ancestors('", branch_name, "') and branch(", trunk_branch_name, ")):'", branch_name, %', %",
+					 " --stat" )
+	_endif
+
+	(pid, in, out, err) << system.start_command_with_io( command, _false, _true,
+							     :output, repo_path )
+
+	_protect
+		_loop
+			_if ( a_line << out.get_line() ) _is _unset
+			_then
+				_leave
+			_endif
+
+			partial_path << a_line.split_by(%|).an_element()
+			(path, extension) << (_scatter partial_path.split_by(%.))
+
+			_if extension _isnt _unset
+			_then
+				full_path << system.pathname_down( repo_path, partial_path )
+				full_path << system.canonicalise( full_path )
+				_if report?
+				_then
+					write( full_path )
+				_endif
+				files.add_last( full_path )
+			_endif
+		_endloop
+
+	_protection
+		out.close()
+	_endprotect
+
+	# Un-committed changes
+	_if vc _is :git
+	_then
+		command << "cmd /c git diff --name-only"
+	_else
+		command << write_string( "cmd /c hg status",
+					 " -R ", repo_path )
+	_endif
+
+	(pid, in, out, err) << system.start_command_with_io( command, _false, _true,
+							     :output, repo_path )
+
+	_protect
+		_loop
+			_if ( a_line << out.get_line() ) _is _unset
+			_then
+				_leave
+			_endif
+
+			full_path << _unset
+
+			_if vc _is :git
+			_then
+				full_path << system.pathname_down( repo_path, a_line )
+				full_path << system.canonicalise( full_path )
+			_else
+				parts << a_line.split_by(%space)
+				_if parts.size _is 2
+				_then
+					full_path << system.pathname_down( repo_path, parts[2] )
+					full_path << system.canonicalise( full_path )
+				_endif
+			_endif
+
+			_if full_path _isnt _unset _andif
+			    _not files.includes_by_equality?( full_path )
+			_then
+				_if report?
+				_then
+					write( full_path )
+				_endif
+				files.add_last( full_path )
+			_endif
+		_endloop
+
+	_protection
+		out.close()
+	_endprotect
+
+	_if report?
+	_then
+		_if files.empty?
+		_then
+			write("No changes found!")
+		_endif
+	_endif
+
+	>> files
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Lists all changed files in the named branch from all user repositories.
+##
+## BRANCH_NAME defaults to the current branch for the repositories.
+## TRUNK_BRANCH_NAME defaults to the global DEFAULT_TRUNK_BRANCH_NAME.
+##
+_global list_all_changes <<
+_proc(_optional branch_name, trunk_branch_name)
+
+	_global user_repository_paths
+
+	write()
+	all_changes << rope.new()
+	_for pathname _over user_repository_paths.fast_elements()
+	_loop
+		write( "**** REPOSITORY:  ", pathname )
+		my_changes << changed_files(branch_name, pathname, trunk_branch_name, _true)
+		_if my_changes _isnt _unset
+		_then
+			all_changes.add_all_last(my_changes)
+		_endif
+		write()
+	_endloop
+	
+	_for a_change _over all_changes.fast_elements()
+	_loop
+		write(a_change)
+	_endloop 
+	
+_endproc
+$
+
+
+dev_doc("open_changes(REPO_PATH) - Open any modified files in REPO_PATH (or all repos)")
+_pragma(classify_level=debug)
+##
+## Opens any modified files in the named repository (or all repos).
+##
+## REPO_PATH - the path or name of a repository.
+##  (e.g. "C:\projects\hg\pni" or "pni")
+##  Defaults to all repos defined by global USER_REPOSITORY_PATHS.
+## TRUNK_BRANCH_NAME defaults to the global DEFAULT_TRUNK_BRANCH_NAME.
+##
+_global _constant open_changes <<
+_proc @open_changes( _optional repo_path, trunk_branch_name )
+
+	_global user_repository_paths
+	_global changed_files
+	_global open_file
+
+	paths << _if repo_path _isnt _unset
+		 _then
+			 >> {repo_path}
+		 _else
+			 >> user_repository_paths
+		 _endif
+
+	all_files << rope.new()
+
+	_for a_path _over paths.fast_elements()
+	_loop
+		write( "Searching ", a_path, "..." )
+		changes << changed_files( _unset, a_path, trunk_branch_name, _false )
+		_if changes _isnt _unset
+		_then
+			all_files.add_all_last( changes )
+		_endif
+	_endloop
+
+	types_to_open << {"magik", "msg", "xml", "txt"}
+
+	_for a_file _over all_files.fast_elements()
+	_loop
+		parts << a_file.split_by(%.)
+		_if types_to_open.includes_by_equality?( parts.last )
+		_then
+			write( " Opening ", a_file )
+			open_file( a_file )
+		_endif
+	_endloop
+
+_endproc
+$
+
+
+dev_doc("class_history(CLASS_OR_NAME) - Activate revision history for the source file for CLASS_OR_NAME")
+_pragma(classify_level=debug)
+##
+## Activates the revision history for the source file for
+## CLASS_OR_NAME which can be a class or a class name string.
+##
+## A prompt to choose a class is displayed if multiple classes
+## are found matching the supplied string.
+##
+_global _constant class_history <<
+_proc @class_history( class_or_name )
+
+	_global class_source
+	_global user_repository_paths
+	_global vc_name
+
+	source_file << class_source( class_or_name, "Select class (index)> " )
+
+	_if source_file _isnt _unset
+	_then
+		repo_path << ""
+		sep << system.pathname_separator
+		_for path _over user_repository_paths.fast_elements()
+		_loop
+			a_path << write_string( path, sep )
+			_if source_file.index_of_seq( a_path ) _is 1
+			_then
+				repo_path << path
+				_leave
+			_endif
+		_endloop
+
+		vc << vc_name( repo_path )
+		_if vc _is _unset
+		_then
+			write( "No version control found" )
+			_return
+		_endif
+
+		command << _if vc _is :git
+			   _then
+				   >> write_string( "gitk --follow ", source_file )
+			   _else
+				   >> write_string( "thg -R ", repo_path, " log ", source_file )
+			   _endif
+
+		system.start_command( command, repo_path )
+	_endif
+
+_endproc
+$
+
+
+dev_doc("load_changes(REPO_PATH) - Load the changed files (or modules) found in the current branch of REPO_PATH")
+_pragma(classify_level=debug)
+##
+## Load the changed files (or modules) found in the current
+## branch of a local repository.
+##
+## REPO_PATH - the path or name of a repository.
+##  (e.g. "C:\projects\hg\pni" or "pni")
+##  Defaults to user_products_root + "corerepo"
+## TRUNK_BRANCH_NAME defaults to the global DEFAULT_TRUNK_BRANCH_NAME.
+## LOAD_MODULES? - load the module containing changed files.
+##  Default to false
+##
+_global _constant load_changes <<
+_proc @load_changes( _optional repo_path, trunk_branch_name, load_modules? )
+
+	_global user_repository_paths
+	_global default_trunk_branch_name
+	_global changed_files
+	_global load_module
+	_global reload_class
+
+	_if repo_path _isnt _unset _andif
+		repo_path.index_of( system.pathname_separator ) _is _unset
+	_then
+		repo_path << _for pathname _over user_repository_paths.fast_elements()
+			_loop
+				name << system.pathname_components( pathname )
+				_if name = repo_path
+				_then
+					_leave _with pathname
+				_endif
+			_endloop
+	_endif
+	_if repo_path _is _unset
+	_then
+		repo_path << system.pathname_down(user_products_root,  "corerepo")
+	_endif
+
+	_if trunk_branch_name _is _unset
+	_then
+		trunk_branch_name << default_trunk_branch_name
+	_endif
+
+	_if load_modules? _is _unset
+	_then
+		load_modules? << _false
+	_endif
+
+	write("Searching for changes... " + repo_path)
+
+	changes << changed_files( _unset, repo_path, trunk_branch_name, _false )
+
+	_if changes.empty?
+	_then
+		write( "No changed files found!" )
+		_return
+	_endif
+
+	changes << equality_set.new_from(changes)
+	module_names << equality_set.new()
+	modules << equality_set.new()
+	_local dir_modules << equality_hash_table.new()
+
+	_for pathname _over changes.elements()
+	_loop
+		(filename, dir) << system.pathname_components( pathname )
+		def_dir << system.locate_file( dir, "module.def" )
+		_if def_dir _isnt _unset
+		_then
+			res << sw_module_manager.module_roots( def_dir, _false )
+			_if _not res.empty?
+			_then
+				name << res.a_key()[1]
+				module_names.add( name )
+
+				_if _not load_modules?
+				_then
+					_if sw_module_manager.module_is_loaded?( name )
+					_then
+						a_module << sw_module_manager.module( name )
+						modules.add( a_module )
+						dir_modules[dir] << a_module
+					_else
+						changes.remove( pathname )
+					_endif
+				_endif
+			_endif
+		_endif
+	_endloop
+
+	_if load_modules?
+	_then
+		write( "Loading modules..." )
+
+		_for m_name _over module_names.fast_elements()
+		_loop
+			load_module( m_name, _true )
+			_if sw_module_manager.module_is_loaded?( m_name )
+			_then
+				a_module << sw_module_manager.module( m_name )
+				modules.add( a_module )
+			_endif
+		_endloop
+	_else
+		# Create a load order for the changed files.
+
+		write("Creating load order...")
+
+		_local module_list << rope.new()
+
+		_for a_module _over modules.fast_elements()
+		_loop
+			_for p_module _over a_module.prerequisite_modules(_unset, _true).fast_elements()
+			_loop
+				_if _not module_list.includes?(p_module)
+				_then
+					module_list.add_last(p_module)
+				_endif
+			_endloop
+
+			_if _not module_list.includes?(a_module)
+			_then
+				module_list.add_last(a_module)
+			_endif
+		_endloop
+
+		dir_lists << equality_hash_table.new()
+
+		_local get_load_list <<
+			_proc(dir)
+				list << rope.new()
+
+				load_dir << system.locate_file(dir, "load_list.txt")
+				_if load_dir _is _unset
+				_then
+					_return list
+				_endif
+
+				load_list_path << system.pathname_down(load_dir, "load_list.txt")
+				_protect
+					input << external_text_input_stream.new(load_list_path)
+					_loop
+						_if (a_line << input.get_line()) _is _unset
+						_then
+							_leave
+						_endif
+						_if a_line.size > 1
+						_then
+							name << a_line.split_by(".")[1]
+							list.add_last(name)
+						_endif
+					_endloop
+				_protection
+					input.close()
+				_endprotect
+
+				_return list
+			_endproc
+
+		_for a_path _over changes.fast_elements()
+		_loop
+			(filename, dir) << system.pathname_components(a_path)
+			file_list << dir_lists[dir]
+			_if file_list _is _unset
+			_then
+				_local load_list << get_load_list(dir)
+				file_list << sorted_collection.new(_unset,
+					_proc(a, b)
+						_import load_list
+						(a_file, a_dir) << system.pathname_components(a)
+						(b_file, b_dir) << system.pathname_components(b)
+						a_name << a_file.split_by(".")[1]
+						b_name << b_file.split_by(".")[1]
+						_return load_list.index_equal_of(a_name).default(0) < load_list.index_equal_of(b_name).default(0)
+					_endproc
+				)
+				dir_lists[dir] << file_list
+			_endif
+			file_list.add(a_path)
+		_endloop
+
+		sorted_dirs << sorted_collection.new(_unset,
+			_proc(a, b)
+				_import dir_modules
+				_import module_list
+				a_module << dir_modules[a[1]]
+				b_module << dir_modules[b[1]]
+				_return module_list.index_equal_of(a_module).default(0) < module_list.index_equal_of(b_module).default(0)
+			_endproc
+		)
+
+		_for dir, file_list _over dir_lists.fast_keys_and_elements()
+		_loop
+			sorted_dirs.add({dir, file_list})
+		_endloop
+
+		files << queue.new()
+		_for data _over sorted_dirs.fast_elements()
+		_loop
+			files.add_all(data[2])
+		_endloop
+
+		write( "Loading changes..." )
+
+		compile_messages? << _false
+
+		# Reload files
+		done << equality_set.new()
+		_loop
+			_if files.empty? _then _leave _endif
+			pathname << files.next()
+			_if pathname _is _unset _orif
+				done.includes?( pathname )
+			_then
+				_continue
+			_endif
+
+			_try _with cond
+
+				parts << pathname.split_by(%.)
+				_if parts.size _is 2
+				_then
+					suffix << parts[2]
+					_if suffix = "magik"
+					_then
+						load_file( pathname )
+					_elif suffix = "msg"
+					_then
+						compile_messages? << _true
+					_endif
+				_endif
+
+				done.add( pathname )
+
+			_when parser_error
+				data << property_list.new_from_gathered( cond.data )
+				msg << data[:message]
+				_if ( index << msg.index_of_seq( "does not have a slot named" ) ) _isnt _unset
+				_then
+					start_index << _unset
+					_for i _over range( index - 2, 1, -1 )
+					_loop
+						_if msg[i] _is %space
+						_then
+							start_index << i + 1
+							_leave
+						_endif
+					_endloop
+					_if start_index _isnt _unset
+					_then
+						class_name << msg.subseq(start_index, index - start_index - 1)
+						key << class_name.as_symbol()
+						a_class << _for a_package _over package.all_packages.fast_elements()
+							_loop
+								_if ( val << a_package[ key ] ) _isnt _unset
+								_then
+									_leave _with val
+								_endif
+							_endloop
+						_if a_class _isnt _unset
+						_then
+							reload_class( a_class )
+							done.add( pathname )
+						_endif
+					_endif
+
+					#_elif ( index << msg.index_of_seq( "Cannot find super implementation of" ) ) _isnt _unset
+					#_then
+
+				_endif
+
+			_when self_error
+				data << property_list.new_from_gathered( cond.data )
+				_if data[:data] _isnt _unset _andif
+					data[:data].an_element() = "no such slot"
+				_then
+					reload_class( data[:object], _false, _false )
+					done.add( pathname )
+				_endif
+
+			_when error
+				write("Cannot load ", pathname)
+				cond.report_on( !error_output! )
+			_endtry
+		_endloop
+
+		_if compile_messages?
+		_then
+			_for a_module _over modules.fast_elements()
+			_loop
+				write("Compiling messages for ", a_module.name)
+				a_module.compile_messages()
+			_endloop
+		_endif
+	_endif
+
+	# Re-register Swift methods if necessary
+	update_swift_methods? << _false
+	swift_modules << sw_module_manager.modules_requiring( :magik_gui_components )
+
+	_for a_module _over modules.fast_elements()
+	_loop
+		_if a_module.name _is :magik_gui_components _orif
+			swift_modules.includes?( a_module )
+		_then
+			update_swift_methods? << _true
+			_leave
+		_endif
+	_endloop
+
+	_if update_swift_methods?
+	_then
+		write()
+		write( "Registering Swift methods..." )
+		sw_serialisation_manager.reregister_mutated_methods()
+		write()
+	_endif
+
+_endproc
+$
+
+
+dev_doc("load_all_changes() - Load the changed files (or modules) found in the current branch of all local repositories")
+_pragma(classify_level=debug)
+##
+## Load the changed files (or modules) found in the current
+## branch of all local repos defined by user_repository_paths.
+##
+_global _constant load_all_changes <<
+_proc @load_all_changes( _optional trunk_branch_name, load_modules? )
+
+	_global user_repository_paths
+
+	_for pathname _over user_repository_paths.fast_elements()
+	_loop
+		load_changes( pathname, trunk_branch_name, load_modules? )
+	_endloop
+
+_endproc
+$
+
+
+dev_doc("goto_branch() - Updates the local repo at the specified path (or all repos) to the trunk or specified branch")
+_pragma(classify_level=debug)
+##
+## Updates the local repo at the specified path (or all repos) to the trunk or
+## specified branch.
+##
+## Pulls any changes to the repository and updates to the trunk
+## or specified branch.
+## A repo is not updated if it contains uncommitted changes.
+##
+## BRANCH_NAME - name of the branch to update to.
+##  Defaults to TRUNK_BRANCH_NAME.
+## LOAD_CHANGES? - Loads any code changes between the branch and the trunk if
+##  set to true. Defaults to false.
+## REPO_PATH - the path or name of a repository.
+##  (e.g. "C:\projects\hg\pni" or "pni")
+##  Defaults to all repos defined by global USER_REPOSITORY_PATHS.
+## TRUNK_BRANCH_NAME - name of the main dev branch (e.g. "SW521").
+##  Defaults to the global DEFAULT_TRUNK_BRANCH_NAME.
+##
+## Example:
+##  Update local repos to 'SW521' without loading changes:
+##  goto_branch( "SW521", _false )
+##
+_global _constant goto_branch <<
+_proc @goto_branch( _optional branch_name, load_changes?, repo_path, trunk_branch_name )
+
+	_global user_repository_paths
+	_global default_trunk_branch_name
+	_global find_branches
+	_global vc_name
+
+	_if load_changes? _is _unset
+	_then
+		load_changes? << _false
+	_endif
+	_if trunk_branch_name _is _unset
+	_then
+		trunk_branch_name << default_trunk_branch_name
+	_endif
+
+	paths << _if repo_path _isnt _unset
+		 _then
+			 >> {repo_path}
+		 _else
+			 >> user_repository_paths
+		 _endif
+
+	_for a_path _over paths.fast_elements()
+	_loop
+		_if _not system.file_exists?( a_path )
+		_then
+			_continue
+		_endif
+
+		vc << vc_name( a_path )
+		_if vc _is _unset
+		_then
+			_continue
+		_endif
+
+		# Check status
+		command << _if vc _is :git
+			   _then
+				   >> "cmd /c git diff --name-only"
+			   _else
+				   >> write_string( "hg status -R ", a_path )
+			   _endif
+		(pid, in, out, err) << system.start_command_with_io( command, _false, _true,
+								     :output, a_path )
+		_protect
+			a_line << out.get_line()
+		_protection
+			out.close()
+		_endprotect
+
+		_if a_line _isnt _unset
+		_then
+			write()
+			write( "Not updating ", a_path, " - contains modified files." )
+			write()
+			_continue
+		_endif
+
+		_if ( branch_name _is _unset _orif
+		      find_branches( branch_name, a_path ).includes?( branch_name ) ) _andif
+		    find_branches( trunk_branch_name, a_path ).includes?( trunk_branch_name )
+		_then
+			write()
+			write( "**** UPDATING REPO  ", a_path, " to ",
+			       branch_name.default( trunk_branch_name ), "  ****" )
+
+			_if vc _is :git
+			_then
+				# Switch to branch
+				command << write_string( "cmd /c git checkout ",
+							 branch_name.default( trunk_branch_name ) )
+				system.do_command( command, a_path )
+
+				# Update branch
+				system.do_command( "cmd /c git pull", a_path )
+			_else
+				# Get latest changes
+				command << write_string( "cmd /c hg pull",
+							 " -R ", a_path )
+				system.do_command( command, a_path )
+
+				# Switch to branch
+				command << write_string( "cmd /c hg update ",
+							 branch_name.default( trunk_branch_name ),
+							 " -R ", a_path )
+				system.do_command( command, a_path )
+			_endif
+
+			_if branch_name _isnt _unset _andif
+			    load_changes?
+			_then
+				load_changes( a_path, trunk_branch_name )
+			_endif
+
+			write()
+		_endif
+	_endloop
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Last results from mfind() used by mjump()
+##
+_global mfind_results << {}
+$
+
+
+_pragma(classify_level=debug)
+##
+## Defines whether mfind() displays method arguments in its results.
+##
+_global mfind_args? << _false
+$
+
+
+_pragma(classify_level=debug)
+##
+## Returns a rope of the source lines of the method and the
+## start and end line number in the source file.
+##
+_global _constant method_lines <<
+_proc @method_lines( a_method, _optional source_file )
+
+	_global check_source
+
+	_if source_file _is _unset
+	_then
+		_if ( source_file << check_source( a_method.source_file ) ) _is _unset _orif
+		    source_file.index_of_seq( "register_mutating_methods.magik" ) _isnt _unset _orif
+		    source_file.index_of_seq( "load_mutated_methods.magik" ) _isnt _unset
+		_then
+			source_file << check_source( a_method.owner.source_file )
+		_endif
+	_endif
+
+	_if source_file _is _unset
+	_then
+		_return
+	_endif
+
+	file_lines << rope.new()
+	_protect
+		input << external_text_input_stream.new( source_file )
+		_loop
+			_if ( a_line << input.get_line() ) _is _unset
+			_then
+				_leave
+			_endif
+			file_lines.add_last( a_line )
+		_endloop
+	_protection
+		input.close()
+	_endprotect
+
+	class_name << a_method.owner.meta_at(:class_name)
+	method_name << a_method.name
+	n << _unset
+	_for c _over {%(, %<, %[}.fast_elements()
+	_loop
+		_if ( n << method_name.index_of( c ) ) _isnt _unset
+		_then
+			_leave
+		_endif
+	_endloop
+	_if n _isnt _unset
+	_then
+		method_name << method_name.subseq( 1, n - 1 )
+	_endif
+
+	start_str << write_string( "_method ", class_name, ".", method_name )
+	start_str_size << start_str.size
+	end_str << "_endmethod"
+	end_str_size << end_str.size
+
+	method_lines << rope.new()
+	start << end << _unset
+
+	found? << _false
+	_for r, a_line _over file_lines.fast_keys_and_elements()
+	_loop
+		n << a_line.size
+		_if found?
+		_then
+			method_lines.add_last( a_line )
+			_if n >= end_str_size _andif
+			    a_line.index_of_seq( end_str ) _isnt _unset
+			_then
+				end << r
+				_leave
+			_endif
+		_else
+			_if n > start_str_size _andif
+			    a_line.index_of_seq( start_str ) _isnt _unset
+			_then
+				found? << _true
+				start << r
+				method_lines.add_last( a_line )
+			_endif
+		_endif
+	_endloop
+
+	_if start _isnt _unset _andif
+	    start _isnt 1 _andif
+	    file_lines[ start - 1 ].index_of_seq( "_pragma" ) _isnt _unset
+	_then
+		method_lines.add_first( file_lines[ start - 1 ] )
+		start -<< 1
+	_endif
+
+	_return method_lines, start, end, source_file
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Send a method in the mfind results to Emacs.
+##
+## Update global user_repository_paths to define repository paths.
+##
+## Example:
+##  mjump( 1 )  ->  Show the source of the first result from mfind()
+##
+_global _constant mjump <<
+_proc @mjump( results_index, _optional results )
+
+	_global open_file
+
+	_if results _is _unset
+	_then
+		_global mfind_results
+		results << mfind_results
+	_endif
+
+	_if results_index < 1 _orif results_index > results.size
+	_then
+		_return
+	_endif
+
+	a_method << results[ results_index ]
+	line_number << _unset
+	source_file << _unset
+
+	_if a_method.is_class_of?( {} )
+	_then
+		(a_method, line_number, source_file) << (_scatter a_method)
+		_if source_file _isnt _unset
+		_then
+			source_file << check_source( source_file )
+		_endif
+	_endif
+
+	_if a_method _isnt _unset _andif
+	    source_file _is _unset
+	_then
+		_if a_method.slot_accessor? _orif
+		    ( source_file << check_source( a_method.source_file ) ) _is _unset _orif
+		    source_file.index_of_seq( "register_mutating_methods.magik" ) _isnt _unset _orif
+		    source_file.index_of_seq( "load_mutated_methods.magik" ) _isnt _unset
+		_then
+			source_file << check_source( a_method.owner.source_file )
+		_endif
+	_endif
+
+	_if source_file _is _unset
+	_then
+		write( "Cannot open source!" )
+		_return
+	_endif
+
+	_if a_method _isnt _unset _andif
+	    line_number _isnt _unset
+	_then
+		# Check line number
+		(lines, start, end) << method_lines( a_method )
+		_if start _is _unset
+		_then
+			line_number << _unset
+		_else
+			_if line_number <= start
+			_then
+				line_number << start + line_number - 1
+			_endif
+
+			_if line_number <= start _orif
+			    line_number >= end
+			_then
+				line_number << _unset
+			_endif
+		_endif
+	_endif
+
+	open_file( source_file, line_number, _unset, a_method )
+
+_endproc
+$
+
+
+dev_doc("mfind(METHOD_STRING) OR mf() - Find Methods matching METHOD_STRING and open in your current editor")
+_pragma(classify_level=debug)
+##
+## Displays methods matching the method and class name string.
+##
+## mjump( <index> ) can be used to send the method to Emacs.
+##
+## MODE - can be one of
+##  :local (or :loc),
+##  :inherit (or :inh),
+##  :inherit_not_object (or :obj).
+##  Defaults to :inherit
+##
+## MAX - the maximum number of results. Defaults to 25.
+##
+## DISPLAY_RESULTS? - list the method results on the
+##  terminal if set to true. Otherwise returns a rope of
+##  matching methods. Defaults to true.
+##
+## DISPLAY_ARGS? - show the method arguments for the results.
+##  Press 'a' at the 'Display source>' prompt to show the
+##  arguments. Defaults to false.
+##
+## PROMPT? - show an input prompt to choose the method source
+##  to display. Defaults to true.
+##
+_global _constant mfind <<
+_proc @mfind( method_string, _optional class_string, mode, max,
+	display_results?, display_args?, prompt? )
+
+	_global slot_access_method_name
+	_global display_mfind_results
+	_global mprompt
+
+	time << system.elapsed_seconds()
+
+	results << set.new()
+
+	_if method_string _is _unset
+	_then
+		method_string << ""
+	_else
+		method_string << method_string.write_string
+	_endif
+
+	_if class_string _is _unset
+	_then
+		class_string << ""
+	_else
+		class_string << class_string.write_string
+	_endif
+
+	_if mode _is _unset
+	_then
+		mode << :inherit
+	_endif
+	_if max _is _unset
+	_then
+		max << 25
+	_endif
+
+	_if display_results? _is _unset
+	_then
+		display_results? << _true
+	_endif
+	_if display_args? _is _unset
+	_then
+		display_args? << mfind_args?
+	_endif
+
+	_local match_mode <<
+		_proc( a_string )
+			s << a_string.size
+			_if s = 0
+			_then
+				_return :all
+
+			_elif s = 1
+			_then
+				_return :seq
+
+			_elif a_string.index_of( %space ) _isnt _unset _orif
+			      a_string.index_of( %* ) _isnt _unset
+			_then
+				_return :match
+			_else
+				first? << a_string[1] _is %^
+				last? << a_string[s] _is %$
+				_if first? _andif last?
+				_then
+					_return :equal
+
+				_elif first?
+				_then
+					_return :seq_first
+
+				_elif last?
+				_then
+					_return :seq_last
+				_else
+					_return :seq
+				_endif
+			_endif
+		_endproc
+
+	class_mode << match_mode( class_string )
+	method_mode << match_mode( method_string )
+
+	_local test_string <<
+		_proc( a_string )
+			end << a_string.size
+			_if end = 0
+			_then
+				_return
+
+			_elif end = 1
+			_then
+				_return a_string
+			_else
+				match? << a_string.index_of( %space ) _isnt _unset _orif
+					  a_string.index_of( %* ) _isnt _unset
+
+				_if match?
+				_then
+					_for i, c _over a_string.fast_keys_and_elements()
+					_loop
+						_if c _is %space
+						_then
+							a_string[i] << %*
+						_endif
+					_endloop
+				_endif
+
+				a_stream << internal_text_output_stream.new()
+				_if a_string[1] _is %^
+				_then
+					start << 2
+				_else
+					_if match?
+					_then
+						a_stream.put( %* )
+					_endif
+					start << 1
+				_endif
+				_if a_string[end] _is %$
+				_then
+					a_stream.write( a_string.slice(start, end - 1) )
+				_else
+					a_stream.write( a_string.slice(start, end) )
+					_if match?
+					_then
+						a_stream.put( %* )
+					_endif
+				_endif
+				_return a_stream.string
+			_endif
+		_endproc
+
+	class_test << test_string( class_string )
+	method_test << test_string( method_string )
+
+	_local match_string? <<
+		_proc( name, test, mode )
+			_if mode _is :seq
+			_then
+				_return name.index_of_seq( test ) _isnt _unset
+
+			_elif mode _is :equal
+			_then
+				_return name = test
+
+			_elif mode _is :seq_first
+			_then
+				_return name.index_of_seq( test ) _is 1
+
+			_elif mode _is :seq_last
+			_then
+				_return name.index_of_seq( test ) _is name.size - test.size + 1
+
+			_elif mode _is :match
+			_then
+				_return name.matches?( test )
+			_else
+				# :all
+				_return _true
+			_endif
+		_endproc
+
+	#show( method_test, method_mode, class_test, class_mode )
+
+	local? << class_test _is _unset _orif
+		  mode _is :local _orif
+		  mode _is :loc
+
+	not_object? << mode _is :inherit_not_object _orif
+		       mode _is :obj
+
+	slot_mt << slot_access_method_name.method_table
+	serial_prefix << sw_canvas_container.serialisation_thread_name
+	serial_prefix_n << serial_prefix.size + 1
+	monitor_prefix << "object_monitor!"
+	monitor_prefix_n << monitor_prefix.size + 1
+
+	n << 0
+	done << set.new()
+	methods_to_ignore << set.new()
+
+	_for g _over package.all_globals()
+	_loop
+		val << g.value
+		_if val _is _unset _orif
+		    val.class_name _is :procedure
+		_then
+			_continue
+		_endif
+
+		mt << val.define_method_target
+		class_name << mt.meta_at(:class_name)
+		_if done.includes?( class_name )
+		_then
+			_continue
+		_endif
+		done.add( class_name )
+
+		_if class_test _isnt _unset _andif
+		    _not match_string?( class_name, class_test, class_mode )
+		_then
+			_continue
+		_endif
+
+		_for m _over mt.elements()
+		_loop
+			_if local? _andif
+			    m.owner _isnt mt
+			_then
+				_continue
+			_endif
+
+			_if not_object? _andif
+			    m.owner _is mt
+			_then
+				_continue
+			_endif
+
+			m_name << m.name
+			_if m_name _is :exemplar _orif
+			    m_name.method_table _is slot_mt _orif
+			    m_name.an_element() _is %$
+			_then
+				_continue
+			_endif
+
+			_if method_test _isnt _unset _andif
+			    _not match_string?( m_name, method_test, method_mode )
+			_then
+				_continue
+			_endif
+
+			_if m_name.index_of_seq( serial_prefix ) _is 1 _andif
+			    m_name.index_of( %!, serial_prefix_n ) _isnt _unset
+			_then
+				_continue
+			_endif
+
+			_if m_name.index_of_seq( monitor_prefix ) _is 1 _andif
+			    m_name.index_of( %!, monitor_prefix_n ) _isnt _unset
+			_then
+				_continue
+			_endif
+
+			_if _not methods_to_ignore.includes?( m )
+			_then
+				c_name << _if local?
+					  _then
+						  >> class_name
+					  _else
+						  >> m.owner.meta_at(:class_name)
+					  _endif
+				results.add( {m, m_name, c_name} )
+
+				methods_to_ignore.add( m )
+
+				n +<< 1
+			_endif
+		_endloop
+	_endloop
+
+	sorted_results << sorted_collection.new( _unset,
+						 _proc( a, b )
+							 res << a[2] _cf b[2]
+							 _if res _is _maybe
+							 _then
+								 _return a[3] _cf b[3]
+							 _else
+								 _return res
+							 _endif
+						 _endproc )
+	sorted_results.add_all( results )
+
+	all_methods << rope.new()
+	methods << rope.new()
+	_for i, v _over sorted_results.fast_keys_and_elements()
+	_loop
+		all_methods.add_last( v[1] )
+		_if i <= max
+		_then
+				methods.add_last( v[1] )
+		_endif
+	_endloop
+
+	_global mfind_results
+	mfind_results << all_methods
+
+	_if display_results?
+	_then
+		f << float_format.new_with_properties( :float_decimal_places, 0 )
+		search_time << (system.elapsed_seconds() - time) * 1000
+		write( n, " results found        (Search time: ", f.format(search_time), " ms)" )
+
+		display_mfind_results(1, max, display_args?)
+
+		_if prompt? _is _false
+		_then
+			_return methods
+		_elif n _is 0
+		_then
+			write(" ")
+		_else
+			mprompt( method_string, class_string, mode, max,
+				display_results?, display_args?, "Display source (index)> ", _unset, 1 )
+		_endif
+	_else
+		_return methods
+	_endif
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+## Display the mfind results at the terminal.
+_global _constant display_mfind_results <<
+_proc @display_mfind_results(start, max, display_args?)
+
+	_global mfind_results
+	_if mfind_results _is _unset _orif mfind_results.empty? _then _return _endif
+
+	end << mfind_results.size.min(start + max - 1)
+	sorted_results << rope.new()
+
+	_for i _over range(start, end)
+	_loop
+		m << mfind_results[i]
+		c_name << m.owner.meta_at(:class_name)
+		m_name << m.name
+		sorted_results.add({m, m_name, c_name})
+	_endloop
+
+	m_size << 0
+	c_size << 0
+	_for v _over sorted_results.fast_elements()
+	_loop
+		m_size << m_size.max( v[2].size )
+		c_size << c_size.max( v[3].size )
+	_endloop
+
+	_local add_spaces << _proc ( a_stream, n )
+							_over range(1, n)
+							_loop
+								a_stream.put( %space )
+							_endloop
+						_endproc
+
+	_local add_dots << _proc ( a_stream, n )
+						a_stream.put( %space )
+						_over range(1, n)
+						_loop
+							a_stream.put( %. )
+						_endloop
+						a_stream.put( %space )
+					_endproc
+
+	_local get_super_class_names
+	get_super_class_names <<
+		_proc ( n, t, supers )
+			_import get_super_class_names
+			_for parent_t _over t.parents()
+			_loop
+				_if ( m << parent_t.method_at( n ) ) _isnt _unset _andif
+						m.owner _is parent_t
+				_then
+					cn << parent_t.meta_at(:class_name)
+					_if _not supers.includes?( cn )
+					_then
+						supers.add_last( cn )
+					_endif
+				_else
+					get_super_class_names( n, parent_t, supers )
+				_endif
+			_endloop
+		_endproc
+
+	write(" ")
+	_if start > 1
+	_then
+		write("...")
+	_endif
+
+	_for i, v _over sorted_results.fast_keys_and_elements()
+	_loop
+		(m, m_name, c_name) << (_scatter v)
+		num << i + start - 1
+
+		res_stream << internal_text_output_stream.new()
+
+		res_stream.write( "[", num, "]" )
+		add_spaces( res_stream, end.write_string.size - num.write_string.size + 2 )
+
+		res_stream.put_charvec( m_name )
+		add_dots( res_stream, m_size - m_name.size + 3 )
+
+		res_stream.put_charvec( c_name )
+		add_spaces( res_stream, c_size - c_name.size + 3 )
+
+		res_stream.put_charvec(
+			_if m.slot_accessor?
+			_then >> "slot  "
+			_elif m.shared_constant?
+			_then >> "const "
+			_elif m.shared_variable?
+			_then >> "var   "
+			_elif procedure.is_class_of?(m.value)
+			_then >> "method"
+			#_elif iter_procedure.is_class_of?(m.value)
+			#_then >> "iter  "
+			_else >> ""
+			_endif )
+
+		# _if system.vm_version _is 3
+		# _then
+		# 	level << m.classify_level
+		# 	_if level _is :restricted
+		# 	_then
+		# 		res_stream.put_charvec( "    " )
+		# 	_else
+		# 		res_stream.write( " (", level.write_string[1].uppercase, ")" )
+		# 	_endif
+		# _endif
+
+		res_stream.put_charvec(
+			_if m.private?
+			_then >> " (P)"
+			_else >> "    "
+			_endif )
+
+		res_stream.put_charvec(
+			_if m.conflict?
+			_then >> " (C)"
+			_else >> "    "
+			_endif )
+
+		# mod_name << m.owner.meta_at(:exemplar).module_name
+		# _if mod_name _isnt _unset
+		# _then
+		# 	res_stream.write( "  ", mod_name )
+		# _endif
+
+		super_classes << rope.new()
+		get_super_class_names( m.name, m.owner, super_classes )
+		_if _not super_classes.empty?
+		_then
+			res_stream.write( " (", super_classes.join_as_strings(", "), ")" )
+		_endif
+
+		write( res_stream.string )
+
+		_if display_args? _is _true _andif
+				( p << m.value ).class_name _is :procedure _andif
+				_not ( arg_list << p.basic_arglist ).empty?
+		_then
+			res_stream << internal_text_output_stream.new()
+
+			add_spaces( res_stream, end.write_string.size + 6 )
+			res_stream.put_charvec( "( " )
+
+			n_args << arg_list.size
+			first_opt << p.num_mandatory_args + 1
+			gather << _if p.gather_arg?
+					_then
+						>> n_args
+					_else
+						>> n_args + 1
+					_endif
+
+			_for i, arg _over arg_list.fast_keys_and_elements()
+			_loop
+				_if i _is first_opt
+				_then
+					res_stream.put_charvec( "_optional " )
+
+				_elif i _is gather
+				_then
+					res_stream.put_charvec( "_gather " )
+				_endif
+
+				res_stream.put_charvec( arg )
+
+				_if i _isnt n_args
+				_then
+					res_stream.put_charvec( ", " )
+				_endif
+			_endloop
+
+			res_stream.put_charvec( " )" )
+
+			write( res_stream.string )
+		_endif
+	_endloop
+
+	_if mfind_results.size > start + max - 1
+	_then
+		write("...")
+	_endif
+	write(" ")
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Start the mfind prompt.
+##
+_global _constant mprompt <<
+_proc @mprompt( _optional method_string, class_string, mode, max,
+	display_results?, display_args?, prompt_string, callback, start )
+
+	_global mfind_results
+	_global display_mfind_results
+	_global check_source
+	_global open_file
+
+	_if method_string _is _unset
+	_then
+		method_string << ""
+	_else
+		method_string << method_string.write_string
+	_endif
+
+	_if class_string _is _unset
+	_then
+		class_string << ""
+	_else
+		class_string << class_string.write_string
+	_endif
+
+	_if mode _is _unset
+	_then
+		mode << :inherit
+	_endif
+	_if max _is _unset
+	_then
+		max << 25
+	_endif
+	_if start _is _unset
+	_then
+		start << 1
+	_endif
+
+	_if display_results? _is _unset
+	_then
+		display_results? << _true
+	_endif
+	_if display_args? _is _unset
+	_then
+		_global mfind_args?
+		display_args? << mfind_args?
+	_endif
+
+	!terminal!.write( prompt_string.default( "mfind> " ) )
+	reply << !terminal!.get_line().trim_spaces()
+	_if reply = "$"
+	_then
+		reply << !terminal!.get_line().trim_spaces()
+	_endif
+
+	n << reply.size
+	_if n > 1 _andif
+	    reply[n] _is %s _andif
+	    ( index << reply.subseq(1, n - 1).as_number() ) _isnt _unset _andif
+	    index > 0 _andif
+	    index <= mfind_results.size
+	_then
+		_local get_super_methods
+		get_super_methods <<
+			_proc ( n, t, supers )
+				_import get_super_methods
+				_for parent_t _over t.parents()
+				_loop
+					_if ( m << parent_t.method_at( n ) ) _isnt _unset _andif
+					    m.owner _is parent_t
+					_then
+						_if _not supers.includes?( m )
+						_then
+							supers.add_last( m )
+						_endif
+					_else
+						get_super_methods( n, parent_t, supers )
+					_endif
+				_endloop
+			_endproc
+
+		a_method << mfind_results[ index ]
+		_if a_method.is_class_of?( {} )
+		_then
+			a_method << a_method.an_element()
+		_endif
+
+		supers << rope.new()
+		get_super_methods( a_method.name, a_method.owner, supers )
+
+		_if supers.empty?
+		_then
+			mjump( index )
+		_else
+			_for sm _over supers.fast_elements()
+			_loop
+				_if sm.slot_accessor? _orif
+				    ( source_file << check_source( sm.source_file ) ) _is _unset _orif
+				    source_file.index_of_seq( "register_mutating_methods.magik" ) _isnt _unset _orif
+				    source_file.index_of_seq( "load_mutated_methods.magik" ) _isnt _unset
+				_then
+					source_file << check_source( sm.owner.source_file )
+				_endif
+
+				method_name << sm.name
+				class_name  << sm.owner.meta_at(:class_name)
+
+				_if source_file _is _unset
+				_then
+					write( "Cannot open source for ", class_name, ".", method_name )
+				_else
+					open_file( source_file, _unset, _unset, sm )
+				_endif
+			_endloop
+			write(" ")
+		_endif
+
+	_elif ( index << reply.as_number() ) _isnt _unset
+	_then
+		_if callback _isnt _unset
+		_then
+			callback.invoke( index )
+		_elif (index > 0 _andif index < start) _orif
+			(index >= start + max _andif index <= mfind_results.size)
+		_then
+			display_mfind_results(index, max, display_args?)
+
+			mprompt( method_string, class_string, mode, max,
+				 _true, display_args?, prompt_string, _unset, index )
+		_else
+			mjump( index )
+		_endif
+
+	_elif reply.lowercase = "args"
+	_then
+		mfind( method_string, class_string, mode, max,
+		       _true, _true, _true )
+
+	_elif reply.index_of_seq("mode=") _is 1
+	_then
+		new_mode << _unset
+		_if reply.size > 5
+		_then
+			new_mode << reply.slice_to_end(6).trim_spaces()
+		_endif
+		_if {"loc", "local", "obj",
+		     "inherit_not_object", "inh", "inherit"}.includes_by_equality?( new_mode )
+		_then
+			mode << new_mode
+		_else
+			write("Invalid Mode")
+		_endif
+
+		mprompt( method_string, class_string, mode, max,
+			      _true, display_args? )
+
+	_elif reply.index_of_seq("max=") _is 1
+	_then
+		new_max << _unset
+		_if reply.size > 4
+		_then
+			new_max << reply.slice_to_end(5).trim_spaces()
+		_endif
+		_if new_max.as_number() _isnt _unset
+		_then
+			max << new_max
+		_else
+			write("Invalid Max")
+		_endif
+
+		mprompt( method_string, class_string, mode, max,
+			      _true, display_args? )
+
+	_elif reply.class_name _is :char16_vector _andif
+	      _not reply.empty? _andif
+	      reply <> "$"
+	_then
+		index << _unset
+		_for sep _over {%,, %., %-, %;, %:, %#, %tab, %\, %/}.fast_elements()
+		_loop
+			_if ( index << reply.index_of(sep) ) _isnt _unset
+			_then
+				_leave
+			_endif
+		_endloop
+		_if index _is _unset
+		_then
+			method_string << reply
+		_else
+			method_string << reply.slice(1, index - 1)
+			class_string << reply.slice_to_end(index + 1)
+		_endif
+
+		mfind( method_string, class_string, mode, max,
+		       _true, display_args?, _true )
+	_endif
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Displays methods matching the method and class name string.
+## Abbreviation of mfind()
+##
+_global _constant mf << mfind
+$
+
+
+_pragma(classify_level=debug)
+##
+## Start the mfind prompt. Abbreviation of mprompt()
+##
+_global _constant mp << mprompt
+$
+
+
+_pragma(classify_level=debug)
+##
+## Opens Windows Explorer to display the source file for
+## CLASS_OR_NAME which can be a class or a class name string.
+##
+## A prompt to choose a class is displayed if multiple classes
+## are found matching the supplied string.
+##
+_global _constant locate <<
+_proc @locate( class_or_name )
+
+	(source_file, a_class) << class_source( class_or_name )
+
+	_if source_file _isnt _unset
+	_then
+		command << write_string( "explorer /e,/select,", source_file )
+		system.do_command( command )
+	_endif
+
+_endproc
+$
+
+
+dev_doc("open_class() OR oc() - Open the source file for CLASS_OR_NAME i nyur current editor")
+_pragma(classify_level=debug)
+##
+## Opens the source file in Emacs for CLASS_OR_NAME which can
+## be a class or a class name string.
+##
+## A prompt to choose a class is displayed if multiple classes
+## are found matching the supplied string.
+##
+## Examples:
+##  open_class( sw_item )
+##  open_class( "map" )
+##  open_class( "_container$" )
+##  open_class( "text stream" )
+##
+_global _constant open_class <<
+_proc @open_class( class_or_name, _optional line_number )
+
+	(source_file, a_class) << class_source( class_or_name )
+
+	_if source_file _isnt _unset _andif a_class.class_name _is :unset
+	_then
+		write( "No class found!" )
+		_return
+	_endif
+
+	_if source_file _isnt _unset
+	_then
+		open_file( source_file, line_number, a_class )
+	_endif
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Opens the source file in Emacs for CLASS_OR_NAME which can
+## be a class or a class name string.
+## Abbreviation of open_class()
+##
+_global _constant oc << open_class
+$
+
+
+_pragma(classify_level=debug)
+##
+## Returns the source file and class for CLASS_OR_NAME which
+## can be a class or a class name string.
+##
+_global _constant class_source <<
+_proc @class_source( class_or_name, _optional prompt_string )
+
+	_if class_or_name.class_name _is :symbol
+	_then
+		class_or_name << class_or_name.write_string
+	_endif
+
+	_if class_or_name.is_class_of?( "" )
+	_then
+		_local search_string << _proc ( a_string )
+						s << a_string.size
+						_if s > 0
+						_then
+							_for i, c _over a_string.fast_keys_and_elements()
+							_loop
+								_if c _is %space
+								_then
+									a_string[i] << %*
+								_endif
+							_endloop
+
+							a_stream << internal_text_output_stream.new()
+							_if a_string[1] _is %^
+							_then
+								start << 2
+							_else
+								a_stream.put( %* )
+								start << 1
+							_endif
+							_if a_string[s] _is %$
+							_then
+								a_stream.write( a_string.slice(start, s - 1) )
+							_else
+								a_stream.write( a_string.slice(start, s) )
+								a_stream.put( %* )
+							_endif
+							_return a_stream.string
+						_else
+							_return _unset
+						_endif
+					_endproc
+
+		class_test << search_string( class_or_name )
+
+		_if class_test _is _unset
+		_then
+			write( "Cannot open file for ", %', class_or_name, %' )
+			_return _unset, :cancel
+		_endif
+
+		results << equality_set.new()
+
+		_for g _over package.all_globals()
+		_loop
+			val << g.value
+			_if val _is _unset _orif
+			    val.class_name _is :procedure
+			_then
+				_continue
+			_endif
+			mt << val.define_method_target
+			class_name << mt.meta_at(:class_name)
+			_if class_name.matches?( class_test )
+			_then
+				results.add( mt )
+			_endif
+		_endloop
+
+		n_results << results.size
+
+		_if n_results _is 0
+		_then
+			write( "Found no matches for ", %', class_or_name, %' )
+			_return
+
+		_elif n_results > 1
+		_then
+			sorted_results << sorted_collection.new( n_results,
+								 _proc( a, b )
+									 >> a[2] _cf b[2]
+								 _endproc )
+
+			max_s << 0
+			_for res _over results.fast_elements()
+			_loop
+				class_name << res.meta_at(:class_name)
+				max_s << max_s.max( class_name.size )
+				sorted_results.add( {res, class_name} )
+			_endloop
+
+			_local add_spaces << _proc ( a_stream, n )
+						     _over range(1, n)
+						     _loop
+							     a_stream.put( %space )
+						     _endloop
+					     _endproc
+
+			write( n_results, " results found" )
+			write()
+			max << 25
+			_for i, v _over sorted_results.fast_keys_and_elements()
+			_loop
+				res_stream << internal_text_output_stream.new()
+				res_stream.write( %[, i, %] )
+				_if i < 10 _andif n_results > 9
+				_then
+					add_spaces( res_stream, 3 )
+				_else
+					add_spaces( res_stream, 2 )
+				_endif
+				class_name << v[2]
+				res_stream.write( class_name )
+				module_name << v[1].meta_at(:exemplar).module_name
+				_if module_name _isnt _unset
+				_then
+					add_spaces( res_stream, max_s - class_name.size + 3 )
+					res_stream.write( %(, module_name, %) )
+				_endif
+				write( res_stream.string )
+				_if i _is max
+				_then
+					write( "..." )
+					_leave
+				_endif
+			_endloop
+			write()
+
+			_if prompt_string _is _unset
+			_then
+				prompt_string << "Display source (index)> "
+			_endif
+			!terminal!.write( prompt_string )
+			reply << !terminal!.get_line().trim_spaces()
+			index << reply.as_number()
+			_if index _is _unset
+			_then
+				_return _unset, :cancel
+			_endif
+
+			mt << sorted_results[ index ][1]
+		_else
+			mt << results.an_element()
+		_endif
+	_else
+		mt << class_or_name.define_method_target
+	_endif
+
+	_if mt _isnt _unset _andif
+	    ( source_file << check_source( mt.source_file ) ) _isnt _unset
+	_then
+		_return source_file, mt.meta_at(:exemplar)
+	_else
+		# Try the most common local method source file
+		methods << equality_hash_table.new()
+		_for m _over mt.local_methods()
+		_loop
+			_if _not m.slot_accessor?
+			_then
+				source_file << m.source_file
+				n << methods[ source_file ].default(0)
+				methods[ source_file ] << n + 1
+			_endif
+		_endloop
+		max << 0
+		_for f, total _over methods.fast_keys_and_elements()
+		_loop
+			_if total > max
+			_then
+				source_file << f
+				max << total
+			_endif
+		_endloop
+
+		_if ( source_file << check_source( source_file ) ) _isnt _unset
+		_then
+			_return source_file, mt.meta_at(:exemplar)
+		_else
+			write( "Cannot find source for ", %', class_or_name, %' )
+		_endif
+	_endif
+
+_endproc
+$
+
+dev_doc("find_file() - Find files matching the search string and displays the file in your current editor")
+_pragma(classify_level=debug)
+##
+## Searches for files matching the search string and displays the file in your current editor
+##
+## Shows a prompt to choose a file if there are multiple matches.
+##
+## SEARCH_PATH is the directory or repo name (e.g. "corerepo")
+## to search. Defaults to the paths defined by
+## user_repository_paths.
+##
+## Examples:
+##  find_file( "sw_container_test" )
+##  find_file( "connectivity", "pni" )
+##
+_global _constant find_file <<
+_proc @find_file( file_name, _optional search_path )
+
+	_global user_repository_paths
+	_global open_file
+
+	paths << _unset
+	_if search_path _isnt _unset
+	_then
+		_if search_path.index_of( system.pathname_separator ) _is _unset
+		_then
+			paths << _for pathname _over user_repository_paths.fast_elements()
+		                 _loop
+					 name << system.pathname_components( pathname )
+					 _if name = search_path
+					 _then
+						 _leave _with {pathname}
+					 _endif
+				 _endloop
+		_else
+			paths << {search_path}
+		_endif
+	_endif
+	_if paths _is _unset
+	_then
+		paths << user_repository_paths
+	_endif
+
+	_if file_name.index_of( %. ) _is _unset
+	_then
+		file_name << write_string( file_name, "*" )
+	_endif
+
+	sep << system.pathname_separator
+
+	matches << rope.new()
+
+	start_time << system.elapsed_seconds()
+
+	write( "Searching for file..." )
+
+	_for a_path _over paths.fast_elements()
+	_loop
+		_if _not system.file_exists?( a_path )
+		_then
+			_continue
+		_endif
+
+		a_command << write_string( "cmd /c dir ", a_path, sep, "*", file_name, " /s/b" )
+
+		(pid, in, out, err) << system.start_command_with_io( a_command, _false, _true,
+								     :output, a_path )
+		_protect
+			_loop
+				_if ( a_line << out.get_line() ) _is _unset
+				_then
+					_leave
+				_endif
+				_if a_line <> "File Not Found" _andif
+				    a_line.last _isnt %# _andif
+				    a_line.includes?( %. ) _andif
+				    a_line.index_of_seq( "\.hg\" ) _is _unset
+				_then
+					matches.add_last( a_line )
+				_endif
+			_endloop
+		_protection
+			out.close()
+		_endprotect
+	_endloop
+
+	_if matches.empty?
+	_then
+		write( "File Not Found" )
+		_return
+
+	_elif matches.size > 1
+	_then
+		f << float_format.new_with_properties( :float_decimal_places, 0 )
+		search_time << (system.elapsed_seconds() - start_time) * 1000
+		write( matches.size, " results found        (Search time: ", f.format(search_time), " ms)" )
+		write()
+
+		_for i, p _over matches.fast_keys_and_elements()
+		_loop
+			(f, d) << system.pathname_components( p )
+			write( "[", i, "]  ", f, "    ", d )
+			_if i _is 25
+			_then
+				write("...")
+				_leave
+			_endif
+		_endloop
+		write()
+
+		!terminal!.write( "Display file (index)> " )
+		reply << !terminal!.get_line().trim_spaces()
+		_if ( index << reply.as_number() ) _is _unset _orif
+		    index < 1 _orif
+		    index > matches.size
+		_then
+			_return
+		_endif
+
+		file_path << matches[ index ]
+	_else
+		file_path << matches.an_element()
+	_endif
+
+	write( "Opening ", file_path )
+	write()
+
+	open_file( file_path )
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+## Global to hold the background test thread.
+_global dev_test_thread << _unset
+$
+
+
+dev_doc("run_tests(TESTS) - Run specified collection of test cases")
+_pragma(classify_level=debug)
+##
+## Runs the supplied collection of test cases.
+## Reports the total runs, assertions, failures and errors.
+##
+## The tests are run in separate thread if BACKGROUND? is
+## true. Defaults to true.
+##
+## Returns the test thread if available.
+##
+_global _constant run_tests <<
+_proc @run_tests( tests, _optional background? )
+
+	_global load_file_name
+	_global test_case
+	_global test_runner
+	_global mtest_result
+
+	_if tests.is_kind_of?( "" )
+	_then
+		load_file_name( tests )
+		tests << get_global_value( tests )
+	_endif
+
+	_if tests _is _unset
+	_then
+		write( "Test not found!" )
+		_return
+	_endif
+
+	_if _not tests.is_kind_of?( basic_collection_mixin )
+	_then
+		tests << {tests}
+	_endif
+
+	test_proc << _proc @run_tests( tests )
+
+		ignore_aspects? << test_case.ignore_aspects?
+		test_case.ignore_aspects? << _true
+
+		n_runs << 0
+		n_assertions << 0
+		n_failures << 0
+		n_errors << 0
+
+		a_stream << internal_text_output_stream.new()
+		runner << test_runner.new( a_stream )
+
+		failing_tests << rope.new()
+		tests_with_errors << rope.new()
+
+		run_start_time << system.elapsed_seconds()
+
+		_protect
+			write()
+			_for a_test _over tests.fast_elements()
+			_loop
+				_if a_test _is _unset _then _continue _endif
+
+				_for t _over a_test.tests()
+				_loop
+					write()
+					name << t.get_name()
+					_if name _is _unset
+					_then
+						name << t.class_name
+					_else
+						name << write_string( t.class_name, ".", name )
+					_endif
+					write( "RUNNING ", name )
+
+					start_time << system.elapsed_seconds()
+
+					a_test_result << mtest_result.new( _false )
+					t.run( a_test_result )
+
+					end_time << system.elapsed_seconds()
+					write( " Time: ", ((end_time - start_time)*1000).floor, " ms" )
+
+					failures << a_test_result.failure_count()
+					errors << a_test_result.error_count()
+
+					a_stream.reset()
+					runner.sys!slot(:test_result) << a_test_result
+					runner.print()
+
+					_if failures > 0 _orif errors > 0
+					_then
+						write()
+					_endif
+					lines << a_stream.string.split_by( %newline )
+					_for a_line _over lines.fast_elements()
+					_loop
+						write( " ", a_line )
+					_endloop
+					write()
+
+					n_runs +<< a_test_result.run_count()
+					n_assertions +<< a_test_result.assert_count()
+
+					_if failures > 0
+					_then
+						failing_tests.add_last( name )
+						n_failures +<< failures
+					_endif
+
+					_if errors > 0
+					_then
+						tests_with_errors.add_last( name )
+						n_errors +<< errors
+					_endif
+				_endloop
+			_endloop
+
+			_if n_runs > 1
+			_then
+				total_time << system.elapsed_seconds() - run_start_time
+
+				write()
+				_if failing_tests.empty? _andif tests_with_errors.empty?
+				_then
+					write( "**** SUCCESS ****" )
+				_else
+					write( "**** FAILED ****" )
+				_endif
+				_if total_time < 1.0
+				_then
+					write( " Time: ", (total_time*1000).floor, " ms" )
+				_else
+					write( " Time: ", total_time, " s" )
+				_endif
+
+				write( " Tests run: ", n_runs, "   Tests failed: ", failing_tests.size )
+				write( " Assertions: ", n_assertions, "   Failures: ", n_failures, "   Errors: ", n_errors )
+				write()
+
+				_if n_runs > 8
+				_then
+					_if _not failing_tests.empty?
+					_then
+						write( "FAILURES:" )
+						_for a_name _over failing_tests.fast_elements()
+						_loop
+							write( " ", a_name )
+						_endloop
+						write()
+					_endif
+
+					_if _not tests_with_errors.empty?
+					_then
+						write( "ERRORS:" )
+						_for a_name _over tests_with_errors.fast_elements()
+						_loop
+							write( " ", a_name )
+						_endloop
+						write()
+					_endif
+				_endif
+			_endif
+
+		_protection
+			test_case.ignore_aspects? << ignore_aspects?
+		_endprotect
+
+	_endproc
+
+	_if background? _is _false
+	_then
+		test_proc.invoke( tests )
+		_else
+			_global dev_test_thread
+			dev_test_thread << test_proc.fork_at( _thisthread.vm_priority - 1, tests )
+			_return dev_test_thread
+	_endif
+
+_endproc
+$
+
+
+dev_doc("run_test(TEST_METHOD_NAME) - Run loaded tests matching TEST_METHOD_NAME")
+_pragma(classify_level=debug)
+##
+## Runs any loaded tests matching the supplied test method name.
+##
+## Example:
+##  run_test( "home_and_end" )  ->  runs sw_text_window_test.test_home_and_end()
+##
+_global _constant run_test <<
+_proc @run_test( test_method_name, _optional test_class_name, background? )
+
+	_global test_case
+
+	_if test_class_name _is _unset
+	_then
+		test_class_name << "test"
+	_endif
+
+	methods << mfind( test_method_name, test_class_name, :inh, 1000, _false )
+
+	test_exemplars << set.new()
+	tests << rope.new()
+
+	test_name << write_string( %*, test_method_name, %* )
+
+	_for m _over methods.fast_elements()
+	_loop
+		c << m.owner.meta_at(:exemplar)
+		_if c.is_kind_of?( test_case ) _andif
+		    _not test_exemplars.includes?( c )
+		_then
+			_for a_test _over c.suite().tests()
+			_loop
+				_if test_method_name.empty? _orif
+				    a_test.get_name().write_string.matches?( test_name )
+				_then
+					tests.add_last( a_test )
+				_endif
+			_endloop
+			test_exemplars.add( c )
+		_endif
+	_endloop
+
+	_if tests.empty?
+	_then
+		write( "No tests found!" )
+	_else
+		_return run_tests( tests, background? )
+	_endif
+
+_endproc
+$
+
+dev_doc("test_module(MODULE_NAME) - Run all of the tests for MODULE_NAME")
+_pragma(classify_level=debug)
+##
+## Runs all of the tests for the specified module.
+##
+_global _constant test_module <<
+_proc @test_module( module_name, _optional force_reload? )
+
+	_global load_module
+	_global load_modules
+
+	_if force_reload? _is _unset
+	_then
+		force_reload? << _false
+	_endif
+
+	test_modules << rope.new()
+
+	_if _not sw_module_manager.module_is_loaded?( module_name ) _orif
+	    force_reload?
+	_then
+		load_module( module_name, force_reload? )
+	_endif
+
+	_if _not sw_module_manager.module_is_defined?( module_name )
+	_then
+		_return
+	_endif
+
+	a_module << sw_module_manager.module( module_name )
+
+	_if a_module.test_module?
+	_then
+		test_modules.add_last( a_module.name )
+	_else
+		_for t_module _over a_module.test_modules.fast_elements()
+		_loop
+			test_modules.add_last( t_module[1] )
+		_endloop
+
+		_if test_modules.empty?
+		_then
+			write( "No test modules found!" )
+			_return
+		_endif
+
+		load_modules( test_modules, force_reload? )
+	_endif
+
+	tests << rope.new()
+
+	_for t_module_name _over test_modules.fast_elements()
+	_loop
+		t_module << sw_module_manager.module( t_module_name )
+		_for a_test _over t_module.test_cases()
+		_loop
+			tests.add_last( a_test )
+		_endloop
+	_endloop
+
+	_return run_tests( tests )
+
+_endproc
+$
+
+
+dev_doc("test_changes() - Run all of the tests for the modules containing changes in a repository")
+_pragma(classify_level=debug)
+##
+## Runs all of the tests for the modules containing changes in
+## a repository.
+##
+## REPO_PATH - the path or name of a repository.
+##  (e.g. "C:\projects\hg\pni" or "pni")
+##  Defaults to user_products_root + "corerepo"
+## TRUNK_BRANCH_NAME defaults to the global DEFAULT_TRUNK_BRANCH_NAME.
+##
+_global _constant test_changes <<
+_proc @test_changes(_optional repo_path, trunk_branch_name, reload_tests?, ignore_modules)
+
+		_global user_repository_paths
+		_global default_trunk_branch_name
+		_global changed_files
+		_global load_module
+		_global load_modules
+		_global run_tests
+
+		_if repo_path _isnt _unset _andif
+			repo_path.index_of(system.pathname_separator) _is _unset
+		_then
+			repo_path << _for pathname _over user_repository_paths.fast_elements()
+				_loop
+					name << system.pathname_components(pathname)
+					_if name = repo_path
+					_then
+						_leave _with pathname
+					_endif
+				_endloop
+		_endif
+
+		_if repo_path _is _unset
+		_then
+			repo_path << system.pathname_down(user_products_root,  "corerepo")
+		_endif
+
+		_if trunk_branch_name _is _unset
+		_then
+			trunk_branch_name << default_trunk_branch_name
+		_endif
+		_if reload_tests? _is _unset
+		_then
+			reload_tests? << _false
+		_endif
+		_if ignore_modules _is _unset
+		_then
+			ignore_modules << set.new()
+		_endif
+
+		files << changed_files(_unset, repo_path, trunk_branch_name)
+
+		_if files.empty?
+		_then
+			write("No changed files found!")
+			_return
+		_endif
+
+		test_modules << equality_set.new()
+
+		_for pathname _over files.fast_elements()
+		_loop
+			(filename, dir) << system.pathname_components(pathname)
+			dir << system.locate_file(dir, "module.def")
+			_if dir _is _unset _then _continue _endif
+
+			res << sw_module_manager.module_roots(dir, _false)
+			_if res.empty? _then _continue _endif
+
+			m_name << res.a_key()[1]
+			_if ignore_modules.includes?(m_name) _then _continue _endif
+
+			_if _not sw_module_manager.module_is_loaded?(m_name)
+			_then
+				load_module(m_name)
+			_endif
+
+			_if sw_module_manager.module_is_loaded?(m_name)
+			_then
+				a_module << sw_module_manager.module(m_name)
+				_for t_module _over a_module.test_modules.fast_elements()
+				_loop
+					_if _not ignore_modules.includes?(t_module[1])
+					_then
+						test_modules.add(t_module[1])
+					_endif
+				_endloop
+			_endif
+		_endloop
+
+		_if test_modules.empty?
+		_then
+			write("No test modules found!")
+			_return
+		_endif
+
+		load_modules(test_modules, reload_tests?)
+
+		tests << rope.new()
+
+		_for test_m_name _over test_modules.fast_elements()
+		_loop
+			_if sw_module_manager.module_is_loaded?(test_m_name)
+			_then
+				t_module << sw_module_manager.module(test_m_name)
+				_for a_test _over t_module.test_cases()
+				_loop
+					tests.add_last(a_test)
+				_endloop
+			_endif
+		_endloop
+
+		_return run_tests(tests)
+
+	_endproc
+$
+
+
+dev_doc("test_class(A_CLASS) - Search unit tests for references of A_CLASS and run them")
+_pragma(classify_level=debug)
+##
+## Searches the unit tests for references of the supplied class
+## and runs those tests.
+##
+_global _constant test_class <<
+_proc @test_class( a_class, _optional unit_tests_path, reload_tests? )
+
+	_global test_case
+
+	_if reload_tests? _is _unset
+	_then
+		reload_tests? << _false
+	_endif
+
+	_if unit_tests_path _is _unset _andif
+	    ( module_name << a_class.module_name ) _isnt _unset
+	_then
+		a_module << sw_module_manager.module( a_class.module_name )
+		_for args _over a_module.test_modules.fast_elements()
+		_loop
+			t_module << sw_module_manager.module( _scatter args )
+			unit_tests_path << t_module.product.directory
+			_leave
+		_endloop
+	_endif
+	_if unit_tests_path _is _unset
+	_then
+		a_product << smallworld_product.product( :sw_core_unit_tests )
+		_if a_product _is _unset
+		_then
+			core_repo << system.pathname_down( user_products_root, "corerepo" )
+			smallworld_product.add_product( system.pathname_down( core_repo, "tests" ) )
+			a_product << smallworld_product.product( :sw_core_unit_tests )
+		_endif
+		unit_tests_path << a_product.directory
+	_endif
+
+	write()
+	write( "Searching ", unit_tests_path, "..." )
+
+	class_name << a_class.class_name
+
+	files << rope.new()
+
+	temp_file << system.temp_file_name( "findstr_results" )
+	_protect
+		command << write_string( "cmd /c findstr /i /r /p /s ",
+					 %", class_name, %", " *.magik > ", temp_file )
+
+		system.do_command( command, unit_tests_path )
+
+		input << external_text_input_stream.new( temp_file )
+
+		last_partial_path << _unset
+		_loop
+			_if ( a_line << input.get_line() ) _is _unset
+			_then
+				_leave
+			_endif
+
+			partial_path << a_line.split_by(%:).an_element()
+
+			_if last_partial_path <> partial_path
+			_then
+				full_path << system.pathname_down( unit_tests_path, partial_path )
+				files.add_last( full_path )
+			_endif
+			last_partial_path << partial_path
+		_endloop
+
+	_protection
+		_if input _isnt _unset
+		_then
+			input.close()
+		_endif
+		system.unlink( temp_file )
+	_endprotect
+
+	_if files.empty?
+	_then
+		write( "No test files found!" )
+		_return
+	_endif
+
+	test_modules << equality_set.new()
+
+	_for pathname _over files.fast_elements()
+	_loop
+		(filename, dir) << system.pathname_components( pathname )
+		dir << system.locate_file( dir, "module.def" )
+		_if dir _isnt _unset
+		_then
+			res << sw_module_manager.module_roots( dir, _false )
+			_if _not res.empty?
+			_then
+				name << res.a_key()[1]
+				test_modules.add( name )
+			_endif
+		_endif
+	_endloop
+
+	load_modules( test_modules, reload_tests? )
+
+	tests << rope.new()
+
+	_for pathname _over files.fast_elements()
+	_loop
+		filename << system.pathname_components( pathname )
+		name << filename.split_by(%.).an_element()
+		test_class << get_global_value( name )
+		_if test_class _isnt _unset _andif
+		    test_class.is_kind_of?( test_case )
+		_then
+			tests.add_last( test_class )
+		_endif
+	_endloop
+
+	_return run_tests( tests )
+
+_endproc
+$
+
+
+dev_doc("run_all_tests() -  Run all tests in a product or module or specific test")
+_pragma(classify_level=debug)
+##
+## Run all tests in a product or module or specific test.
+##
+## Examples of use:
+##  run_all_tests( "core" ) - run all core tests
+##
+##  run_all_tests( _unset, "magik_gui" ) - run all tests in
+##    module magik_gui_components_test
+##
+##  run_all_tests( _unset, _unset, "button_item_test" ) - run
+##    all button tests. A prompt will be displayed to select a
+##    specific test.
+##
+_global _constant run_all_tests <<
+_proc @run_all_tests(_optional product_name, module_name, test_name, subclasses?)
+
+	_global class_source
+	_global run_tests
+
+	original_paths << rope.new()
+	paths << rope.new()
+
+	match_test_name? << _false
+	_if test_name _isnt _unset _andif test_name.index_of(%*) _isnt _unset
+	_then
+		match_test_name? << _true
+		test_file_name << test_name + ".magik"
+	_endif
+
+	_for a_product _over smallworld_product.products.fast_elements()
+	_loop
+		_if a_product.name _is :munit
+		_then
+			_continue
+		_endif
+		dir << system.pathname_up(a_product.directory)
+		_if dir _is _unset
+		_then
+			_continue
+		_endif
+
+		original_paths.add_last(dir)
+		ok? << _true
+		_for a_path _over paths.elements()
+		_loop
+			_if dir.index_of_seq(a_path) _is 1
+			_then
+				ok? << _false
+				_leave
+
+			_elif a_path.index_of_seq(dir) _is 1
+			_then
+				paths.remove(a_path)
+			_endif
+		_endloop
+		_if ok?
+		_then
+			paths.add_last(dir)
+		_endif
+	_endloop
+
+	local_products? << _false
+	_for a_path _over paths.fast_elements()
+	_loop
+		_if a_path.index_of_seq("C:") _is 1 _orif  # FIXME - better test
+			a_path.index_of_seq("D:") _is 1
+		_then
+			local_products? << _true
+			_leave
+		_endif
+	_endloop
+
+	write("ADDING PRODUCTS...")
+
+	_for a_path _over paths.fast_elements()
+	_loop
+		_if local_products? _andif
+			(a_path.index_of_seq("C:") _isnt 1 _andif  # FIXME - better test
+				a_path.index_of_seq("D:") _isnt 1)
+		_then
+			_continue
+		_endif
+
+		write(a_path)
+		_try
+			_for a_product _over smallworld_product.sys!perform_iter(:find_products|()|, a_path)
+			_loop
+				ignore? << _true
+				dir << a_product.directory
+				_for d _over original_paths.fast_elements()
+				_loop
+					_if dir.index_of_seq(d) _is 1
+					_then
+						ignore? << _false
+						_leave
+					_endif
+				_endloop
+				_if ignore? _then _continue _endif
+
+				_if smallworld_product.product(a_product.name) _is _unset
+				_then
+					smallworld_product.add_product(dir)
+				_endif
+			_endloop
+		_when file_no_access
+			# Ignore
+		_endtry
+	_endloop
+
+	write()
+	write("LOADING TESTS...")
+
+	all_tests << rope.new()
+
+	_for a_product _over smallworld_product.products.fast_elements()
+	_loop
+		p_name << a_product.name
+		_if p_name.matches?("*test*") _andif
+			(product_name _is _unset _orif
+				p_name.index_of_seq(product_name) _isnt _unset _orif
+				a_product.directory.index_of_seq(product_name) _isnt _unset)
+		_then
+			_for a_module _over a_product.defined_modules.fast_elements()
+			_loop
+				_if _not a_module.test_module? _then _continue _endif
+
+				m_name << a_module.name
+				_if module_name _isnt _unset _andif
+					m_name.index_of_seq(module_name) _is _unset
+				_then
+					_continue
+				_endif
+
+				_if test_name _isnt _unset _andif
+					subclasses? _isnt _true
+				_then
+					ignore? << _true
+					_for source_path _over a_module.source_files().fast_elements()
+					_loop
+						source_file << system.pathname_components(source_path)
+						_if match_test_name?
+						_then
+							_if source_file.matches?(test_file_name)
+							_then
+								ignore? << _false
+								_leave
+							_endif
+
+						_elif source_file.index_of_seq(test_name) _isnt _unset
+						_then
+							ignore? << _false
+							_leave
+						_endif
+					_endloop
+					_if ignore? _then _continue _endif
+				_endif
+
+				_if _not a_module.loaded?
+				_then
+					_try _with cond
+						sw_module_manager.load_module(m_name, _unset,
+							:force_reload?, :prerequistes)
+					_when error
+						cond.report_on(!error_output!)
+					_endtry
+				_endif
+
+				_if a_module.loaded?
+				_then
+					_for a_test _over a_module.loaded_tests()
+					_loop
+						all_tests.add_last(a_test)
+					_endloop
+				_endif
+			_endloop
+		_endif
+	_endloop
+
+	_if test_name _isnt _unset
+	_then
+		write()
+		write("SEARCHING TESTS...")
+
+		a_class << _unset
+
+		_if _not match_test_name?
+		_then
+			(source_file, a_class) << class_source(test_name, "Select test (index)> ")
+			_if a_class _is :cancel
+			_then
+				a_class << _unset
+			_endif
+		_endif
+
+		tests_to_run << rope.new()
+		_for a_test _over all_tests.fast_elements()
+		_loop
+			_if a_class _isnt _unset
+			_then
+				_if a_test.is_class_of?(a_class) _orif
+					(subclasses? _is _true _andif a_test.is_kind_of?(a_class))
+				_then
+					tests_to_run.add_last(a_test)
+				_endif
+
+			_elif match_test_name?
+			_then
+				_if a_test.class_name.matches?(test_name)
+				_then
+					tests_to_run.add_last(a_test)
+				_endif
+
+			_elif a_test.class_name.index_of_seq(test_name) _isnt _unset
+			_then
+				tests_to_run.add_last(a_test)
+			_endif
+		_endloop
+	_else
+		tests_to_run << all_tests
+	_endif
+
+	_if tests_to_run.empty?
+	_then
+		write("No tests found")
+		_return
+	_endif
+
+	write()
+	write("RUNNING TESTS...")
+	write()
+
+	_return run_tests( tests_to_run )
+_endproc
+$
+
+
+dev_doc("run_sanity_test() - Run a sanity scenario test")
+_pragma(classify_level=debug)
+##
+## Run a sanity scenario test.
+##
+## A prompt will be displayed to select the test if there is
+## more than one available for this session.
+##
+_global _constant run_sanity_test <<
+_proc @run_sanity_test()
+	_return run_all_tests( _unset, _unset, "sanity_scenario" )
+_endproc
+$
+
+
+dev_doc("review_branch() - Launch a visual diff on the changes in the named branch")
+_pragma(classify_level=debug)
+##
+## Launches a visual diff on the changes in the named branch.
+##
+## Assumes the branch doesn't have uncommited changes.
+## This will get the latest changes from the parent repository first.
+##
+## BRANCH_NAME defaults to the current branch for REPO_PATH.
+##  Can be a regular expression.
+## REPO_PATH - the path or name of a repository.
+##  (e.g. "C:\projects\hg\pni" or "pni")
+##  Defaults to user_products_root + "corerepo"
+## TRUNK_BRANCH_NAME defaults to the global DEFAULT_TRUNK_BRANCH_NAME.
+##
+## Assumes a diff tool has been configured for Git.
+## To add KDiff3 use the following commands:
+##  git config --global --add diff.guitool kdiff3
+##  git config --global --add difftool.kdiff3.path "C:\Program Files\KDiff3\kdiff3.exe"
+##  git config --global --add difftool.kdiff3.trustExitCode false
+##
+_global _constant review_branch <<
+_proc @review_branch( _optional branch_name, repo_path, trunk_branch_name )
+
+	_global user_repository_paths
+	_global default_trunk_branch_name
+	_global vc_name
+	_global current_branch
+	_global find_branch
+
+	_if repo_path _isnt _unset _andif
+	    repo_path.index_of( system.pathname_separator ) _is _unset
+	_then
+		repo_path << _for pathname _over user_repository_paths.fast_elements()
+		             _loop
+				     name << system.pathname_components( pathname )
+				     _if name = repo_path
+				     _then
+					     _leave _with pathname
+				     _endif
+			     _endloop
+	_endif
+	_if repo_path _is _unset
+	_then
+		repo_path << system.pathname_down(user_products_root,  "corerepo")
+	_endif
+
+	_if trunk_branch_name _is _unset
+	_then
+		trunk_branch_name << default_trunk_branch_name
+	_endif
+
+	vc << vc_name( repo_path )
+	_if vc _is _unset
+	_then
+		write( "No version control found" )
+		_return
+	_endif
+
+	# Get latest changes
+	command << _if vc _is :git
+		   _then
+			   >> "cmd /c git fetch --all"
+		   _else
+			   >> write_string( "cmd /c hg pull",
+					    " -R ", repo_path )
+		   _endif
+	system.do_command( command, repo_path )
+
+	write()
+
+	_if branch_name _is _unset
+	_then
+		branch_name << current_branch( repo_path )
+		write( "Comparing branch '", branch_name, %', "..." )
+	_else
+		names << find_branches( branch_name, repo_path )
+		n << names.size
+		_if n _is 0
+		_then
+			write( "Cannot find a branch matching '", branch_name, %' )
+			_return
+
+		_elif n > 1
+		_then
+			exact_match? << _false
+			_for name _over names.fast_elements()
+			_loop
+				_if name = branch_name
+				_then
+					exact_match? << _true
+					_leave
+				_endif
+			_endloop
+
+			_if exact_match?
+			_then
+				write( "Comparing branch '", branch_name, %', "..." )
+			_else
+				write( "Found multiple matching branches:" )
+				_for name _over names.fast_elements()
+				_loop
+					write( " ", name )
+				_endloop
+				_return
+			_endif
+		_else
+			branch_name << names.an_element()
+			write( "Comparing branch '", branch_name, %', "..." )
+		_endif
+	_endif
+
+	command << _if vc _is :git
+		   _then
+			   >> write_string( "git difftool -g -d ",
+					    trunk_branch_name, "...", %", branch_name, %" )
+		   _else
+			   >> write_string( "thg vdiff",
+					    " -R ", repo_path,
+					    " -r ", %", "max(ancestors('", branch_name, "') and branch('", trunk_branch_name, "')):'", branch_name, %', %" )
+		   _endif
+
+	system.start_command( command, repo_path )
+
+_endproc
+$
+
+
+dev_doc("find_branches(A_STRING) - Return all branch names matching A_STRING")
+_pragma(classify_level=debug)
+##
+## Returns all branch names matching the supplied regular expression.
+##
+_global _constant find_branches <<
+_proc @find_branches( a_string, _optional repo_path )
+
+	_global vc_name
+
+	_if repo_path _is _unset
+	_then
+		repo_path << system.pathname_down(user_products_root,  "corerepo")
+	_endif
+
+	names << equality_set.new()
+
+	vc << vc_name( repo_path )
+	_if vc _is _unset
+	_then
+		_return names
+	_endif
+
+	command << _if vc _is :git
+		   _then
+			   >> write_string( "git branch -r --list ", %*, a_string, %* )
+		   _else
+			   >> write_string( "hg log -r ", %", "branch('re:", a_string, "')", %" )
+		   _endif
+
+	(pid, in, out, err) << system.start_command_with_io( command, _false, _true,
+							     :output, repo_path )
+
+	_protect
+		_loop
+			a_line << out.get_line()
+			_if a_line _is _unset _then _leave _endif
+
+			_if vc _is :git
+			_then
+				parts << a_line.split_by(%/)
+				names.add( parts[2].trim_spaces() )
+			_else
+				parts << a_line.split_by(%:)
+				_if parts.an_element() = "branch"
+				_then
+					names.add( parts[2].trim_spaces() )
+				_endif
+			_endif
+		_endloop
+	_protection
+		out.close()
+	_endprotect
+
+	_return names
+_endproc
+$
+
+
+dev_doc("load_modules(MODULE_NAMES) - Load modules in MODULE_NAMES")
+_pragma(classify_level=debug)
+##
+## Loads the specified module(s).
+## MODULE_NAMES can be a single module name or a collection.
+##
+_global _constant load_modules <<
+_proc @load_modules( module_names, _optional force_reload? )
+
+	_if module_names.is_class_of?( symbol ) _orif
+	    module_names.is_class_of?( "" )
+	_then
+		load_module( module_names, force_reload? )
+	_else
+		write()
+		write( "LOADING MODULES..." )
+
+		_for name _over module_names.fast_elements()
+		_loop
+			load_module( name, force_reload? )
+		_endloop
+
+		write()
+	_endif
+
+_endproc
+$
+
+
+dev_doc("load_module(MODULE_NAME) - Load module MODULE_NAME")
+_pragma(classify_level=debug)
+##
+## Loads the specified module.
+## Searches for the module if not defined and adds the product.
+##
+_global _constant load_module <<
+_proc @load_module( module_name, _optional force_reload? )
+
+	_global user_repository_paths
+
+	load_prerequisites? << _false
+
+	_if _not sw_module_manager.module_is_defined?( module_name )
+	_then
+		module_dir << _unset
+
+		sep << system.pathname_separator
+
+		write( "Searching for module..." )
+
+		_for a_path _over user_repository_paths.fast_elements()
+		_loop
+			_if _not system.file_exists?( a_path )
+			_then
+				_continue
+			_endif
+
+			a_command << write_string( "cmd /c dir ", a_path, sep, "*", module_name, " /s/b" )
+
+			(pid, in, out, err) << system.start_command_with_io( a_command, _false, _true,
+				:output, a_path )
+			_protect
+				result << out.get_line()
+			_protection
+				out.close()
+			_endprotect
+
+			_if result <> "File Not Found"
+			_then
+				module_dir << result
+				_leave
+			_endif
+		_endloop
+
+		# TODO - should check module.def file
+
+		_if module_dir _is _unset
+		_then
+			write( "Cannot load ", module_name, " - cannot locate module." )
+			_return
+		_endif
+
+		product_dir << system.locate_file( module_dir, "product.def" )
+		_if product_dir _is _unset
+		_then
+			write( "Cannot load ", module_name, " - cannot find product." )
+			_return
+		_endif
+
+		smallworld_product.add_product( product_dir )
+
+		_if _not sw_module_manager.module_is_defined?( module_name )
+		_then
+			write( "Cannot load ", module_name, " - module not defined." )
+			_return
+		_endif
+
+		load_prerequisites? << _true
+		force_reload? << _true
+	_endif
+
+	_if _not sw_module_manager.module_is_loaded?( module_name ) _orif
+		force_reload? _isnt _unset
+	_then
+		_if _not load_prerequisites?
+		_then
+			a_module << sw_module_manager.module( module_name )
+			_for data _over a_module.prerequisites.fast_elements()
+			_loop
+				_if _not sw_module_manager.module_is_defined?( data.an_element() )
+				_then
+					load_prerequisites? << _true
+					_leave
+				_endif
+			_endloop
+		_endif
+
+		_if load_prerequisites?
+		_then
+			a_module << sw_module_manager.module( module_name )
+			_for data _over a_module.prerequisites.fast_elements()
+			_loop
+				load_module( data.an_element(), force_reload? )
+			_endloop
+		_endif
+
+		_try _with cond
+			sw_module_manager.load_module( module_name, _unset,
+				:force_reload?, force_reload? )
+
+		_when sw_module_required_module_not_defined
+			write( "Cannot load ", module_name, " - required module not defined." )
+		_endtry
+	_else
+		write( module_name, " - already loaded." )
+	_endif
+
+_endproc
+$
+
+
+dev_doc("lod_file_name(FILE_NAME) - Load the module containing FILE_NAME")
+_pragma(classify_level=debug)
+##
+## Load the module containing the specified file.
+## Finds the file and adds products and loads prerequisite
+## modules as necessary.
+##
+## Useful for loading a test after starting a session e.g.
+## load_file_name( "sw_container_test", "corerepo" )
+##
+## SEARCH_PATH is the directory or repo name (e.g. "corerepo")
+## to search. Defaults to the paths defined by
+## user_repository_paths.
+##
+_global _constant load_file_name <<
+_proc @load_file_name( file_name, _optional search_path, force_reload? )
+
+	_global user_repository_paths
+	_global load_module
+
+	paths << _unset
+	_if search_path _isnt _unset
+	_then
+		_if search_path.index_of( system.pathname_separator ) _is _unset
+		_then
+			paths << _for pathname _over user_repository_paths.fast_elements()
+		                 _loop
+					 name << system.pathname_components( pathname )
+					 _if name = search_path
+					 _then
+						 _leave _with {pathname}
+					 _endif
+				 _endloop
+		_else
+			paths << {search_path}
+		_endif
+	_endif
+	_if paths _is _unset
+	_then
+		paths << user_repository_paths
+	_endif
+
+	_if _not file_name.includes?( %. )
+	_then
+		file_name << write_string( file_name, ".magik" )
+	_endif
+
+	sep << system.pathname_separator
+
+	matches << rope.new()
+
+	start_time << system.elapsed_seconds()
+
+	write( "Searching for file..." )
+
+	_for a_path _over paths.fast_elements()
+	_loop
+		_if _not system.file_exists?( a_path )
+		_then
+			_continue
+		_endif
+
+		a_command << write_string( "cmd /c dir ", a_path, sep, "*", file_name, " /s/b" )
+
+		(pid, in, out, err) << system.start_command_with_io( a_command, _false, _true,
+								     :output, a_path )
+
+		_protect
+			_loop
+				_if ( a_line << out.get_line() ) _is _unset
+				_then
+					_leave
+				_endif
+				_if a_line <> "File Not Found" _andif
+				    a_line.last _isnt %# _andif
+				    a_line.includes?( %. ) _andif
+				    a_line.index_of_seq( "\.hg\" ) _is _unset
+				_then
+					matches.add_last( a_line )
+				_endif
+			_endloop
+		_protection
+			out.close()
+		_endprotect
+	_endloop
+
+	_if matches.empty?
+	_then
+		write( "File Not Found" )
+		_return
+
+	_elif matches.size > 1
+	_then
+		f << float_format.new_with_properties( :float_decimal_places, 0 )
+		search_time << (system.elapsed_seconds() - start_time) * 1000
+		write( matches.size, " results found        (Search time: ", f.format(search_time), " ms)" )
+		write()
+
+		_for i, p _over matches.fast_keys_and_elements()
+		_loop
+			(f, d) << system.pathname_components( p )
+			write( "[", i, "]  ", f, "    ", d )
+			_if i _is 25
+			_then
+				write("...")
+				_leave
+			_endif
+		_endloop
+		write()
+
+		!terminal!.write( "Load file (index)> " )
+		reply << !terminal!.get_line().trim_spaces()
+		_if ( index << reply.as_number() ) _is _unset _orif
+		    index < 1 _orif
+		    index > matches.size
+		_then
+			_return
+		_endif
+
+		file_path << matches[ index ]
+	_else
+		file_path << matches.an_element()
+	_endif
+
+	module_name << _unset
+
+	(filename, dir) << system.pathname_components( file_path )
+	module_dir << system.locate_file( dir, "module.def" )
+	_if module_dir _isnt _unset
+	_then
+		res << sw_module_manager.module_roots( module_dir, _false )
+		_if _not res.empty?
+		_then
+			module_name << res.a_key()[1]
+
+			_if module_name _is _unset _orif
+				module_name.size _is 0 _orif
+				module_name[1] = %#
+			_then
+				module_name << _unset
+				mod_def << system.pathname_down(module_dir, "module.def")
+				_if system.file_exists?(mod_def)
+				_then
+					a_stream << _unset
+					a_reg << sw_regexp.new("\s")
+					_protect
+						a_stream << external_text_input_stream.new(mod_def)
+						_loop
+							_if (a_line << a_stream.get_line()) _is _unset
+							_then
+								_leave
+							_endif
+							a_line << a_line.trim_spaces()
+							_if a_line.size > 0 _andif a_line[1] <> %#
+							_then
+								module_name << a_reg.split(a_line)[1]
+								_leave
+							_endif
+						_endloop
+					_protection
+						_if a_stream _isnt _unset
+						_then
+							a_stream.close()
+						_endif
+					_endprotect
+				_endif
+			_endif
+		_endif
+	_endif
+
+	_if module_name _is _unset
+	_then
+		write( "Cannot find module for ", file_path )
+		_return
+	_endif
+
+	_if force_reload? _isnt _true _andif
+		sw_module_manager.module_is_loaded?( module_name ) _andif
+	    file_path.index_of_seq( ".magik" ) _isnt _unset
+	_then
+		load_file( file_path )
+		_return
+	_endif
+
+	_if _not sw_module_manager.module_is_defined?( module_name )
+	_then
+		# Add the product here since we already know the module directory
+		product_dir << system.locate_file( module_dir, "product.def" )
+		_if product_dir _is _unset
+		_then
+			write( "Cannot load ", module_name, " - cannot find product." )
+			_return
+		_endif
+
+		smallworld_product.add_product( product_dir )
+	_endif
+
+	load_module( module_name, force_reload? )
+
+_endproc
+$
+
+
+dev_doc("load_class(CLASS_OR_NAME) - Load the source file for CLASS_OR_NAME")
+_pragma(classify_level=debug)
+##
+## Loads the source file for CLASS_OR_NAME which can be a class
+## or a class name string.
+##
+## A prompt to choose a class is displayed if multiple classes
+## are found matching the supplied string.
+##
+_global _constant load_class <<
+_proc @load_class( class_or_name )
+
+	source_file << class_source( class_or_name, "Select class (index)> " )
+
+	_if source_file _isnt _unset
+	_then
+		load_file( source_file )
+	_endif
+
+_endproc
+$
+
+
+dev_doc("reload_class(A_CLASS) - Remex and reload A_CLASS and its subclasses")
+_pragma(classify_level=debug)
+##
+## Remex and reload the class and its subclasses.
+##
+_global _constant reload_class <<
+_proc @reload_class( a_class, _optional supers?, reregister_mutated_methods? )
+
+	_global html5_component
+
+	tables << rope.new()
+
+	mt << a_class.define_method_target
+
+	_if supers? _is _true
+	_then
+		_for parent_mt _over mt.parents( _true )
+		_loop
+			_if _not tables.includes?( parent_mt )
+			_then
+				tables.add_first( parent_mt )
+			_endif
+		_endloop
+	_endif
+
+	tables.add_last( mt )
+
+	_for child_mt _over mt.children( _true )
+	_loop
+		_if _not tables.includes?( child_mt )
+		_then
+			tables.add_last( child_mt )
+		_endif
+	_endloop
+
+	n << tables.size
+	index << 2
+	_loop
+		_if index > n _then _leave _endif
+		t << tables[ index ]
+		inc? << _true
+		_for parent_mt _over t.parents()
+		_loop
+			_if ( p_index << tables.index_of( parent_mt ) ) _isnt _unset _andif
+			    p_index > index
+			_then
+				tables.remove( parent_mt )
+				tables.add_nth( parent_mt, index )
+				inc? << _false
+			_endif
+		_endloop
+		_if inc?
+		_then
+			index +<< 1
+		_endif
+	_endloop
+
+	files << rope.new()
+	module_names << rope.new()
+
+	_for t _over tables.fast_elements()
+	_loop
+		ex << t.meta_at(:exemplar)
+		_if ex.is_kind_of?( html5_component )
+		_then
+			module_name << ex.module_name
+			_if _not module_names.includes?( module_name )
+			_then
+				module_names.add_last( module_name )
+			_endif
+		_else
+			files.add_last( t.source_file )
+		_endif
+	_endloop
+
+	_dynamic !current_package!
+	cp << !current_package!
+	_protect
+		!current_package! << package.all_packages[:sw]
+		remex( a_class.class_name )
+	_protection
+		!current_package! << cp
+	_endprotect
+
+	_for a_path _over files.fast_elements()
+	_loop
+		_try _with cond
+			load_file( a_path )
+		_when error
+			cond.report_on( !error_output! )
+			# Carry on to reload as much as possible
+		_endtry
+	_endloop
+
+	_for m_name _over module_names.fast_elements()
+	_loop
+		sw_module_manager.load_module( m_name, _unset, :force_reload?, _true )
+	_endloop
+
+	_if reregister_mutated_methods? _isnt _false
+	_then
+		sw_serialisation_manager.reregister_mutated_methods()
+	_endif
+
+_endproc
+$
+
+dev_doc("compile_messages(MODULE_NAME_OR_CLASS) - Recompile message files for MODULE_NAMEOR_CLASS")
+_pragma(classify_level=debug)
+##
+## Ensures compiled message files in the specified module or
+## in the module for the specified class are up to date.
+##
+_global _constant compile_messages <<
+_proc @compile_messages( module_name_or_class )
+
+	_if sw_module_manager.module_is_defined?( module_name_or_class )
+	_then
+		a_module << sw_module_manager.module( module_name_or_class )
+
+	_elif ( module_name << module_name_or_class.module_name ) _isnt _unset
+	_then
+		a_module << sw_module_manager.module( module_name )
+	_else
+		(source_file, a_class) << class_source( module_name_or_class, "Select class (index)> " )
+
+		_if source_file _isnt _unset
+		_then
+			(filename, dir) << system.pathname_components( source_file )
+			dir << system.locate_file( dir, "module.def" )
+			_if dir _isnt _unset
+			_then
+				res << sw_module_manager.module_roots( dir, _false )
+				_if _not res.empty?
+				_then
+					a_module << sw_module_manager.module( res.a_key()[1] )
+				_endif
+			_endif
+		_endif
+	_endif
+
+	_if a_module _isnt _unset
+	_then
+		a_module.compile_messages()
+	_endif
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+_method method.send_to_emacs()
+	##
+	## Displays the method source in Emacs
+	##
+
+	_global check_source
+	_global open_file
+
+	_if _self.slot_accessor? _orif
+	    ( source_file << check_source( _self.source_file ) ) _is _unset _orif
+	    source_file.index_of_seq( "register_mutating_methods.magik" ) _isnt _unset _orif
+	    source_file.index_of_seq( "load_mutated_methods.magik" ) _isnt _unset
+	_then
+		source_file << check_source( _self.owner.source_file )
+	_endif
+
+	_if source_file _isnt _unset
+	_then
+		open_file( source_file, _unset, _unset, _self )
+	_endif
+
+_endmethod
+$
+
+
+_pragma(classify_level=debug, usage={redefinable})
+_method method.display_source()
+	##
+	## Displays the method source.
+	## Default implementation opens source in Emacs.
+
+	_self.send_to_emacs()
+_endmethod
+$
+
+
+_pragma(classify_level=debug)
+_method object.send_to_emacs()
+	##
+	## Displays the object class source in Emacs
+
+	_global open_class
+	open_class( _self.exemplar )
+_endmethod
+$
+
+
+_pragma(classify_level=debug, usage={redefinable})
+_method object.display_source()
+	##
+	## Displays the object class source.
+	## Default implementation opens source in Emacs.
+
+	_self.send_to_emacs()
+_endmethod
+$
+
+
+_pragma(classify_level=debug)
+_method object.mfind( method_string )
+	##
+	## Invokes mfind() to find a matching method for this class.
+
+	class_name << _self.define_method_target.meta_at(:class_name)
+	class_string << "".concatenation( "^", class_name, "$" )
+	mfind( method_string, class_string )
+_endmethod
+$
+
+
+dev_doc("mdump() - Save a thread dump for the current system process to file and opens the file.")
+_pragma(classify_level=debug)
+##
+## Saves a thread dump for the current system process to file and
+## opens the file.
+##
+## Outputs Magik calls only if FILTER_MAGIK? is true.
+## Saves the output to OUTPUT_FILENAME.
+## Opens the output unless DISPLAY? is set to false.
+##
+## (Requires JDK for jstack)
+##
+_global _constant mdump <<
+	_proc @mdump(_optional filter_magik?, output_filename, display?)
+		_global filter_thread_dump
+		_global open_file
+
+		filename << _if output_filename _is _unset _orif
+				filter_magik? _is _true
+			_then
+				>> system.temp_file_name("sw_dump")
+			_else
+				>> output_filename
+			_endif
+
+		pid << system.process_id
+		java_home << system.getenv("JAVA_HOME")
+		a_path << system.pathname_down(java_home, "bin")
+		a_command << write_string("cmd /c jstack -l ", pid, " > ", filename)
+
+		system.do_command(a_command, a_path)
+
+		_if _not system.file_exists?(filename)
+		_then
+			write("Failed to create thread dump.")
+			_return
+		_endif
+
+		_if filter_magik? _is _true
+		_then
+			_return filter_thread_dump(filename, output_filename, display?)
+		_elif display? _isnt _false
+		_then
+			open_file(filename)
+		_endif
+
+		_return filename
+	_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Filters a thread dump file INPUT_FILENAME to leave only Magik references.
+##
+## Saves the output to OUTPUT_FILENAME.
+## Opens the output unless DISPLAY? is set to false.
+##
+_global _constant filter_thread_dump <<
+	_proc @filter_thread_dump(input_filename, _optional output_filename, display?)
+		_global open_file
+
+		_if output_filename _is _unset
+		_then
+			output_filename << system.temp_file_name("magik_dump")
+		_endif
+
+		_local write_output <<
+			_proc(a_stream, lines, max_name_size)
+				n_dots << _if max_name_size > 40
+					_then
+						>> 43
+					_else
+						>> max_name_size + 3
+					_endif
+
+				_for data _over lines.fast_elements()
+				_loop
+					_if data.size _is 1
+					_then
+						a_stream.write(data[1], newline_char)
+
+					_elif data[2] = "proc" _andif data[1][1] _is %_
+					_then
+						# proc
+						a_stream.write(tab_char, data[2], "  (", data[3], ":", data[4], ")", newline_char)
+
+					_elif data[2] = "proc" _andif data[1][data[1].size] _is %_
+					_then
+						# named proc
+						proc_name << data[1].subseq(1, data[1].size - 1)
+						dots << "".new((n_dots - proc_name.write_string.size - 1).max(2)).fill_with(%.)
+						a_stream.write(tab_char, "@", proc_name, " ", dots, " ", data[2], "  (", data[3], ":", data[4], ")", newline_char)
+					_else
+						# method
+						dots << "".new((n_dots - data[1].write_string.size).max(2)).fill_with(%.)
+						a_stream.write(tab_char, data[1], " ", dots, " ", data[2], "  (", data[4], ")", newline_char)
+					_endif
+				_endloop
+			_endproc
+
+		in_stream << _unset
+		out_stream << _unset
+
+		_protect
+			in_stream << external_text_input_stream.new(input_filename)
+			out_stream << external_text_output_stream.new(output_filename)
+
+			thread_lines << rope.new()
+			magik_lines? << _false
+			max_name_size << 0
+
+			_loop
+				_if (a_line << in_stream.get_line()) _is _unset
+				_then
+					_if magik_lines?
+					_then
+						write_output(out_stream, thread_lines, max_name_size)
+					_endif
+					_leave
+				_endif
+
+				_if a_line.size > 1 _andif a_line[1] = %"
+				_then
+					_if magik_lines?
+					_then
+						write_output(out_stream, thread_lines, max_name_size)
+					_endif
+
+					thread_lines.empty()
+					magik_lines? << _false
+					method_name_size << 0
+
+					thread_lines.add_last({a_line})
+				_else
+					test_string << a_line.trim_spaces()
+					_if test_string.size > 9 _andif test_string.subseq(1, 3) = "at "
+					_then
+						# Ignore java
+						_if test_string.subseq(1, 9) <> "at magik."
+						_then
+							_continue
+						_endif
+
+						# Debug
+						# write(a_line)
+
+						parts << test_string.split_by("__")
+						_if parts.size _is 1
+						_then
+							_continue
+						_endif
+
+						method_parts << parts[2].split_by("(")
+						method_name << method_parts[1]
+
+						# Ignore loopbody
+						_if method_name.size > 8 _andif method_name.subseq(1, 8) = "loopbody"
+						_then
+							_continue
+						_endif
+
+						class_parts << parts[1].split_by(".")
+						class_name << class_parts[class_parts.size]
+
+						_if class_name <> "proc"
+						_then
+							_if method_name.size > 5 _andif method_name.subseq(method_name.size - 4) = "\l\l_"
+							_then
+								method_name << write_string(method_name.subseq(1, method_name.size - 5), "<<")
+							_elif method_name[method_name.size] _is %_
+							_then
+								method_name << method_name.subseq(1, method_name.size - 1)
+							_else
+								method_name << write_string(method_name, "()")
+							_endif
+						_endif
+
+						path_parts << rope.new_from(method_parts[2].split_by(":"))
+						path_parts.remove_last()
+						path << path_parts.join_as_strings("")
+
+						# Ignore serialisation proc
+						_if class_name = "proc" _andif system.pathname_components(path) = "load_mutated_methods.magik"
+						_then
+							_continue
+						_endif
+
+						line_parts << parts[2].split_by(":")
+						line_number << line_parts[line_parts.size]
+						line_number << line_number.subseq(1, line_number.size - 1)
+
+						thread_lines.add_last({method_name, class_name, path, line_number})
+
+						magik_lines? << _true
+						max_name_size << max_name_size.max(method_name.write_string.size)
+					_else
+						thread_lines.add_last({a_line})
+					_endif
+				_endif
+			_endloop
+
+		_protection
+			_if in_stream _isnt _unset
+			_then
+				in_stream.close()
+			_endif
+			_if out_stream _isnt _unset
+			_then
+				out_stream.close()
+			_endif
+		_endprotect
+
+		_if display? _isnt _false
+		_then
+			open_file(output_filename)
+		_endif
+
+		_return output_filename
+	_endproc
+$
+
+
+dev_doc("get_components(A_STRING) OR gc() - Return components with a name or class name matching A_STRING")
+_pragma(classify_level=debug)
+##
+## Returns a rope of application components with a name or class name
+## matching A_STRING found from the object AN_OBJECT.
+## AN_OBJECT can be any type of object (e.g. application,
+## dialog, ...)
+##
+## All active frames will be searched if AN_OBJECT is not
+## provided.
+##
+## All components will be returned if A_STRING is not provided.
+##
+## If MODULE_NAME is provided the results are restricted to
+## modules matching that name.
+##
+## The results are printed to the terminal if REPORT? is
+## true. Defaults to true.
+##
+## Example of use (with PNI user app open):
+##  get_components("editor")
+##    1    a editor_activator_pi(editor_activator)
+##    2    a pni_editor_manager(editor_manager)
+##    3    a topology_editor_plugin(topology)
+##    4    a editor_viewer(embedded_viewer)
+##    5    a pni_editor_manager(editor_manager)
+##    6    a reldoc_editor_fw_pi(reldoc_editor)
+##    7    a pni_editor_manager(editor_manager)
+##    8    a pni_object_editor(framework)
+##    9    a object_editor_field_lister(field_lister)
+##    sw:rope:[1-9]
+##
+##  get_components("con menu")
+##    1    a connectivity_menu_plugin(connectivity_menu)
+##    2    a connectivity_menu_framework(connectivity_menu)
+##    sw:rope:[1-2]
+##
+##  get_components("app man")
+##    1    a pni_application_manager(application_manager)
+##    sw:rope:[1-1]
+##
+##  Return all components of the PNI application:
+##  app << smallworld_product.application(:pni)
+##  get_components( _unset, app )
+##
+_global get_components <<
+_proc @get_components( _optional a_string, an_object, module_name, report? )
+
+	_global get_objects
+
+	_return get_objects( a_string, an_object, sw_component, module_name, report? )
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Returns a rope of application components with a name or class name matching A_STRING.
+## Abbreviation of get_componnets()
+##
+_global _constant gc << get_components
+$
+
+
+dev_doc("get_type(A_CLASS) OR gt() - Return instances of the supplied class")
+_pragma(classify_level=debug)
+##
+## Returns a rope of instances of the supplied class.
+## By default returns subclasses unless SUBCLASSES? is set to false.
+##
+## Example of use:
+##  Get all button items
+##  gt(sw_button_item)
+##
+_global get_type <<
+_proc @get_types( a_class, _optional subclasses?, report? )
+
+		_global get_objects
+
+		_if subclasses? _isnt _false
+		_then
+			_return get_objects(_unset, _unset, a_class, _unset, report?)
+		_endif
+
+		candidates << get_objects(_unset, _unset, a_class, _unset, _false)
+
+		results << rope.new()
+		class_name << a_class.class_name
+		count << 1
+		_for c _over candidates.fast_elements()
+		_loop
+			_if c.class_name = class_name
+			_then
+				_if report? _isnt _false _andif count < 21
+				_then
+					write("[", count, "]  ", c)
+				_endif
+				count +<< 1
+				results.add_last(c)
+			_endif
+		_endloop
+		_if report? _isnt _false _andif count > 20
+		_then
+			write("...")
+		_endif
+		_return results
+
+	_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Returns a rope of instances of the supplied class.
+## Abbreviation of get_type()
+##
+_global _constant gt << get_type
+$
+
+
+dev_doc("get_objects() OR mget() - Return objects with a name or class name matching A_STRING")
+_pragma(classify_level=debug)
+##
+## Returns a rope of objects with a name or class name
+## matching A_STRING found from the object AN_OBJECT.
+## AN_OBJECT can be any type of object (e.g. application,
+## dialog, ...)
+##
+## All active frames will be searched if AN_OBJECT is not
+## provided.
+##
+## If A_CLASS is provided the results are restricted to objects
+## of that type.
+##
+## If MODULE_NAME is provided the results are restricted to
+## modules matching that name.
+##
+## The results are printed to the terminal if REPORT? is
+## true. Defaults to true.
+##
+## Examples:
+##  Get the explorer plugin:
+##  mg( "exp plug" )
+##  $
+##  1   a explorer_plugin(explorer_plugin)
+##  sw:rope:[1-1]
+##
+##  Get the goto buttons:
+##  mg( "button goto" )
+##
+##  Get the map views:
+##  mg( "map view" )
+##
+##  Get all buttons:
+##  mg( unset, unset, sw_button_item )
+##
+##  Get all objects from the PNI Favourites module:
+##  mg( _unset, _unset, _unset, "pni_tools" )
+##
+_global get_objects <<
+_proc @get_objects( _optional a_string, an_object, a_class, module_name, report? )
+
+	_global get_related_items
+
+	_if a_string _is _unset _andif
+	    an_object _is _unset _andif
+	    a_class _is _unset _andif
+	    module_name _is _unset
+	_then
+		write( "No search parameters - aborting!" )
+		_return rope.new()
+	_endif
+
+	_if report? _isnt _false
+	_then
+		write("Searching...")
+	_endif
+
+	time << system.elapsed_seconds()
+
+	test_string << _proc( a_string )
+			       _if a_string _is _unset
+			       _then
+				       _return
+			       _endif
+
+			       _for i, c _over a_string.fast_keys_and_elements()
+			       _loop
+				       _if c _is %space
+				       _then
+					       a_string[i] << %*
+				       _endif
+			       _endloop
+
+			       end << a_string.size
+
+			       a_stream << internal_text_output_stream.new()
+			       _if a_string[1] _is %^
+			       _then
+				       start << 2
+			       _else
+				       a_stream.put( %* )
+				       start << 1
+			       _endif
+			       _if a_string[end] _is %$
+			       _then
+				       a_stream.write( a_string.slice(start, end - 1) )
+			       _else
+				       a_stream.write( a_string.slice(start, end) )
+				       a_stream.put( %* )
+			       _endif
+
+			       _return a_stream.string
+		       _endproc
+
+	a_string << test_string( a_string )
+	module_name << test_string( module_name )
+
+	results << rope.new()
+	done << equality_hash_table.new()
+
+	a_queue << queue.new()
+
+	_if an_object _isnt _unset
+	_then
+		a_queue.add( an_object )
+		done[ an_object ] << _true
+	_else
+		_for cc _over sw_swift_manager.active_top_containers().fast_elements()
+		_loop
+			f << cc.top_frame
+			a_queue.add( f )
+			done[ f ] << _true
+		_endloop
+
+		_for app _over smallworld_product.applications()
+		_loop
+			_if app.top_frame _is _unset
+			_then
+				a_queue.add(app)
+				done[app] << _true
+			_endif
+		_endloop
+	_endif
+
+	a_frame << _if an_object.responds_to?( :frame )
+		   _then
+			   >> an_object.frame
+		   _endif
+
+	first_object << done.an_element()
+	class_name << first_object.class_name
+	ds? << class_name.size > 3 _andif
+	       ( class_name.subseq(1, 3) _is :ds_ _orif class_name.subseq(1, 4) _is :uds_ )
+	dd? << class_name.size > 3 _andif
+	       class_name.subseq(1, 3) _is :dd_
+	types << property_list.new_with( :ds, ds?, :dd, dd? )
+
+	string_match? << _proc( obj, str )
+				 _if str _is _unset _orif
+				     obj.class_name.write_string.matches?( str )
+				 _then
+					 _return _true
+				 _endif
+				 _try
+					 _if obj.responds_to?( :name ) _andif
+					     (name << obj.name) _isnt _unset _andif
+					     name.write_string.matches?( str )
+					 _then
+						 _return _true
+					 _endif
+				 _when error
+				 _endtry
+				 _try
+					_if obj.write_string.matches?( str )
+					_then
+						_return _true
+					_endif
+				 _when error
+				 _endtry
+				 _return _false
+			 _endproc
+
+	_loop
+		_if a_queue.empty? _then _leave _endif
+
+		c << a_queue.next()
+
+		_if ( a_class _is _unset _orif
+		      c.is_kind_of?( a_class ) ) _andif
+
+		    ( module_name _is _unset _orif
+		      c.module_name.write_string.matches?( module_name ) ) _andif
+
+		    ( a_frame _is _unset _orif
+		      _not c.responds_to?( :frame ) _orif
+		      c.frame _is a_frame ) _andif
+
+		    string_match?( c, a_string )
+		_then
+			results.add_last( c )
+		_endif
+
+		rel_items << get_related_items( c, types )
+
+		_for r _over rel_items.fast_elements()
+		_loop
+			_try
+				_if done[ r ] _is _unset
+				_then
+					a_queue.add( r )
+					done[ r ] << _true
+				_endif
+			_when error
+				# Ignore error - possible stale handle
+			_endtry
+		_endloop
+	_endloop
+
+	f << float_format.new_with_properties( :float_decimal_places, 0 )
+	search_time << (system.elapsed_seconds() - time) * 1000
+
+	_if report? _is _unset
+	_then
+		write( done.size, " objects searched        (Search time: ", f.format(search_time), " ms)" )
+		write( results.size, " matches found" )
+		write()
+		max << min(20, results.size)
+		space_size << 2 + max.write_string.size
+		_for i _over range( 1, max )
+		_loop
+			a_res << results[i]
+			name << a_res.write_string
+			spaces << "".new( space_size - i.write_string.size ).fill_with(%space)
+			_if name.index_of_seq( a_res.class_name ) _isnt _unset
+			_then
+				write( "[", i, "]", spaces, name )
+			_else
+				write( "[", i, "]", spaces, name, " - ", a_res.class_name )
+			_endif
+		_endloop
+		_if results.size > 25
+		_then
+			write("...")
+		_endif
+		_if max > 0
+		_then
+			write()
+		_endif
+
+	_elif report? _is _true
+	_then
+		write( done.size, " objects searched        (Search time: ", f.format(search_time), " ms)" )
+		write( results.size, " matches found" )
+		write()
+		max << results.size
+		space_size << 2 + max.write_string.size
+		_for i, res _over results.fast_keys_and_elements()
+		_loop
+			name << res.write_string
+			spaces << "".new( space_size - i.write_string.size ).fill_with(%space)
+			_if name.index_of_seq( res.class_name ) _isnt _unset
+			_then
+				write( "[", i, "]", spaces, name )
+			_else
+				write( "[", i, "]", spaces, name, " - ", res.class_name )
+			_endif
+		_endloop
+		_if max > 0
+		_then
+			write()
+		_endif
+	_endif
+
+	done.empty()
+
+	>> results
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Returns a rope of objects with a name or class name matching
+## a string.
+## Abbreviation of get_objects()
+##
+_global _constant mget << get_objects
+$
+
+dev_doc("get_related_items(OBJ) - Return objects 'related' to OBJ")
+_pragma(classify_level=debug)
+##
+## Returns a set of objects related to the object OBJ.
+##
+## TYPES controls what relationships are considered and should
+## be a property list with relationship name and boolean pairs.
+## By default all types are included.
+##
+## Supported relationships are:
+##  :slots
+##  :components
+##  :framework
+##  :dialogs
+##  :gui
+##  :gui_owner
+##  :dependents
+##  :model
+##
+## Example of use:
+##  app << smallworld_product.applications.an_element()
+##  get_related_items( app, property_list.new_with(:gui, _false) )
+##
+_global get_related_items <<
+_proc @get_related_items( obj, _optional types )
+
+	_if types _is _unset
+	_then
+		types << property_list.new()
+	_endif
+
+	others << set.new()
+
+	_local gui? << types[:gui] _isnt _false
+
+	class_name << obj.class_name
+	_local ds? << types[:ds] _isnt _false _andif
+		      class_name.size > 3 _andif
+		      ( class_name.subseq(1, 3) _is :ds_ _orif class_name.subseq(1, 4) _is :uds_ )
+	_local dd? << types[:dd] _isnt _false _andif
+		      class_name.size > 3 _andif
+		      class_name.subseq(1, 3) _is :dd_
+
+	_local valid_object? <<
+		_proc @valid_object( an_object )
+			_import gui?, dd?, ds?
+			_if an_object _is _unset _orif
+			    ( an_object.module_name _is _unset _andif _not an_object.is_a_datastore_object? )
+			_then
+				_return _false
+			_endif
+			c_name << an_object.class_name
+			_if c_name _is :char16_vector _orif
+			    c_name _is :symbol
+			_then
+				_return _false
+			_endif
+			_if an_object.responds_to?( :|tag!sw_item_base| )
+			_then
+				_if gui? _then _return _true _endif
+
+			_elif c_name.size > 3 _andif
+			      ( c_name.subseq(1, 3) _is :ds_ _orif c_name.subseq(1, 4) _is :uds_ )
+			_then
+				_if ds? _then _return _true _endif
+
+			_elif c_name.size > 3 _andif
+			      c_name.subseq(1, 3) _is :dd_
+			_then
+				_if dd? _then _return _true _endif
+
+			_elif _not an_object.is_kind_of?( basic_collection_mixin )
+			_then
+				_return _true
+			_endif
+			_return _false
+		_endproc
+
+	_if types[:slots] _isnt _false _andif
+	    obj.responds_to?( :|sys!slot_names_and_values()| )
+	_then
+		_try
+			_for slot_name, slot_value _over obj.sys!slot_names_and_values()
+			_loop
+				_if slot_value _is _unset _then _continue _endif
+				_if valid_object?( slot_value )
+				_then
+					others.add( slot_value )
+
+				_elif slot_value.is_kind_of?( keys_and_elements_mixin ) _andif
+				      _not slot_value.is_kind_of?( ro_simple_charindex_mixin )
+				_then
+					_if slot_value.is_kind_of?( ro_indexed_collection_mixin )
+					_then
+						_for e _over slot_value.elements()
+						_loop
+							_if valid_object?( e )
+							_then
+								others.add( e )
+							_endif
+						_endloop
+					_else
+						_for k, e _over slot_value.keys_and_elements()
+						_loop
+							_if valid_object?( k )
+							_then
+								others.add( k )
+							_endif
+							_if valid_object?( e )
+							_then
+								others.add( e )
+							_endif
+						_endloop
+					_endif
+				_endif
+			_endloop
+		_when error
+			# Ignore error
+		_endtry
+	_endif
+
+	_if types[:slots] _is _false _andif
+	    obj.is_kind_of?( sw_component )
+	_then
+		_if types[:components] _isnt _false _andif
+		    obj.responds_to?( :components|()| )
+		_then
+			_for c _over obj.components()
+			_loop
+				others.add( c )
+			_endloop
+		_endif
+
+		_if types[:framework] _is _true _andif
+		    ( a_framework << obj.framework ) _isnt _unset
+		_then
+			others.add( a_framework )
+		_endif
+
+		_if types[:dialogs] _isnt _false _andif
+		    ( obj.is_kind_of?( plugin ) _orif
+		      obj.is_kind_of?( gui_framework ) )
+		_then
+			_for name, a_dialog _over obj.sys!slot(:dialogs).fast_keys_and_elements()
+			_loop
+				_if a_dialog _isnt _unset
+				_then
+					others.add( a_dialog )
+				_endif
+			_endloop
+		_endif
+	_endif
+
+	_if types[:dependents] _isnt _false
+	_then
+		_for d _over obj.dependents()
+		_loop
+			_if valid_object?( d )
+			_then
+				others.add( d )
+			_endif
+		_endloop
+	_endif
+
+	_try
+		_if types[:model] _isnt _false _andif
+		    obj.responds_to?( :model ) _andif
+		    ( a_model << obj.model ) _isnt _unset
+		_then
+			others.add( a_model )
+			_if a_model.is_kind_of?( sw_action ) _andif
+			    ( an_engine << a_model.engine ) _isnt _unset
+			_then
+				others.add( an_engine )
+			_endif
+		_endif
+	_when error
+		# Ignore error
+	_endtry
+
+	_if types[:gui_owner] _isnt _false _andif
+	    obj.responds_to?( :|tag!sw_item_base| ) _andif
+	    obj.responds_to?( :|get_gui_owner| ) _andif
+	    ( gui_owner << obj.get_gui_owner() ) _isnt _unset
+	_then
+		others.add( gui_owner )
+	_endif
+
+	>> others
+_endproc
+$
+
+
+dev_doc("get_gui(A_STRING) - Return UI widgets matching the supplied string")
+_pragma(classify_level=debug)
+##
+## Searches for UI widgets matching the supplied string.
+## Searches within all active UI or only the supplied container if provided.
+##
+## Support ^ and $ at the start and end of the search string.
+##
+## Returns a matching widget (if only one found) or a rope of matches.
+##
+_global get_gui <<
+	_proc(a_string, _optional a_container, menus?)
+
+		s << a_string.size
+		_for i, c _over a_string.fast_keys_and_elements()
+		_loop
+			_if c _is %space
+			_then
+				a_string[i] << %*
+				_endif
+		_endloop
+
+		a_stream << internal_text_output_stream.new()
+		_if a_string[1] _is %^
+		_then
+			start << 2
+		_else
+			a_stream.put(%*)
+			start << 1
+		_endif
+		_if a_string[s] _is %$
+		_then
+			a_stream.write(a_string.slice(start, s - 1))
+		_else
+			a_stream.write(a_string.slice(start, s))
+			a_stream.put(%*)
+		_endif
+		_local test_string << a_stream.string
+
+		candidates << rope.new()
+		_local test_methods << {:identifier, :id, :action_identifier, :tab_label, :external_label}
+
+		_local test_item? << _proc(an_item)
+				_import test_methods
+				_import test_string
+
+				_for m _over test_methods.fast_elements()
+				_loop
+					str << an_item.perform(m)
+					_if str _isnt _unset _andif
+						str.write_string.lowercase.matches?(test_string)
+					_then
+						_return _true
+					_endif
+				_endloop
+
+				_return _false
+			_endproc
+
+		containers << _if a_container _isnt _unset
+			_then
+				>> {a_container}
+			_else
+				>> sw_swift_manager.active_top_containers()
+			_endif
+
+		_for cc _over containers.fast_elements()
+		_loop
+			_if test_item?(cc)
+			_then
+				candidates.add_last(cc)
+			_endif
+
+			_if menus? _is _true
+			_then
+				_for an_item _over cc.all_items_including_menus()
+				_loop
+					_if test_item?(an_item)
+					_then
+						candidates.add_last(an_item)
+					_endif
+				_endloop
+			_else
+				_for an_item _over cc.all_items()
+				_loop
+					_if test_item?(an_item)
+					_then
+						candidates.add_last(an_item)
+					_endif
+				_endloop
+			_endif
+		_endloop
+
+		_if candidates.size _is 1
+		_then
+			_return candidates.an_element()
+		_else
+			n << candidates.size.min(20)
+			_for i _over range(1, n)
+			_loop
+				_if n > 9 _andif i < 10
+				_then
+					write("[", i, "]  ", candidates[i])
+				_else
+					write("[", i, "] ", candidates[i])
+				_endif
+			_endloop
+			_if candidates.size > 20
+			_then
+				write("...")
+			_endif
+			_return candidates
+		_endif
+
+	_endproc
+$
+
+
+dev_doc("git_search(A_STRING) OR gs() - Search git commits for the supplied string")
+_pragma(classify_level=debug)
+##
+## Search git commits for the supplied string.
+## Uses 'git log -G' to find commits with modified lines
+## matching the string and finds commits which modify files
+## matching the string.
+##
+## Displays a prompt to select one of the matching commits to
+## show in the configured diff tool for Git.
+##
+## To configure KDiff3 as the diff tool:
+##  git config --global --add diff.tool kdiff3
+##  git config --global --add difftool.kdiff3.path "C:\Program Files\KDiff3\kdiff3.exe"
+##  git config --global --add difftool.kdiff3.trustExitCode false
+##
+## To list the commit matches, type the index number of the
+## commit followed by any letter i.e.
+##  Show commit (index)> 1a
+##
+## BRANCH_NAME - the name of the branch to search.
+##  Defaults to the current branch for REPO_PATH.
+## REPO_PATH - the path or name of a repository.
+##  (e.g. "C:\projects\hg\pni" or "pni")
+##  Defaults to global USER_PRODUCTS_ROOT + "corerepo"
+## N_DAYS - limits the search to commits in the last x number of days.
+##  Defaults to 14.
+## SINCE - limits the search to commits more recent than a specific date.
+## UNTIL - limits the search to commits older than a specific date.
+## FETCH? - Fetches changes from the repo if set to true.
+## REPORT? - Matching changes are reported to the terminal unless set to false.
+## ALL? - Search all changes rather than merges to the main branch if set to true.
+##
+## Examples of use:
+##  git_search( "application_def", _unset, 28 )
+##   - finds any matches of 'application_def' in the last 28 days.
+##  git_search( "sw_container", _unset, _unset, "18 June" )
+##   - finds any matches of 'sw_container' since 18th June
+##  git_search( "gui_components/" )
+##   - finds any matches of 'gui_components/' in the last 14 days.
+##    (Can be useful to find changes to a module)
+##
+_global _constant git_search <<
+_proc @git_search(a_string,	_optional branch_name, repo_path, n_days, since, until, fetch?, report?, all?)
+
+	_global user_repository_paths
+	_global default_trunk_branch_name
+	_global vs_output
+
+	_local date_format_string << "#a #b #e #H:#M:#S #Y"
+
+	_if a_string _is _unset
+	_then
+		a_string << ""
+	_endif
+
+	a_stream << internal_text_output_stream.new()
+	a_stream.put(%*)
+	_for c _over a_string.fast_elements()
+	_loop
+		_if c _is %space
+		_then
+			a_stream.put(%*)
+		_else
+			a_stream.put(c)
+		_endif
+	_endloop
+	a_stream.put(%*)
+	match_string << a_stream.string.lowercase
+
+	a_stream << internal_text_output_stream.new()
+	_for c _over a_string.fast_elements()
+	_loop
+		_if c _is %space
+		_then
+			a_stream.write(".*?")
+		_else
+			a_stream.put(c)
+		_endif
+	_endloop
+	grep_string << a_stream.string
+
+	_if grep_string.empty?
+	_then
+		grep_string << ".*?"
+	_endif
+
+	_if branch_name _is _unset
+	_then
+		branch_name << default_trunk_branch_name
+	_endif
+
+	_if repo_path _isnt _unset _andif
+		repo_path.index_of(system.pathname_separator) _is _unset
+	_then
+		repo_path << _for pathname _over user_repository_paths.fast_elements()
+			_loop
+				name << system.pathname_components(pathname)
+				_if name = repo_path
+				_then
+					_leave _with pathname
+				_endif
+			_endloop
+	_endif
+	_if repo_path _is _unset
+	_then
+		repo_path << system.pathname_down(user_products_root, "corerepo")
+	_endif
+
+	_if n_days _is _unset
+	_then
+		n_days << 14
+	_endif
+
+	_if since _is _unset
+	_then
+		since << write_string(" --since=", n_days, ".days")
+	_else
+		since << write_string(" --since=", %", since, %")
+	_endif
+	_if until _is _unset
+	_then
+		until << ""
+	_else
+		until << write_string(" --until=", %", until, %")
+	_endif
+
+	_if fetch? _is _true
+	_then
+		# Get latest changes
+		system.do_command("cmd /c git fetch --all", repo_path)
+	_endif
+
+	_if report? _isnt _false
+	_then
+		write("Searching commits in ", repo_path, "...")
+	_endif
+
+	_local get_changes <<
+		_proc @get_changes(command)
+			_dynamic !text_encoding!
+			!text_encoding! << :utf8
+
+			_import repo_path, date_format_string
+
+			changes << rope.new()
+
+			out << _unset
+			_protect
+				(pid, in, out, err) << system.start_command_with_io(command, _false, _true,
+					:output, repo_path)
+
+				_loop
+					_try
+						_if (a_line << out.get_line()) _is _unset
+						_then
+							_leave
+						_endif
+					_when warning
+						# Ignore
+					_endtry
+
+					_if a_line.empty?
+					_then
+						_continue
+					_endif
+
+					_if a_line.index_of_seq("commit ") _is 1
+					_then
+						_if a_change _isnt _unset
+						_then
+							changes.add_last(a_change)
+						_endif
+
+						a_change << property_list.new()
+						commit_str << a_line.slice_to_end(8)
+						commit_parts << commit_str.split_by(%tab)
+						a_change[:commit] << commit_parts[1]
+						a_change[:repo_path] << repo_path
+						a_change[:files] << rope.new()
+
+						_if commit_parts.size > 1
+						_then
+							commit_last_part << commit_parts.last
+							_if commit_last_part.index_of_seq("refs/heads/") _is 1
+							_then
+								a_change[:branch] << commit_last_part.split_by("refs/heads/").last
+							_else
+								a_change[:branch] << commit_last_part.split_by("origin/").last
+							_endif
+						_endif
+
+					_elif a_line.index_of_seq("Author:") _is 1
+					_then
+						a_change[:user] << a_line.split_by(%:)[2].trim_spaces()
+
+					_elif a_line.index_of_seq("Date:") _is 1
+					_then
+						end << a_line.index_of(%+)
+						_if end _is _unset
+						_then
+							end << a_line.index_of(%-)
+						_endif
+						_if end _is _unset
+						_then
+							end << a_line.size
+						_else
+							end -<< 1
+						_endif
+						date_str << a_line.subseq(6, end - 6).trim_spaces()
+						a_change[:date_string] << date_str
+						a_change[:date] << date_time.new_from_string(date_str, date_format_string)
+
+					_elif a_line.index_of_seq("Merge:") _is 1
+					_then
+						a_change[:merge] << a_line.split_by(%:)[2].trim_spaces()
+
+					_elif a_line.index_of_seq("Former-commit-id:") _isnt _unset
+					_then
+						# Ignore
+
+					_elif a_line.an_element().white_space?
+					_then
+						# Summary
+						summary << a_change[:summary]
+						str << a_line.trim_left_spaces()
+						_if _not str.empty?
+						_then
+							_if summary _is _unset
+							_then
+								a_change[:summary] << write_string("  ", str)
+							_else
+								a_change[:summary] << write_string(summary, newline_char, "  ", str)
+							_endif
+						_endif
+
+					_elif a_change _isnt _unset
+					_then
+						# File path
+						files << a_change[:files]
+						full_path << system.pathname_down(repo_path, a_line)
+						full_path << system.canonicalise(full_path)
+						files.add_last(full_path)
+					_endif
+				_endloop
+
+				_if a_change _isnt _unset
+				_then
+					changes.add_last(a_change)
+				_endif
+
+			_protection
+				_if out _isnt _unset
+				_then
+					out.close()
+				_endif
+			_endprotect
+
+			_return changes
+		_endproc
+
+
+	_local get_jira_story <<
+		_proc @get_jira_story(text)
+
+			start << 1
+			_loop
+				minus_index << text.index_of(%-, start)
+				_if minus_index _is _unset
+				_then
+					_return
+				_endif
+				start << minus_index + 1
+
+				prefix_stream << internal_text_output_stream.new()
+				upper? << _false
+				lower? << _false
+				_for i _over range(minus_index - 1, 1, - 1)
+				_loop
+					c << text[i]
+					_if c.ascii_alphabetic?
+					_then
+						prefix_stream.put(c)
+						_if c.ascii_uppercase?
+						_then
+							upper? << _true
+						_else
+							lower? << _true
+						_endif
+
+					_elif upper? _orif lower? _orif _not c.white_space?
+					_then
+						_leave
+					_endif
+				_endloop
+				_if upper? _andif lower?
+				_then
+					_continue
+				_endif
+				_if prefix_stream.string.size < 3
+				_then
+					_continue
+				_endif
+
+				number_stream << internal_text_output_stream.new()
+				digit? << _false
+				_for i _over range(minus_index + 1, text.size)
+				_loop
+					c << text[i]
+					_if c.decimal_digit?
+					_then
+						number_stream.put(c)
+						digit? << _true
+
+					_elif digit? _orif _not c.white_space?
+					_then
+						_leave
+					_endif
+				_endloop
+				a_number << number_stream.string.as_number()
+				_if a_number _is _unset
+				_then
+					_continue
+				_endif
+
+				story_name << "".concatenation(prefix_stream.string.reversed().uppercase,
+					"-", number_stream.string)
+				_return story_name
+			_endloop
+
+		_endproc
+
+
+	matching_changes << sorted_collection.new(_unset,
+		_proc(a, b)
+			>> b[:date] _cf a[:date]
+		_endproc)
+	matching_commits << equality_hash_table.new()
+
+	# Check changed files
+	a_command << _if all? _is _true
+		_then
+			>> write_string("cmd /c git log ", branch_name, " --name-only --all", since, until)
+		_else
+			>> write_string("cmd /c git log ", branch_name, " --name-only --first-parent", since, until)
+		_endif
+
+	all_changes << get_changes(a_command)
+
+	_for a_change _over all_changes.fast_elements()
+	_loop
+		_if a_change[:user].lowercase.matches?(match_string) _orif
+			a_change[:summary].lowercase.matches?(match_string)
+		_then
+			matching_commits[a_change[:commit]] << a_change
+			_continue
+		_endif
+
+		_for a_path _over a_change[:files].fast_elements()
+		_loop
+			_if a_path.lowercase.matches?(match_string)
+			_then
+				matching_commits[a_change[:commit]] << a_change
+				_leave
+			_endif
+		_endloop
+	_endloop
+
+	# Check content changes
+	a_command << _if all? _is _true
+		_then
+			>> write_string("cmd /c git log ", branch_name, " -G ", %", grep_string, %", " --source --all", since, until)
+		_else
+			>> write_string("cmd /c git log ", branch_name, " -G ", %", grep_string, %", " --source --first-parent", since, until)
+		_endif
+
+	string_matches << get_changes(a_command)
+
+	_for a_change _over string_matches.fast_elements()
+	_loop
+		found_change << matching_commits[a_change[:commit]]
+		_if found_change _is _unset
+		_then
+			matching_commits[a_change[:commit]] << a_change
+
+		_elif a_change[:branch] _isnt _unset
+		_then
+			found_change[:branch] << a_change[:branch]
+		_endif
+	_endloop
+
+	matching_changes.add_all(matching_commits.elements)
+
+	_if report? _is _false
+	_then
+		_return matching_changes
+	_endif
+
+	_if matching_changes.empty?
+	_then
+		write("No changes found!")
+		_return
+	_endif
+
+	_for i, a_change _over matching_changes.fast_keys_and_elements()
+	_loop
+		write()
+		jira_story << get_jira_story(a_change[:summary])
+		a_branch << a_change[:branch]
+		_if jira_story _isnt _unset _andif a_branch _isnt _unset
+		_then
+			write("[", i, "]  ", jira_story, "  (", a_branch, ")")
+		_elif jira_story _isnt _unset
+		_then
+			write("[", i, "]  ", jira_story)
+		_elif a_branch _isnt _unset
+		_then
+			write("[", i, "]  ", a_branch)
+		_else
+			write("[", i, "]")
+		_endif
+		write(" Commit:   ", a_change[:commit])
+		write(" User:     ", a_change[:user])
+		write(" Date:     ", a_change[:date_string])
+		write(" Summary:")
+		write(a_change[:summary])
+	_endloop
+
+	# FIXME - show short commit hash?
+
+	_if vs_output _isnt _unset
+	_then
+		_return
+	_endif
+
+	_loop
+		write()
+		!terminal!.write("Show commit (index)> ")
+
+		reply << !terminal!.get_line().trim_spaces()
+		_if reply = "$"
+		_then
+			reply << !terminal!.get_line().trim_spaces()
+		_endif
+
+		_if reply.size > 1 _andif
+			reply.last.alphabetic? _andif
+			(index << reply.subseq(1, reply.size - 1).as_number()) _isnt _unset
+		_then
+			write()
+
+			selected_change << matching_changes[index]
+			commit << selected_change[:commit]
+			jira_story << get_jira_story(selected_change[:summary])
+			a_branch << selected_change[:branch]
+
+			_if jira_story _isnt _unset _andif a_branch _isnt _unset
+			_then
+				write("Showing files:  [", index, "]  ", jira_story, "  (", a_branch, ")")
+			_elif jira_story _isnt _unset
+			_then
+				write("Showing files:  [", index, "]  ", jira_story)
+			_elif a_branch _isnt _unset
+			_then
+				write("Showing files:  [", index, "]  ", a_branch)
+			_else
+				write("Showing files:  [", index, "]")
+			_endif
+
+			command << write_string("git diff ", commit, "~1..", commit)
+
+			(pid, in, out, err) << system.start_command_with_io(command, _false, _true,
+				:output, repo_path)
+
+			_protect
+				_loop
+					a_line << out.get_line()
+					_if a_line _is _unset _then _leave _endif
+					_if a_line.index_of_seq("diff --git a") _is 1
+					_then
+						file_path << a_line.slice_to_end(14).split_by(%space).an_element()
+						write(" ", file_path)
+
+					_elif a_line.index_of_seq("+++ ") _is 1 _orif
+						a_line.index_of_seq("--- ") _is 1 _orif
+						a_line.index_of_seq("@@ ") _is 1
+					_then
+						# Ignore
+
+					_elif a_line.lowercase.matches?(match_string)
+					_then
+						write("   ", a_line)
+					_endif
+				_endloop
+			_protection
+				out.close()
+			_endprotect
+
+			_continue
+		_endif
+
+		_if (index << reply.as_number()) _is _unset _orif
+			index < 1 _orif
+			index > matching_changes.size
+		_then
+			_leave
+		_endif
+
+		commit << matching_changes[index][:commit]
+		a_command << write_string("git difftool -g -d ", commit, "~1..", commit)
+		system.start_command(a_command, repo_path)
+		_leave
+	_endloop
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Search git commits for the supplied string.
+## Abbreviation of git_search()
+##
+_global _constant gs << git_search
+$
+
+
+## Re-serialise the mutated methods
+_global rs <<
+_proc()
+	sw_serialisation_manager.reregister_mutated_methods()
+_endproc
+$
+
+_global is_mutated <<
+	_proc(class, method_name)
+		a_method << class.method(method_name.as_symbol())
+		_if a_method _is _unset
+		_then
+			_return _false
+		_endif
+		c_name << a_method.owner.meta_at(:class_name)
+		key << write_string(c_name, ".", method_name).as_symbol()
+		write(key)
+		a_table << sw_serialisation_manager.sys!slot(:mutated_methods)
+		_if _not a_table.includes_key?(key)
+		_then
+			_return _false
+		_endif
+		val << a_table[key]
+		_if val _is _unset
+		_then
+			_return _true
+		_endif
+		_return val
+	_endproc
+$

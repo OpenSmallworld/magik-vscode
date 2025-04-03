@@ -1,0 +1,28 @@
+#% text_encoding = iso8859_1
+
+_package sw
+$
+
+confirm_magik_dev_file(:electric_office_web)
+$
+
+_block
+  system.putenv("WEB_INTERNALS_DIR", system.pathname_down(system.pathname_up(system.getenv("SMALLWORLD_GIS")), "/gss/extension-modules/Web-Internals"))
+  system.putenv("WEB_FIND_DIR", system.pathname_down(system.pathname_up(system.getenv("SMALLWORLD_GIS")), "/gss/extension-modules/Web-Find"))
+  system.putenv("WEB_PLOT_DIR", system.pathname_down(system.pathname_up(system.getenv("SMALLWORLD_GIS")), "/gss/extension-modules/Web-Plot"))
+  system.putenv("WEB_TRACE_DIR", system.pathname_down(system.pathname_up(system.getenv("SMALLWORLD_GIS")), "/gss/extension-modules/Web-Trace"))
+  system.putenv("WEB_APPS_DIR", system.pathname_down(system.pathname_up(system.getenv("SMALLWORLD_GIS")), "/gss/extension-modules/Web-Apps"))
+  system.putenv("WEB_MAP_LOCATION_DIR", system.pathname_down(system.pathname_up(system.getenv("SMALLWORLD_GIS")), "/gss/extension-modules/Web-Maplocation"))
+  system.putenv("ASSET_SEARCH_DIR", system.pathname_down(system.pathname_up(system.getenv("SMALLWORLD_GIS")), "/gss/extension-modules/AssetSearch"))
+  system.putenv("EIS_RESOURCES_PATH", "c:\Temp")
+  system.putenv("SOLR_HOST_NAME", "localhost")
+  system.putenv("SW_SOLR_USER", "fakesolr")
+  system.putenv("SW_SOLR_PASSWORD", "fakesolr")
+  system.putenv("K8SHOST", "localhost")
+  system.putenv("BIFROST_URL", "http://localhost:3001")
+  system.putenv("USERNAME_AND_PASSWORDS", "{}")
+  system.putenv("RABBITMQ_PATH", "localhost")
+  system.putenv("RABBIT_CONFIG_MODULE_NAME", "gss_basic_vertx_application")
+	system.putenv("RABBIT_CONFIG_FILE_NAME", "rabbit_config.xml")
+_endblock
+$

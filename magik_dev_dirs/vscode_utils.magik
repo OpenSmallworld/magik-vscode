@@ -1,0 +1,1074 @@
+#% text_encoding = iso8859_1
+_package sw
+$
+
+confirm_magik_dev_file(_unset, _unset, !vscode?!, "Skipping not in vscode")
+$
+
+_pragma(classify_level=debug)
+##
+## Save session info for the VS Class Browser.
+## Calling this procedure will connect the Class Browser in VS Code.
+##
+_global _constant vs_class_browser <<
+_proc @vs_class_browser()
+
+	_if method_finder.pid _is _unset
+	_then
+		method_finder.start_acp()
+	_endif
+
+	output_file << system.pathname_down(system.temp_directory_name, "vscode_class_browser.txt")
+
+	id_str << system.process_id.write_string
+
+	output_stream << _unset
+	_protect
+		output_stream << external_text_output_stream.new(output_file)
+		output_stream.write("processId|", id_str, newline_char)
+
+		_for key, val _over system.get_all_env().fast_keys_and_elements()
+		_loop
+			str << val.write_string.replace_all_instances_of("\", "/");
+			output_stream.write(key.write_string, "|", str, newline_char)
+		_endloop
+
+	_protection
+		_if output_stream _isnt _unset
+		_then
+			output_stream.close()
+		_endif
+	_endprotect
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+## Jump to source in VS Code
+_global  vs_goto <<
+_proc @vs_goto( method_string, _optional class_string, super? )
+
+	_global mfind
+	_global mjump
+
+	a_class << _unset
+
+	_if class_string _isnt _unset _andif
+		class_string.an_element() _isnt %^
+	_then
+		key << class_string.as_symbol()
+		class_string << _unset
+		# Use the provided class_string if it is a global.
+		_for a_package _over package.all_packages.fast_elements()
+		_loop
+			_if ( val << a_package[ key ] ) _isnt _unset
+			_then
+				a_class << val
+				class_string << write_string("^", a_class.class_name, "$")
+				_leave
+			_endif
+		_endloop
+	_endif
+
+	_if super? _is _true _andif a_class _isnt _unset
+	_then
+		class_string << _unset
+		mt << a_class.define_method_target
+		tables << rope.new()
+
+		# Find a parent implementation
+		_for parent_mt _over mt.parents( _true )
+		_loop
+			_if _not tables.includes?( parent_mt )
+			_then
+				super_class_string << write_string("^", parent_mt.meta_at(:class_name), "$")
+				results << mfind( method_string, super_class_string, _unset, 2, _false, _false, _false )
+				_if results.size _is 1
+				_then
+					mjump( 1 )
+					_return
+				_endif
+				tables.add_last( parent_mt )
+			_endif
+		_endloop
+	_endif
+
+	results << mfind( method_string, class_string, _unset, 2, _false, _false, _false )
+
+	_if results.size _is 1
+	_then
+		mjump( 1 )
+	_else
+		mfind( method_string, class_string )
+	_endif
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+## Proc to control a timer to monitor output and save to a temporary file to append to a console
+## file in VS Code.
+_global _constant vs_monitor_output <<
+_proc @vs_monitor_output(enable?)
+
+	_global timer, external_text_simple_output_stream
+	_global vs_output_timer, vs_default_terminal, vs_output
+	_global !output!, !error_output!, !terminal!
+
+	_if enable? _is _true
+	_then
+		_if vs_output_timer _is _unset
+		_then
+			write("Starting output monitor...")
+
+			_if vs_default_terminal _is _unset
+			_then
+				vs_default_terminal << !terminal!
+			_endif
+
+			_local simple? << external_text_simple_output_stream _isnt _unset
+
+			_local remove_trailing_lines << _proc(a_string)
+					end << 0
+					_for index _over a_string.size.downto(1)
+					_loop
+						_if _not a_string[index].white_space?
+						_then
+							end << index
+							_leave
+						_endif
+					_endloop
+					_return a_string.slice(1, end)
+				_endproc
+
+			_local orig_output << !output!
+			vs_output << internal_text_output_stream.new()
+			!output! << !error_output! << !terminal! << vs_output
+
+			temp_dir << _if system.os_name _is :windows
+				_then
+					>> system.getenv("TEMP")
+				_else
+					>> "/tmp"
+				_endif
+			_local output_file << system.pathname_down(temp_dir, "vscode_output_temp.txt")
+
+			_try
+				system.unlink(output_file, _true, _true)
+			_when error
+				# write("Cannot remove " + output_file)
+			_endtry
+
+			_if timer _isnt _unset
+			_then
+				vs_output_timer << timer.schedule_fixed_delay(
+					_proc @vs_output_timer()
+						_import output_file, remove_trailing_lines, simple?
+						_global vs_output
+
+						_lock vs_output
+							str << vs_output.string
+							_if _not str.empty? _andif str.last _is %newline
+							_then
+								output_stream << _unset
+								done? << _false
+								_protect
+									_if simple?
+									_then
+										_try
+											output_stream << external_text_simple_output_stream.new_appending(output_file)
+										_when filesystem_error
+											# Ignore
+											_return
+										_endtry
+									_else
+										output_stream << external_text_output_stream.new(output_file)
+									_endif
+									output_str << remove_trailing_lines(str)
+									output_stream.write(output_str, %newline)
+									done? << _true
+								_protection
+									_if output_stream _isnt _unset
+									_then
+										output_stream.close()
+									_endif
+									_if done?
+									_then
+										vs_output.reset()
+									_endif
+								_endprotect
+							_endif
+						_endlock
+					_endproc,
+					1.0, 0.4)
+			_else
+				vs_output_timer <<
+					_proc @vs_output_timer()
+						_import output_file, remove_trailing_lines
+						_global vs_output
+
+						_loop
+							_thisthread.sleep(400)
+
+							_lock vs_output
+								str << vs_output.string
+								_if _not str.empty?
+								_then
+									output_str << remove_trailing_lines(str)
+									output_stream << _unset
+									done? << _false
+									_protect
+										output_stream << external_text_output_stream.new(output_file)
+										output_stream.write(output_str, %newline)
+										done? << _true
+									_protection
+										_if output_stream _isnt _unset
+										_then
+											output_stream.close()
+										_endif
+										_if done?
+										_then
+											vs_output.reset()
+										_endif
+									_endprotect
+								_endif
+							_endlock
+						_endloop
+					_endproc.fork_at(_thisthread.low_background_priority)
+			_endif
+		_endif
+
+	_elif vs_output_timer _isnt _unset
+	_then
+		_if timer _isnt _unset
+		_then
+			vs_output_timer.cancel()
+		_else
+			vs_output_timer.kill()
+		_endif
+		vs_output_timer << _unset
+		vs_output << _unset
+		!output! << !error_output! << !terminal! << vs_default_terminal
+	_endif
+
+_endproc
+$
+
+
+_block
+	# A timer task to monitor output.
+	_global vs_output_timer
+
+	# Store the original terminal.
+	_global vs_default_terminal
+
+	# Store the output for use with the console terminal.
+	_global vs_output
+
+	_if vs_output_timer _isnt _unset
+	_then
+		# Restart monitor
+		vs_monitor_output(_false)
+		vs_monitor_output(_true)
+	_else
+		vs_output_timer << _unset
+		vs_default_terminal << _unset
+		vs_output << _unset
+	_endif
+
+_endblock
+$
+
+
+_pragma(classify_level=debug)
+## A proc to perform the named proc and capture any output to add to a console file in VS Code.
+_global vs_perform <<
+_proc @vs_perform(proc_name, _gather args)
+
+	_global get_global_value
+	_global vs_output
+	_global !global_auto_declare?!
+	_dynamic !output!
+	_dynamic !error_output!
+
+	a_proc << get_global_value(proc_name)
+	_if a_proc _is _unset _orif a_proc.class_name _isnt :procedure
+	_then
+		_return
+	_endif
+
+	_if vs_output _isnt _unset
+	_then
+		orig_output << !output!
+		orig_error_output << !error_output!
+		auto_declare? << !global_auto_declare?!
+		_protect
+			!output! << !error_output! << vs_output
+			!global_auto_declare?! << _true
+			a_proc.invoke(_scatter args)
+		_protection
+			!output! << orig_output
+			!error_output! << orig_error_output
+			!global_auto_declare?! << auto_declare?
+		_endprotect
+	_else
+		a_proc.invoke(_scatter args)
+	_endif
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+## Load temp file created in VS Code with a custom message at the Magik terminal.
+_global _constant vs_load <<
+_proc @vs_load()
+
+	_dynamic !output!
+
+	temp_dir << _if system.os_name _is :windows
+		_then
+			>> system.getenv("TEMP")
+		_else
+			>> "/tmp"
+		_endif
+	source_file << system.pathname_down(temp_dir, "vscode_temp.magik")
+
+	_if _not system.file_exists?(source_file)
+	_then
+		_return
+	_endif
+
+	msg << "Loading..."
+	input << _unset
+	_protect
+		input << external_text_input_stream.new(source_file)
+		_loop
+			_if (a_line << input.get_line()) _is _unset
+			_then
+				_leave
+			_endif
+			_if a_line.index_of_seq("# Output:") _is 1
+			_then
+				msg << a_line.slice_to_end(10)
+				_leave
+			_endif
+		_endloop
+	_protection
+		_if input _isnt _unset
+		_then
+			input.close()
+		_endif
+	_endprotect
+
+	orig_output << !output!
+	_protect
+		!output! << internal_text_output_stream.new()
+		orig_output.write(msg, %newline)
+
+		_try _with cond
+			load_file(source_file)
+			lines << !output!.string.split_by(%newline);
+			n_lines << lines.size
+			_if (n_lines > 1)
+			_then
+				_for i _over range(2, n_lines)
+				_loop
+					_if i <> n_lines
+					_then
+						orig_output.write(lines[i], %newline)
+					_else
+						orig_output.write(lines[i])
+					_endif
+					# orig_output.write(lines[i], %newline)
+				_endloop
+			_endif
+		_when error
+			cond.report_on(orig_output)
+		_endtry
+	_protection
+		!output! << orig_output
+	_endprotect
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+## Evaluate the temp file created in VS Code and display the result in the console magik file.
+_global _constant vs_console_load <<
+_proc @vs_console_load()
+
+	_global external_text_simple_output_stream
+	_global !global_auto_declare?!
+	_global vs_default_terminal
+	_global vs_output
+	_global !terminal!
+	_dynamic !output!
+	_dynamic !error_output!
+
+	temp_dir << _if system.os_name _is :windows
+		_then
+			>> system.getenv("TEMP")
+		_else
+			>> "/tmp"
+		_endif
+
+	input_file << system.pathname_down(temp_dir, "vscode_temp.magik")
+	_if _not system.file_exists?(input_file)
+	_then
+		_return
+	_endif
+
+	output_file << _if vs_output _is _unset
+		_then
+			>> system.pathname_down(temp_dir, "vscode_console_temp.txt")
+		_else
+			>> system.pathname_down(temp_dir, "vscode_output_temp.txt")
+		_endif
+
+	_local remove_trailing_lines << _proc(a_string)
+			end << 0
+			_for index _over a_string.size.downto(1)
+			_loop
+				_if _not a_string[index].white_space?
+				_then
+					end << index
+					_leave
+				_endif
+			_endloop
+			_return a_string.slice(1, end)
+		_endproc
+
+	orig_output << !output!
+	orig_error_output << !error_output!
+	orig_terminal << !terminal!
+	input_stream << _unset
+	output_stream << _unset
+	output_str << ""
+	result << _unset
+	auto_declare? << !global_auto_declare?!
+
+	_protect
+		input_stream << external_text_input_stream.new(input_file)
+		output_stream << _if external_text_simple_output_stream _isnt _unset
+			_then
+				>> external_text_simple_output_stream.new_appending(output_file)
+			_else
+				>> external_text_output_stream.new(output_file)
+			_endif
+
+		_if vs_output _is _unset
+		_then
+			!output! << !error_output! << internal_text_output_stream.new()
+		_else
+			!output! << !error_output! << vs_output
+			!terminal! << vs_default_terminal
+		_endif
+
+		sw4? << system.vm_version < 5
+		input_lines << rope.new()
+		_loop
+			_if (a_line << input_stream.get_line()) _is _unset
+			_then
+				_leave
+			_endif
+			_if sw4?
+			_then
+				_if _not a_line.empty? _andif
+					a_line[1] _isnt %# _andif
+				a_line[1] _isnt %$ _andif
+					(a_line.size < 9 _orif _not a_line.subseq(1, 9).eq?("_package "))
+				_then
+					input_lines.add_last(a_line)
+				_endif
+			_else
+				_if a_line.size < 8 _orif a_line.subseq(1, 8) <> "# Magik>"
+				_then
+					input_lines.add_last(a_line)
+				_endif
+			_endif
+		_endloop
+		input_str << input_lines.join_as_strings(%newline)
+
+		!global_auto_declare?! << _true
+
+		result << input_str.evaluate()
+
+		output_str << !output!.string
+		output_str_empty? << output_str.empty?
+
+		_if vs_output _is _unset _andif _not output_str_empty?
+		_then
+			str << remove_trailing_lines(output_str)
+			output_stream.write(str, %newline)
+		_endif
+
+		_if result _isnt _unset _orif output_str_empty?
+		_then
+			output_stream.write(result, %newline)
+		_endif
+
+	_protection
+		_if vs_output _is _unset
+		_then
+			error_str << !error_output!.string
+			_if _not error_str.empty? _andif error_str <> output_str
+			_then
+				str << remove_trailing_lines(error_str)
+				output_stream.write(str, %newline)
+			_endif
+		_endif
+
+		_if input_stream _isnt _unset
+		_then
+			input_stream.close()
+		_endif
+		_if output_stream _isnt _unset
+		_then
+			output_stream.close()
+		_endif
+
+		!output! << orig_output
+		!error_output! << orig_error_output
+		!terminal! << orig_terminal
+
+		!global_auto_declare?! << auto_declare?
+	_endprotect
+
+	_return result
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+## Save methods names to file to load as symbols in VS Code.
+_global _constant vs_save_symbols <<
+	_proc @vs_save_symbols(_optional class_names)
+
+		_global slot_access_method_name
+		_global user_repository_paths
+
+		temp_dir << _if system.os_name _is :windows
+			_then
+				>> system.getenv("TEMP")
+			_else
+				>> "/tmp"
+			_endif
+		output_name << system.pathname_down(temp_dir, "vscode_symbols.txt")
+		temp_output_name << system.pathname_down(temp_dir, "vscode_symbols_temp.txt")
+
+		_local core_dir << smallworld_product.product(:sw_core).directory
+		_loop
+			index << core_dir.index_of("\")
+			_if index _is _unset _then _leave _endif
+			core_dir[index] << "/"
+		_endloop
+		_local home_drive << _if core_dir[2] = %:
+			_then
+				>> core_dir.subseq(1, 2)
+			_else
+				>> ""
+			_endif
+
+		_if class_names _isnt _unset _andif
+			system.file_exists?(output_name)
+		_then
+			a_set << set.new()
+			_for c_name _over class_names.fast_elements()
+			_loop
+				a_set.add(c_name.as_symbol())
+			_endloop
+			class_names << a_set
+
+			update? << _unset
+			_protect
+				input << external_text_input_stream.new(output_name)
+				_loop
+					_if (a_line << input.get_line()) _is _unset
+					_then
+						_leave
+					_endif
+					_if update? _is _unset
+					_then
+						update? << a_line.index_of_seq("update:") _is 1
+					_elif update?
+					_then
+						# Previous symbol file was an update -> append these classes to new update
+						class_name << a_line.split_by("|")[1].as_symbol()
+						class_names.add(class_name)
+					_endif
+				_endloop
+			_protection
+				_if input _isnt _unset
+				_then
+					input.close()
+					_thisthread.sleep(100)
+				_endif
+			_endprotect
+			_if update? _isnt _true
+			_then
+				# Previous symbol file was not an update -> save all methods
+				class_names << _unset
+			_endif
+		_endif
+
+		_try
+			system.unlink(temp_output_name, _true, _true)
+		_when error
+			write("Cannot remove " + temp_output_name)
+			_return
+		_endtry
+
+		_try
+			system.unlink(output_name, _true, _true)
+		_when error
+			write("Cannot remove " + output_name)
+			_return
+		_endtry
+
+		_local slot_mt << slot_access_method_name.method_table
+		_local serial_prefix << _if system.vm_version < 5
+			_then
+				>> "queued_work"
+			_else
+				>> sw_canvas_container.serialisation_thread_name
+			_endif
+		_local serial_prefix_n << serial_prefix.size + 1
+
+		_local update_source_path << _proc @update_source_path(source_path)
+				_import core_dir, home_drive
+
+				_if source_path _is _unset
+				_then
+					_return ""
+				_endif
+
+				res << source_path
+
+				_if source_path[1] = %/ _orif source_path[1] = %\
+				_then
+					_if source_path.index_of_seq("/sw_core/") _isnt _unset
+					_then
+						res << "".concatenation(core_dir, "/", source_path.split_by("/sw_core/")[2])
+					_else
+						a_path << "".concatenation(home_drive, source_path)
+						_if system.file_exists?(a_path)
+						_then
+							res << a_path
+						_endif
+					_endif
+				_endif
+
+				_return res
+			_endproc
+
+		_local get_source_file << _proc @get_source_file(mt)
+				_import update_source_path
+
+				source_file << mt.source_file
+
+				_if source_file _is _unset
+				_then
+					# Try the most common local method source file
+					methods << equality_hash_table.new()
+					_for m _over mt.local_methods()
+					_loop
+						_if _not m.slot_accessor?
+						_then
+							_try
+								m_source_file << m.source_file
+								_if m_source_file <> "Evaluated-inline"
+								_then
+									n << methods[m_source_file].default(0)
+									methods[m_source_file] << n + 1
+								_endif
+							_when error
+							_endtry
+						_endif
+					_endloop
+					max << 0
+					_for f, total _over methods.fast_keys_and_elements()
+					_loop
+						_if total > max
+						_then
+							source_file << f
+							max << total
+						_endif
+					_endloop
+				_endif
+
+				_return update_source_path(source_file)
+			_endproc
+
+		_local output_class << _proc @output_class(mt, c_name, output)
+				_import get_source_file
+				_import slot_mt
+				_import serial_prefix
+				_import serial_prefix_n
+				_import update_source_path
+
+				# p_name << _if (g_var << mt.meta_at(:exemplar_global)) _isnt _unset
+				# 	_then
+				# 		>> g_var.package.name
+				# 	_endif
+				# full_c_name << write_string(p_name, ":", c_name)
+
+				source_file << get_source_file(mt)
+				methods_str << internal_text_output_stream.new()
+
+				_for m _over mt.local_methods(_true)
+				_loop
+					m_name << m.name
+					_if m_name _is :exemplar _orif
+						m_name.method_table _is slot_mt _orif
+						m_name.an_element() _is %$
+					_then
+						_continue
+					_endif
+
+					_if m_name.index_of_seq(serial_prefix) _is 1 _andif
+						m_name.index_of(%!, serial_prefix_n) _isnt _unset
+					_then
+						_continue
+					_endif
+
+					classify_str << _if m.private?
+						_then
+							>> ",1,"
+						_else
+							>> ",,"
+						_endif
+
+					_if m.slot_accessor?
+					_then
+						methods_str.write(m_name, classify_str, "1,;")
+					_else
+						m_source_file << source_file
+						_try
+							m_file << m.source_file
+							_if m_file _isnt _unset _andif
+								m_file <> "Evaluated-inline" _andif
+								m_file.index_of_seq("load_mutated_methods.magik") _is _unset _andif
+								(c_name _is :sw_component _orif m_file.index_of_seq("sw_component.magik") _is _unset) # component properties
+							_then
+								m_source_file << update_source_path(m_file)
+							_endif
+						_when error
+						_endtry
+						_if m_source_file <> source_file
+						_then
+							methods_str.write(m_name, classify_str, ",", m_source_file, ";")
+						_else
+							methods_str.write(m_name, classify_str, ",;")
+						_endif
+					_endif
+				_endloop
+
+				parents_str << internal_text_output_stream.new()
+				_for parent_mt _over mt.parents()
+				_loop
+					parents_str.write(parent_mt.meta_at(:class_name), ";")
+				_endloop
+
+				str << "".concatenation(c_name, "|", source_file, "|", parents_str.string, "|", methods_str.string)
+				output.write(str, newline_char)
+			_endproc
+
+		done << set.new()
+
+		output << _unset
+		ok? << _false
+		_protect
+			output << external_text_output_stream.new(temp_output_name)
+
+			_if class_names _isnt _unset
+			_then
+				output.write("UPDATE:", newline_char)
+
+				_for c_name _over class_names.fast_elements()
+				_loop
+					key << c_name.as_symbol()
+					a_class << _for a_package _over package.all_packages.fast_elements()
+						_loop
+							_if (val << a_package[key]) _isnt _unset
+							_then
+								_leave _with val
+							_endif
+						_endloop
+					_if a_class _isnt _unset
+					_then
+						mt << a_class.define_method_target
+						output_class(mt, key, output)
+					_endif
+				_endloop
+			_else
+				_for g _over package.all_globals()
+				_loop
+					val << g.value
+
+					_if val _is _unset _orif
+						val.class_name _is :procedure
+					_then
+						_if val _isnt _unset _andif
+							(m_file << val.compiler_info[:source_file]) _isnt _unset
+						_then
+							m_file << update_source_path(m_file.as_charvec())
+							output.write("GLOBAL|", g.key, "|", m_file, newline_char)
+						_else
+							output.write("GLOBAL|", g.key, newline_char)
+						_endif
+						_continue
+					_endif
+
+					mt << val.define_method_target
+					c_name << mt.meta_at(:class_name)
+					_if done.includes?(c_name)
+					_then
+						_continue
+					_endif
+					done.add(c_name)
+
+					output_class(mt, c_name, output)
+				_endloop
+
+				# Add conditions
+				_for cond_key, a_cond _over condition.sys!perform(:template_map).fast_keys_and_elements()
+				_loop
+					m_file << a_cond.module_file
+					_if m_file _isnt _unset
+					_then
+						m_file << update_source_path(m_file.as_charvec())
+						output.write("CONDITION|", cond_key, "|", m_file, newline_char)
+					_else
+						output.write("CONDITION|", cond_key, newline_char)
+					_endif
+				_endloop
+			_endif
+
+			ok? << _true
+		_protection
+			_if output _isnt _unset
+			_then
+				output.close()
+				_if ok?
+				_then
+					_thisthread.sleep(100)
+					_try
+						system.rename(temp_output_name, output_name)
+					_when error
+						write("Cannot save symbols file")
+					_endtry
+				_endif
+			_endif
+		_endprotect
+
+	_endproc
+$
+
+
+_pragma(classify_level=debug)
+##
+## Load the module containing the specified file.
+## Adds products and loads prerequisite modules as necessary.
+##
+_global _constant vs_load_file <<
+_proc @vs_load_file( file_path, _optional force_reload? )
+
+	_global load_module
+
+	_if _not system.file_exists?( file_path )
+	_then
+		write( "File Not Found" )
+		_return
+	_endif
+
+	module_name << _unset
+
+	(filename, dir) << system.pathname_components( file_path )
+	module_dir << system.locate_file( dir, "module.def" )
+
+	_if module_dir _isnt _unset
+	_then
+		res << sw_module_manager.module_roots( module_dir, _false )
+		_if _not res.empty?
+		_then
+			module_name << res.a_key()[1]
+
+			_if module_name _is _unset _orif
+				module_name.size _is 0 _orif
+				module_name[1] = %#
+			_then
+				module_name << _unset
+				mod_def << system.pathname_down(module_dir, "module.def")
+				_if system.file_exists?(mod_def)
+				_then
+					a_stream << _unset
+					_protect
+						a_stream << external_text_input_stream.new(mod_def)
+						_loop
+							_if (a_line << a_stream.get_line()) _is _unset
+							_then
+								_leave
+							_endif
+							a_line << a_line.trim_spaces()
+							_if a_line.size > 0 _andif a_line[1] <> %#
+							_then
+								module_name << _if a_line.index_of(%tab) _isnt _unset
+									_then
+										>> a_line.split_by(%tab)[1]
+									_else
+										>> a_line.split_by(%space)[1]
+									_endif
+								_leave
+							_endif
+						_endloop
+					_protection
+						_if a_stream _isnt _unset
+						_then
+							a_stream.close()
+						_endif
+					_endprotect
+				_endif
+			_endif
+		_endif
+	_endif
+
+	_if module_name _is _unset
+	_then
+		write( "Cannot find module for ", file_path )
+		_return
+	_endif
+
+	_if force_reload? _isnt _true _andif
+		sw_module_manager.module_is_loaded?( module_name ) _andif
+		file_path.index_of_seq( ".magik" ) _isnt _unset
+	_then
+		load_file( file_path )
+		_return
+	_endif
+
+	_if _not sw_module_manager.module_is_defined?( module_name )
+	_then
+		# Add the product here since we already know the module directory
+		product_dir << system.locate_file( module_dir, "product.def" )
+		_if product_dir _is _unset
+		_then
+			write( "Cannot load ", module_name, " - cannot find product." )
+			_return
+		_endif
+
+		smallworld_product.add_product( product_dir )
+	_endif
+
+	load_module( module_name, force_reload? )
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+## Run the test for the supplied test class and method name.
+_global _constant vs_run_test <<
+_proc @vs_run_test(class_name, method_name)
+	_global run_tests
+	_global test_case
+
+	a_class << _unset
+
+	key << class_name.as_symbol()
+	_for a_package _over package.all_packages.fast_elements()
+	_loop
+		_if ( val << a_package[ key ] ) _isnt _unset
+		_then
+			a_class << val
+			_leave
+		_endif
+	_endloop
+
+	_if a_class _isnt _unset _andif
+		a_class.is_kind_of?( test_case )
+	_then
+		name << write_string(method_name, "()")
+		_for a_test _over a_class.suite().tests()
+		_loop
+			_if a_test.get_name() = name
+			_then
+				run_tests({a_test}, _false)
+				_leave
+			_endif
+		_endloop
+	_endif
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+## Compiles the messages for the module containing the specified message file.
+_global _constant vs_compile_messages <<
+_proc @vs_compile_messages( msg_file )
+
+	(filename, dir) << system.pathname_components( msg_file )
+	dir << system.locate_file( dir, "module.def" )
+	_if dir _isnt _unset
+	_then
+		res << sw_module_manager.module_roots( dir, _false )
+		_if _not res.empty?
+		_then
+			a_module << sw_module_manager.module( res.a_key()[1] )
+			_if a_module _isnt _unset
+			_then
+				a_module.compile_messages()
+			_endif
+		_endif
+	_endif
+
+_endproc
+$
+
+
+_pragma(classify_level=debug)
+## This method returns the string to display during Magik debugging in VS Code.
+_method object.vs_debug_string
+
+	s << internal_text_output_stream.new()
+	_if _self.is_kind_of?(dd_record_and_collection_mixin)
+	_then
+		_dynamic !output!
+		orig_output << !output!
+		_try
+			!output! << s
+			_self.describe_fields()
+		_when error
+			s.reset()
+			_self.write_on(s)
+		_endtry
+		!output! << orig_output
+	_elif _self.is_kind_of?(basic_collection_mixin) _andif
+		_not {:char16_string, :symbol}.includes?(_self.class_name) _andif
+		_not _self.empty?
+	_then
+		_if _self.responds_to?(:print_on|()|)
+		_then
+			_self.print_on(s)
+		_else
+			_self.debug_print_on(s)
+		_endif
+	_else
+		_self.write_on(s)
+	_endif
+	>> s.string.as_charvec()
+_endmethod
+$
+
+# End procs
+# ---------------------------------------------------------------------------------------
+
+_block
+	_global vs_save_symbols
+	vs_save_symbols()
+_endblock
+$

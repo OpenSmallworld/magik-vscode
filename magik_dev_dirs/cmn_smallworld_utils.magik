@@ -1,0 +1,13 @@
+#% text_encoding = iso8859_1
+_package sw
+
+# Grid OS product
+confirm_magik_dev_file(:cmn_smallworld)
+
+local_product_path(:cmn_smallworld, projects_path("gnm-data-services-magik\cmn_smallworld"))
+
+group_product(:cmn_smallworld, :cmn_smallworld)
+
+add_test_product("gnm-data-services-magik\tests\cmn_smallworld_int_tests_base")
+add_test_product("gnm-data-services-magik\tests\cmn_smallworld_unit_tests")
+add_test_product("gnm-data-services-magik\tests\cmn_smallworld_int_tests")

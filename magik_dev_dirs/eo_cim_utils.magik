@@ -1,0 +1,38 @@
+!global_auto_declare?! << _true
+$
+
+#% text_encoding = iso8859_1
+_package sw
+
+## EO CIM Sessions
+##
+# DNOM loads some modules from the :eo_cim product, so checking for a specific CIM module
+confirm_magik_dev_file(:eo_cim, :eo_cim_image)
+$
+
+add_test_product("gis_adapter/tests")
+$
+
+local_product_path(:sw_cim_adapter_base, projects_path("gis_adapter\sw_cim_adapter_base"), :gisa)
+local_product_path(:sw_cim_adapter, projects_path("gis_adapter\sw_cim_adapter"), :gisa)
+local_product_path(:eo_cim, projects_path("gis_adapter\eo_cim"), :gisa)
+$
+
+dev_doc("get_cim_circuit(circuit_id) - Return the circuit(s) with that ID")
+_global get_cim_circuit << _proc@get_cim_circuit(circuit_id)
+	_return get_eo_object(:eo_circuit, :circuit_id, circuit_id)
+_endproc
+$
+
+dev_doc("generate_golden_files(_true/_false) - Switch between generating golden files and validating them")
+_global generate_golden_files << _proc@generate_golden_files(enabled?)
+	sw_module_manager.load_module(:cim_canonicalization_mod, _unset, :force_reload, _false)
+
+    # If true, files are updated. If false, files are compared
+    _global canonicalize_cim?
+    canonicalize_cim? << enabled?
+_endproc
+$
+
+!global_auto_declare?! << _maybe
+$

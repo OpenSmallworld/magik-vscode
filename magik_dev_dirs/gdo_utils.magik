@@ -1,0 +1,33 @@
+#% text_encoding = iso8859_1
+_package sw
+
+confirm_magik_dev_file(:sw_gas_dist_office)
+
+local_product_path(:sw_gas_dist_office, projects_path("gdo\gas_distribution_office"))
+
+add_test_product("gdo\tests")
+
+_global open_gdo_db <<
+	_proc @open_gdo_db(path _optional startup?, vvmds?)
+		_if vvmds? _is _true
+		_then
+			smallworld_product.set_startup_option(:vvmds_temp_dir, _true)
+		_endif
+		open_database(path, :gas_distribution)
+		_if startup? _is _true
+		_then
+			startup()
+		_endif
+	_endproc
+
+_global gdo_setvars << _proc@gdo_setvars()
+		
+		_global gdv
+
+		gdv << gis_program_manager.databases[:gas_distribution]
+
+		report_ds(gdv, "gdv (:gas_distribution)")
+
+	_endproc
+
+setvars_procs.add_last(gdo_setvars)

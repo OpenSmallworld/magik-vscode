@@ -1,0 +1,41 @@
+#% text_encoding = iso8859_1
+
+_package sw
+$
+
+confirm_magik_dev_file(:eo_ssm)
+$
+
+_block
+	local_product_path(:eo_ssm, projects_path("eo_ssm\eo_ssm"), :eo)
+	add_test_product("eo\tests\tests_base")
+	add_test_product("eo_ssm\tests")
+	
+	# The lists of test modules should match those defined in \eo_ssm\tests\build.xml
+	_if sw_module_manager.module(:eo_network_update_application).loaded?
+	_then
+		write("NU session??")
+		default_test_module_names.add_all_last({
+				:eo_network_update_abstracted_som_itests,
+				:web_http_service_request_handler_tests,
+				:eo_ssm_udm_itests})
+	_elif sw_module_manager.module(:eo_mobile_application).loaded?
+	_then
+		write("Mobile session??")
+		default_test_module_names.add_all_last({
+				:eo_mobile_http_service_request_handler_tests,
+				:eo_mobile_abstracted_som_itests})
+	_else
+		write("Baseline session??")
+		default_test_module_names.add_all_last({
+				:eo_ssm_abstracted_som_itests
+			})
+	_endif
+	
+_endblock
+$
+
+_global eo_app << _proc@eo_app()
+		sw_module_manager.load_module(:sweo_dm_user_application, _unset, :force_reload?, _true)
+_endproc
+$

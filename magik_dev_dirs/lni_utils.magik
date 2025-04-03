@@ -1,0 +1,7 @@
+#% text_encoding = iso8859_1
+_package sw
+
+confirm_magik_dev_file(:lni)
+local_product_path(:lni, projects_path("lni\lni"), :lni)
+
+add_test_product("lni/tests")

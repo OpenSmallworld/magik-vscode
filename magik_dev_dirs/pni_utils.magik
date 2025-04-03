@@ -1,0 +1,99 @@
+#% text_encoding = iso8859_1
+_package sw
+
+confirm_magik_dev_file(:pni)
+local_product_path(:pni, projects_path("pni\pni"), :pni)
+
+add_test_product("pni/pni_testing")
+add_test_product("pni/pni_custom")
+
+# Loading the DM test product loads the :cost_object_library module.  This
+# module should not be loaded in a PNI session. Loading it causes tracebacks. 
+# Remove the DM test product from the list of test products
+_block 
+	_local products_to_remove << rope.new()
+	_for index, test_product _over test_product_dirs.fast_keys_and_elements()
+	_loop 
+		_if test_product.index_of_seq("dm") _isnt _unset
+		_then
+			products_to_remove.add_first(index)
+		_endif
+	_endloop
+	products_to_remove.map(_proc(index) test_product_dirs.remove_nth(index) _endproc)
+_endblock
+
+default_test_module_names.add_last(:conflict_test_framework)
+default_test_module_names.add_last(:pni_conflict_test)
+
+_global open_pni_db <<
+	_proc(path _optional startup?, vvmds?)
+		system.putenv("SW_MODELIT_DB_DIR", path)
+		_if vvmds? _is _true
+		_then
+			smallworld_product.set_startup_option(:vvmds_temp_dir, _true)
+		_endif
+		get_global_value(:pni_init).invoke(path)
+		_if startup? _is _true
+		_then 
+			startup()
+		_endif 
+	_endproc
+$
+
+_global open_pni_dev_db <<
+	_proc(_optional startup?, vvmds?)
+		_if vvmds? _is _true
+		_then 
+			smallworld_product.set_startup_option(:vvmds_temp_dir, _true)
+			open_pni_db("cbglindb02:/storage/automated_comms_db/pni_development_ci_vvmds")
+		_else
+			open_pni_db("cbglindb02:/storage/automated_comms_db/pni_development_ci")
+		_endif
+		_if startup? _is _true
+		_then 
+			startup()
+		_endif
+	_endproc
+$
+
+_global open_pni_shipped_db <<
+	_proc(_optional startup?, vvmds?)
+		_if vvmds? _is _true
+		_then 
+			smallworld_product.set_startup_option(:vvmds_temp_dir, _true)
+			open_pni_db("cbglindb02:/storage/automated_comms_db/pni_shipped_ci_vvmds")
+		_else
+			open_pni_db("cbglindb02:/storage/automated_comms_db/pni_shipped_ci")
+		_endif
+		_if startup? _is _true
+		_then 
+			startup()
+		_endif
+	_endproc
+$
+
+_global pni_setvars << _proc@pni_setvars()
+		_global app, vp, vg, scvp, scvf
+		_if app _isnt _unset 
+		_then 
+			vp << app.plugin(:viewer_plugin)
+			_if vp _isnt _unset
+			_then
+				vg << vp.sys!slot(:viewer_gui)
+				scvp << vg.plugin(:viewer)
+			_endif
+			_if scvp _isnt _unset 
+			_then
+				scvf << scvp.sys!slot(:embedded_viewer)
+			_endif
+		_endif 
+		
+		_if vp    _isnt _unset _then write("vp",    tab_char, vp) _endif	
+		_if vg    _isnt _unset _then write("vg",    tab_char, vg) _endif	
+		_if scvp  _isnt _unset _then write("scvp",  tab_char, scvp) _endif
+		_if scvf  _isnt _unset _then write("scvf",  tab_char, scvf) _endif
+		
+	_endproc
+
+setvars_procs.add_last(pni_setvars)
+$

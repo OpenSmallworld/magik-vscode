@@ -1,0 +1,167 @@
+#% text_encoding = iso8859_1
+_package sw
+
+## This file provides a mechanism to load a subset of magik files, appropriate
+## to the current session, from a pre-configured list of directories.
+##
+## Set up - have this file loaded as part of any session startup, e.g.
+## referenced by SW_MSF_STARTUP_MAGIK
+##
+## Usage - load_magik_dev()
+##
+## Config -
+##   Provide magik files, each calling confirm_dev_load() at the top in order to
+##   abort the load of irrelevant files
+##   Add these files to directory and add that directory to env var
+##   SW_MAGIK_DEV_DIRS (; delimited)
+
+_global !vscode?! << system.getenv( "TERM_PROGRAM" ) = "vscode"
+$
+
+condition.define_condition(:abort_dev_load, :information, {:description})
+$
+
+_global confirm_magik_dev_file << _proc@confirm_magik_dev_file(_optional product_name, module_name, other_test?, description)
+		##
+		## A call to this proc should be placed at the top of any magik dev file to be
+		## loaded into a session.  It's purpose is to raise an abort_dev_load
+		## condition to prevent any file being loaded that is incompatible with the
+		## session.
+		## For example...
+		## * Only required when a specific product is present
+		##       confirm_magik_dev_file(:sw_core)
+		## * Only required when a specific module is present
+		##       confirm_magik_dev_file(_unset, :pni_ssm_base)
+		## * Only required for a more specific reason
+		##       confirm_magik_dev_file( _unset , _unset, get_global_value(:nothing_at_all) _isnt _unset, "Stopping loading this file halfway.")	
+		##
+		
+		_if product_name _isnt _unset _andif 
+			smallworld_product.product(product_name) _is _unset
+		_then
+			condition.raise(:abort_dev_load,
+				:description, description.default(write_string(" - missing product: ", product_name))
+			)
+		_endif
+				
+		_if module_name _isnt _unset _andif
+			_not sw_module_manager.module_is_loaded?(module_name)
+		_then
+			condition.raise(:abort_dev_load,
+				:description, description.default(write_string(" - missing module: ", module_name))
+			)
+		_endif
+		
+		_if other_test? _isnt _unset _andif
+			other_test? _isnt _true
+		_then
+			condition.raise(:abort_dev_load,
+				:description, description)
+		_endif
+	_endproc
+$
+
+_block
+	_if system.getenv("SW_MAGIK_DEV_DIRS") _is _unset
+	_then
+		system.putenv("SW_MAGIK_DEV_DIRS",
+			system.pathname_down(
+				system.pathname_up(!compiler_file!),
+				"magik_dev_dirs")
+		)
+	_endif
+_endblock
+$
+		
+_global sw_magik_dev_dirs << _proc@sw_magik_dev_dirs()
+		
+		## Returns a list of directories containing magik dev files to be loaded.
+		## This implementation splits the env var SW_MAGIK_DEV_DIRS by %; and returns
+		## the resulting list
+		
+		env << system.getenv("SW_MAGIK_DEV_DIRS")
+		_if env _is _unset
+		_then
+			write("No SW_MAGIK_DEV_DIRS set")
+			_return {}
+		_endif
+		
+		>> env.split_by(%;)
+	_endproc
+$	
+
+_global load_magik_dev << _proc@load_magik_dev(_optional output_docs?)
+		
+		## Load files in magik_dev_dirs.
+		## Only those files that are relevant to the current session will be loaded
+		
+		_handling sw_product_warning, sw_product_information, sw_module_warning, sw_module_information _with procedure
+		
+		_global dev_docs, output_dev_docs
+		dev_docs.empty()
+				
+		_for dir _over sw_magik_dev_dirs().elements()
+		_loop
+			dc << directory_channel.new(dir)
+			file_list << sorted_collection.new()
+			_while (f << dc.get()) _isnt _unset
+			_loop
+				file_list.add(f)
+			_endloop
+
+			_for f _over file_list.elements()
+			_loop
+				_local file_path << system.pathname_down(dir, f)
+				_try _with c
+					_dynamic !output! << internal_text_output_stream.new()
+					load_file(file_path)
+					!output! << !terminal!
+					write("Loaded:  ", file_path)
+				_when abort_dev_load
+					write("Skipped: ", file_path, c[:description])
+				_endtry 
+			_endloop			
+		_endloop
+		
+		_if output_docs?.default(_true)
+		_then
+			output_dev_docs()
+		_endif
+	_endproc
+$
+
+_global dev << load_magik_dev
+$
+
+_global dev_docs << equality_property_list.new()
+$
+
+_global dev_doc << _proc@document_dev_util(str)
+		##
+		## Provide a helpful hint to be written out 
+		##
+		_if (file_docs << dev_docs[!compiler_file!]) _is _unset
+		_then
+			file_docs << dev_docs[!compiler_file!] <<
+				sorted_collection.new(0, _proc(a,b) >> a[1] < b[1] _endproc)
+		_endif
+					
+		file_docs.add({str,!compiler_file!})
+_endproc
+$
+
+_global output_dev_docs << _proc@output_dev_docs()
+		##
+		## List out the dev utilities' descriptions, as stored in dev_docs
+		##
+		write(newline_char, "DEV UTILS:")
+		_for file_name, file_docs _over dev_docs.fast_keys_and_elements()
+		_loop
+			write(file_name)
+			_for i _over file_docs.elements()
+			_loop
+				write(tab_char, i[1])
+			_endloop
+		_endloop
+	_endproc
+$	

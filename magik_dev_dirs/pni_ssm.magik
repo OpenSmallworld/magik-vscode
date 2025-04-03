@@ -1,0 +1,29 @@
+#% text_encoding = iso8859_1
+_package sw
+
+
+confirm_magik_dev_file(_unset, :pni_ssm_base)
+$
+
+add_test_product("pni_ssm\tests")
+add_test_product("pni\pni_testing")
+local_product_path(:pni_ssm, projects_path("pni_ssm\pni_ssm"), :pni)
+
+dev_doc("abs_ds() - Restart and return the primary abstracted view for this session")
+_global abs_ds << _proc@abs_ds()
+		_global abs_v
+		_if sw_module_manager.module_is_loaded?(:pni_network_update_abstracted_som)
+		_then
+			_global pni_nu_abstracted_som_helper
+			abs_v << pni_nu_abstracted_som_helper.restart_som()
+		_elif sw_module_manager.module_is_loaded?(:pni_mobile_abstracted_som)
+		_then
+			_global pni_mobile_abstracted_som_helper
+			abs_v << pni_mobile_abstracted_som_helper.restart_som()
+		_else
+			abs_v << pni_abstracted_som_helper.restart_som()
+		_endif
+		
+		>> abs_v		
+_endproc
+$

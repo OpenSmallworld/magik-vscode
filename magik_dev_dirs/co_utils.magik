@@ -1,0 +1,43 @@
+#% text_encoding = iso8859_1
+_package sw
+
+confirm_magik_dev_file(:sw_common_office)
+
+local_product_path(:sw_common_office, projects_path("sw_common_office\sw_common_office"))
+
+add_test_product("sw_common_office\tests")
+
+_global co_setvars << _proc@co_setvars()
+		
+		app << setapp()
+
+		_if app _is _unset
+		_then 
+			_return 
+		_endif
+		
+		_global sop, stm
+		_global scp, scv, sce
+		
+		sop  << app.plugin(:schematic_operations) 
+		scp  << app.plugin(:schematics) 
+
+		_if sop _isnt _unset
+		_then 
+			stm << sop.manager
+		_endif
+		_if scp _isnt _unset
+		_then 
+			scv << scp.dialogs[:validator]
+			sce << scp.engine
+		_endif
+		
+		_if sop   _isnt _unset _then write("sop",     tab_char, sop) _endif
+		_if stm   _isnt _unset _then write("stm",     tab_char, stm) _endif
+		_if scp   _isnt _unset _then write("scp",     tab_char, scp) _endif
+		_if scv   _isnt _unset _then write("scv",     tab_char, scv) _endif			
+		_if sce   _isnt _unset _then write("sce",     tab_char, sce) _endif			
+		
+	_endproc
+
+setvars_procs.add_last(co_setvars)

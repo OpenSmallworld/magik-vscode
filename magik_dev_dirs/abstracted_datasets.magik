@@ -1,0 +1,22 @@
+#% text_encoding = iso8859_1
+_package sw
+
+
+confirm_magik_dev_file(_unset, :sw_abstracted_som)
+
+setvars_procs.add(
+	_proc@abstracted_datasets_setvars()
+	
+		_global abs_v
+		_for dsv _over gpm.databases.elements()
+		_loop
+			_if dsv.is_abstracted?
+			_then
+				abs_v << dsv
+				write("abs_v << gpm.databases[:", dsv.name, %], tab_char, dsv)
+				_leave
+			_endif
+		_endloop
+	_endproc
+)
+$

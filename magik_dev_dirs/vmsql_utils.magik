@@ -1,0 +1,24 @@
+#% text_encoding = iso8859_1
+_package sw
+
+confirm_magik_dev_file(:sw_core, _unset, get_global_value(:vmsql_manager) _isnt _unset)
+$
+
+dev_doc("add_vmsql_dataset_to_soc(_optional <dataset_name>, <soc_name>) - Add a VMSQL dataset named <dataset_name> (default :pg_gis) to the SOC <soc_name> (default :gis). This assumes the database already exists in PG (e.g. you have loaded it from a dump)")
+_global add_vmsql_dataset_to_soc << _proc@add_vmsql_dataset_to_soc(_optional dataset_name, soc_name)
+	dataset_name << dataset_name.default(:pg_gis)
+	soc_name << soc_name.default(:gis)
+
+	vmsql_dsm << vmsql_manager.new(dataset_name)
+	ace_top << gis_program_manager.ace_top_view
+	ace_top.switch(:write)
+	vmsql_dsm.store_connect_spec(vmsql_manager.default_connect_specification)
+	a_soc << gis_program_manager.spatial_object_controller(soc_name)
+	cspec << vmsql_dsm.get_connect_spec()
+	vmsql_dsm.open(cspec)
+	a_soc.add_dataset_manager( vmsql_dsm )
+	gis_program_manager.add_dataset(soc_name, dataset_name, :vmsql_manager)
+	ace_top.commit()
+	ace_top.switch(:readonly)
+_endproc
+$

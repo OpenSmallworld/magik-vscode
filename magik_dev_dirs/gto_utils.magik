@@ -1,0 +1,34 @@
+#% text_encoding = iso8859_1
+_package sw
+
+confirm_magik_dev_file(:sw_gas_trans_office)
+
+local_product_path(:sw_gas_trans_office, projects_path("gto\global_transmission_office"))
+
+add_test_product("gto\tests")
+
+_global open_gto_db <<
+	_proc @open_gto_db(path _optional startup?, vvmds?)
+		_if vvmds? _is _true
+		_then
+			smallworld_product.set_startup_option(:vvmds_temp_dir, _true)
+		_endif
+		open_database(path, :global_transmission)
+		_if startup? _is _true
+		_then
+			startup()
+		_endif
+	_endproc
+$
+
+_global gto_setvars << _proc@gto_setvars()
+		
+		_global gtv
+
+		gtv << gis_program_manager.databases[:gas_transmission]
+
+		report_ds(gtv, "gtv (:gas_transmission)")
+
+	_endproc
+
+setvars_procs.add_last(gto_setvars)
