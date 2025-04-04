@@ -5,7 +5,7 @@ $
 _global !vscode?! << _true
 
 # Dummy dev_doc to prevent missing references
-_global dev_doc << _proc(desc) write("AAA: ",desc) _endproc
+_global dev_doc << _proc(desc) _endproc
 _global confirm_magik_dev_file << _proc() >> _true _endproc
 		
 _block 

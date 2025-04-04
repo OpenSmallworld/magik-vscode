@@ -2,147 +2,17 @@
 _package sw
 $
 
-# This file contains some helpful development procedures to
-# use at the magik prompt.
-#
+# This file contains some helpful development procedures to use at the magik prompt.
 #
 # Recommended steps before using these procedures:
 #
-# 1. (Optional) Set the global USER_REPOSITORY_PATHS to contain the local
-#    repository paths you are working on.
+# 1. (Optional) Set the global USER_REPOSITORY_PATHS to contain the local repository paths you are working on.
 #
-# 2. Use relocate_products() to point known products at your
-#    local repositories. (Make sure sw_core has a product.def)
+# 2. Use rpp() to point products at your local repositories. (Make sure sw_core has a product.def)
 #
 # 3. Use load_changes() to compile any magik changes in your branch.
 #
-#
-#
-# Overview of procedures:
-#
-# -------------------------------------------------------------------
-# LOADING CODE:
-#
-# relocate_products()
-#   Points the known products at the user repositories.
-#
-# load_changes()
-#   Load the changed files (or modules) found in the current branch of a local repository.
-#
-# load_module()
-#   Loads the specified module.
-#   Searches for the module if not defined and adds the product.
-#
-# load_modules()
-#   Loads the specified module(s).
-#
-# load_class()
-#   Loads the source file for CLASS_OR_NAME which can be a class or a class name string.
-#
-# reload_class()
-#   Remex and reload the class and its subclasses.
-#
-# compile_messages()
-#   Ensures compiled message files in the specified module or in the module for the specified class
-#   are up to date.
-#
-# load_file_name()
-#   Load the module containing the specified file.
-#   Finds the file and adds products and loads prerequisite modules as necessary.
-#
-# open_changes()
-#   Opens any modified files in the named repository (or all repos).
-#
-#
-# -------------------------------------------------------------------
-# CLASS BROWSER:
-#
-# mfind() or mf()
-#   Simple class browser for use at the prompt and enables you to jump to source in Emacs.
-#
-# mjump()
-#   Send a method in the mfind results to Emacs.
-#
-# open_class() or oc()
-#   Opens the source file in Emacs for CLASS_OR_NAME which can be a class or a class name string.
-#
-#
-# -------------------------------------------------------------------
-# TEST:
-#
-# run_test()
-#   Runs any loaded tests matching the supplied test method name.
-#
-# run_tests()
-#   Runs the supplied collection of test cases.
-#
-# test_module()
-#   Runs all of the tests for the specified module.
-#
-# test_changes()
-#   Runs all of the tests for the modules containing changes in a repository.
-#
-# test_class()
-#   Searches the unit tests for references of the supplied class and runs those tests.
-#
-# run_all_tests()
-#   Run all tests in a product or module or specific test.
-#
-# run_sanity_test()
-#   Run a sanity scenario test.
-#
-#
-# -------------------------------------------------------------------
-# REVIEW:
-#
-# review_branch()
-#   Launches a visual diff on the changes in the named branch.
-#
-# changed_files()
-#   Returns a rope of files changed in the named branch.
-#
-# class_history()
-#   Activates the revision history for the source file for CLASS_OR_NAME which can be a class or a
-#   class name string.
-#
-# goto_branch()
-#   Updates the local repo at the specified path (or all repos) to the
-#   trunk or specified branch.
-#
-#
-# -------------------------------------------------------------------
-# FIND:
-#
-# get_objects() or mget()
-#   Returns a rope of objects with a name or class name matching A_STRING within the component
-#   A_COMPONENT.
-#
-# get_components()
-#   Returns a rope of components with a name or class name matching A_STRING in the component
-#   A_COMPONENT.
-#
-# get_type()
-#    Returns a rope of instances of the supplied class.
-#
-# get_gui()
-#   Searches for UI widgets matching the supplied string.
-#   Searches within all active UI or only the supplied container if provided.
-#
-#
-# -------------------------------------------------------------------
-# MISC:
-#
-# mdump()
-#   Saves a thread dump for the current system process to file and opens the file.
-#   Outputs Magik calls only if FILTER_MAGIK? is true.
-#   (Requires JDK for jstack)
-#
-# git_search()
-#   Search git commits for the supplied string.
-#   Uses 'git log -G' to find commits with modified lines matching the string and finds commits
-#   which modify files matching the string.
-#
-
+# 4. Use output_dev_docs() to get an overview of procedures
 
 _pragma(classify_level=debug)
 ##
@@ -5711,6 +5581,7 @@ _proc()
 _endproc
 $
 
+
 _global is_mutated <<
 	_proc(class, method_name)
 		a_method << class.method(method_name.as_symbol())
@@ -5733,4 +5604,105 @@ _global is_mutated <<
 		_endif
 		_return val
 	_endproc
+$
+
+
+dev_doc("app_dev - simple_obj to return useful data about running application")
+# Creates the app_dev simple_obj containing helper procedures to get handles on application objects
+# (e.g. app_dev.app(), app_dev.map_rwos())
+_block
+	_global app_dev
+	_global obj # simple_obj helper proc
+	_global this # global used by simple_obj
+
+	_if obj _is _unset _then _return _endif
+
+	app_dev << obj(
+		:id, "Application Dev Object",
+		:apps, _proc()
+			apps << rope.new_from(smallworld_product.applications)
+			_for i, a _over apps.fast_keys_and_elements()
+			_loop
+				write("[", i, "]  ", a)
+			_endloop
+			>> apps
+		_endproc,
+
+		:current_app, _proc()
+			apps << rope.new_from(smallworld_product.applications)
+			_if apps.size _is 1
+			_then
+				_return apps.an_element()
+			_endif
+			_for app _over apps.fast_elements()
+			_loop
+				_if _not app.is_kind_of?(admin_application)
+				_then
+					_return app
+				_endif
+			_endloop
+			_return apps.an_element()
+		_endproc,
+
+		:app, _proc()
+			_return this.current_app
+		_endproc,
+
+		:admin_app, _proc()
+			_for app _over smallworld_product.applications.fast_elements()
+			_loop
+				_if app.is_kind_of?(admin_application)
+				_then
+					_return app
+				_endif
+			_endloop
+		_endproc,
+
+		:map_manager, _proc()
+			_return this.current_app.get_service_provider(:map_manager)
+		_endproc,
+
+		:map_geoms, _proc()
+			_return this.map_manager().current_map.current_selection
+		_endproc,
+
+		:map_rwos, _proc()
+			geoms << this.map_geoms()
+			rwos << geoms.rwo_set()
+			_if rwos.size = 1
+			_then
+				_return rwos.an_element()
+			_endif
+			_return rwos
+		_endproc,
+
+		:editor_object, _proc()
+			ed_mgr << this.current_app.get_service_provider(:editor_manager)
+			ed << ed_mgr.sys!slot(:embedded_viewer).current_editor
+			_return ed.current_object
+		_endproc,
+
+		:dialogs, _proc()
+			results << rope.new()
+			index << 1
+			_for cc _over sw_swift_manager.active_top_containers().fast_elements()
+			_loop
+				owner << _if cc.responds_to?(:|get_gui_owner()|)
+					_then
+						>> cc.get_gui_owner()
+					_endif
+				res << owner.default(cc.frame)
+
+				_if _not res.is_kind_of?(application)
+				_then
+					write("[", index, "]  ", res)
+					results.add_last(res)
+					index +<< 1
+				_endif
+			_endloop
+			_return results
+		_endproc
+	)
+
+_endblock
 $
