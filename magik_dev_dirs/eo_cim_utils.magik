@@ -18,13 +18,13 @@ local_product_path(:sw_cim_adapter, projects_path("gis_adapter\sw_cim_adapter"),
 local_product_path(:eo_cim, projects_path("gis_adapter\eo_cim"), :gisa)
 $
 
-dev_doc("get_cim_circuit(circuit_id) - Return the circuit(s) with that ID")
+dev_doc("get_cim_circuit(circuit_id) - Return the circuit(s) with that ID", "APPLICATION")
 _global get_cim_circuit << _proc@get_cim_circuit(circuit_id)
 	_return get_eo_object(:eo_circuit, :circuit_id, circuit_id)
 _endproc
 $
 
-dev_doc("generate_golden_files(_true/_false) - Switch between generating golden files and validating them")
+dev_doc("generate_golden_files(_true/_false) - Switch between generating golden files and validating them", "DEBUG")
 _global generate_golden_files << _proc@generate_golden_files(enabled?)
 	sw_module_manager.load_module(:cim_canonicalization_mod, _unset, :force_reload, _false)
 

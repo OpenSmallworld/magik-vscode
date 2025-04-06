@@ -6,7 +6,7 @@ _package sw
 confirm_magik_dev_file(:sw_cim_adapter)
 $
 
-dev_doc("gisa_debug() - Enable GIS Adapter debug mode, allowing exports to run directly in the desktop application")
+dev_doc("gisa_debug() - Enable GIS Adapter debug mode, allowing exports to run directly in the desktop application", "DEBUG")
 _global gisa_debug << _proc@gisa_debug(_optional enabled?)
 	##
 	## Enable/Disable GISA debug mode.
@@ -17,7 +17,7 @@ _global gisa_debug << _proc@gisa_debug(_optional enabled?)
 _endproc
 $
 
-dev_doc("load_gisa_topology_helpers() - View topology node ID's on the map")
+dev_doc("load_gisa_topology_helpers() - View topology node ID's on the map", "APPLICATION")
 _global load_gisa_topology_helpers << _proc@load_gisa_topology_helpers()
 	##
 	## Loads the topology helper code. Tools -> Edit Topology -> Manifolds to view node ID's

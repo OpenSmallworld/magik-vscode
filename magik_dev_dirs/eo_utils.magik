@@ -21,7 +21,7 @@ _global open_eo_db <<
 		_endif
 	_endproc
 
-dev_doc("get_eo_object(collection, field_name, value) - Return the EO object(s) in COLLECTION where FIELD_NAME=VALUE")
+dev_doc("get_eo_object(collection, field_name, value) - Return the EO object(s) in COLLECTION where FIELD_NAME=VALUE", "APPLICATION")
 _global get_eo_object << _proc@get_eo_object(collection, field_name, value)
 	_if (ev << gis_program_manager.databases[:electric]) _is _unset
 	_then

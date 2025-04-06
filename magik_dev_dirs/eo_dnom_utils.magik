@@ -21,13 +21,13 @@ local_product_path(:sw_dnom_adapter, projects_path("gis_adapter\sw_dnom_adapter"
 local_product_path(:eo_dnom, projects_path("gis_adapter\eo_dnom"), :gisa)
 $
 
-dev_doc("get_dnom_station(station_name) Return the station(s) with that name")
+dev_doc("get_dnom_station(station_name) Return the station(s) with that name", "APPLICATION")
 _global get_dnom_station << _proc@get_dnom_station(station_name)
 	_return get_eo_object(:sub_substation, :name, station_name)
 _endproc
 $
 
-dev_doc("generate_golden_files(_true/_false) - Switch between generating golden files and validating them")
+dev_doc("generate_golden_files(_true/_false) - Switch between generating golden files and validating them", "DEBUG")
 _global generate_golden_files << _proc@generate_golden_files(enabled?)
 	sw_module_manager.load_module(:dnom_canonicalization_mod, _unset, :force_reload, _false)
 
