@@ -4,7 +4,7 @@ _package sw
 confirm_magik_dev_file(:sw_core, _unset, get_global_value(:vmsql_manager) _isnt _unset)
 $
 
-dev_doc("add_vmsql_dataset_to_soc(_optional <dataset_name>, <soc_name>) - Add a VMSQL dataset named <dataset_name> (default :pg_gis) to the SOC <soc_name> (default :gis). This assumes the database already exists in PG (e.g. you have loaded it from a dump)")
+dev_doc("add_vmsql_dataset_to_soc(_optional <dataset_name>, <soc_name>) - Add a VMSQL dataset named <dataset_name> (default :pg_gis) to the SOC <soc_name> (default :gis). This assumes the database already exists in PG (e.g. you have loaded it from a dump)", "DATABASE")
 _global add_vmsql_dataset_to_soc << _proc@add_vmsql_dataset_to_soc(_optional dataset_name, soc_name)
 	dataset_name << dataset_name.default(:pg_gis)
 	soc_name << soc_name.default(:gis)

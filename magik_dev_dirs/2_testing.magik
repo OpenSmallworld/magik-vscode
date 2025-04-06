@@ -3,7 +3,7 @@
 _package sw
 $
 
-dev_doc("load_munit() - Load munit and application_test")
+dev_doc("load_munit() - Load munit and application_test", "LOADING CODE")
 _global load_munit <<
 	_proc@load_munit()
 		_global test_case
@@ -27,7 +27,7 @@ _global load_munit <<
 	_endproc
 $
 
-dev_doc("load_munit_gui() - Load and start the test_runner_dialog")
+dev_doc("load_munit_gui() - Load and start the test_runner_dialog", "LOADING CODE")
 _global load_munit_gui <<
 	_proc@load_munit_gui()
 		load_munit()
@@ -56,8 +56,8 @@ _global add_test_product << _proc@add_test_product(rel_dir, _optional abs_dir)
 _global default_test_module_names << rope.new()
 
 
-dev_doc("load_tests() - Add all relevant test products for this session and start the test runner dialog")
-dev_doc("load_tests(test_modules...) - Add all relevant test products for this session, load TEST_MODULES and start the test runner dialog")
+dev_doc("load_tests() - Add all relevant test products for this session and start the test runner dialog", "LOADING CODE")
+dev_doc("load_tests(test_modules...) - Add all relevant test products for this session, load TEST_MODULES and start the test runner dialog", "LOADING CODE")
 _global load_tests <<
 _proc@load_tests(_gather test_module_names)
 	load_dev_tools()

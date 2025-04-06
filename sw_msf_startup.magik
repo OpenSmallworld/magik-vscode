@@ -133,16 +133,22 @@ $
 _global dev << load_magik_dev
 $
 
-_global dev_docs << equality_property_list.new()
+_global dev_docs << concurrent_hash_map.new()
 $
 
-_global dev_doc << _proc@document_dev_util(str)
+_global dev_doc << _proc@document_dev_util(str, _optional category)
 		##
 		## Provide a helpful hint to be written out 
 		##
-		_if (file_docs << dev_docs[!compiler_file!]) _is _unset
+		
+		_if category _is _unset 
 		_then
-			file_docs << dev_docs[!compiler_file!] <<
+			category << "MISC"
+		_endif 
+
+		_if (file_docs << dev_docs[category]) _is _unset
+		_then
+			file_docs << dev_docs[category] <<
 				sorted_collection.new(0, _proc(a,b) >> a[1] < b[1] _endproc)
 		_endif
 					
@@ -155,9 +161,9 @@ _global output_dev_docs << _proc@output_dev_docs()
 		## List out the dev utilities' descriptions, as stored in dev_docs
 		##
 		write(newline_char, "DEV UTILS:")
-		_for file_name, file_docs _over dev_docs.fast_keys_and_elements()
+		_for category, file_docs _over dev_docs.fast_keys_and_elements()
 		_loop
-			write(file_name)
+			write(category)
 			_for i _over file_docs.elements()
 			_loop
 				write(tab_char, i[1])

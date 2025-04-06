@@ -158,7 +158,7 @@ _endproc
 $
 
 
-dev_doc("relocate_products() - Point the known products at the user repositories")
+dev_doc("relocate_products() - Point the known products at the user repositories", "LOADING CODE")
 _pragma(classify_level=debug)
 ##
 ## Points the known products at the user repositories.
@@ -398,7 +398,7 @@ _proc @em_open_file(file_path, _optional line_number, a_class, a_method)
 _endproc
 $
 
-dev_doc("open_file(FILE_PATH) - Display the file in your current editor")
+dev_doc("open_file(FILE_PATH) - Display the file in your current editor", "FIND")
 _pragma(classify_level=debug)
 ## Open a file in current IDE (vscode or emacs)
 _global _constant open_file <<
@@ -418,7 +418,7 @@ _endproc
 $
 
 
-dev_doc("changed_files(BRANCH_NAME) - Return files changed in the BRANCH_NAME (defaults to current branch)")
+dev_doc("changed_files(BRANCH_NAME) - Return files changed in the BRANCH_NAME (defaults to current branch)", "REVIEW")
 _pragma(classify_level=debug)
 ##
 ## Returns a rope of files changed in the named branch.
@@ -630,7 +630,7 @@ _endproc
 $
 
 
-dev_doc("open_changes(REPO_PATH) - Open any modified files in REPO_PATH (or all repos)")
+dev_doc("open_changes(REPO_PATH) - Open any modified files in REPO_PATH (or all repos)", "REVIEW")
 _pragma(classify_level=debug)
 ##
 ## Opens any modified files in the named repository (or all repos).
@@ -682,7 +682,7 @@ _endproc
 $
 
 
-dev_doc("class_history(CLASS_OR_NAME) - Activate revision history for the source file for CLASS_OR_NAME")
+dev_doc("class_history(CLASS_OR_NAME) - Activate revision history for the source file for CLASS_OR_NAME", "REVIEW")
 _pragma(classify_level=debug)
 ##
 ## Activates the revision history for the source file for
@@ -735,7 +735,7 @@ _endproc
 $
 
 
-dev_doc("load_changes(REPO_PATH) - Load the changed files (or modules) found in the current branch of REPO_PATH")
+dev_doc("load_changes(REPO_PATH) - Load the changed files (or modules) found in the current branch of REPO_PATH", "LOADING CODE")
 _pragma(classify_level=debug)
 ##
 ## Load the changed files (or modules) found in the current
@@ -1058,7 +1058,7 @@ _endproc
 $
 
 
-dev_doc("load_all_changes() - Load the changed files (or modules) found in the current branch of all local repositories")
+dev_doc("load_all_changes() - Load the changed files (or modules) found in the current branch of all local repositories", "LOADING CODE")
 _pragma(classify_level=debug)
 ##
 ## Load the changed files (or modules) found in the current
@@ -1078,7 +1078,7 @@ _endproc
 $
 
 
-dev_doc("goto_branch() - Updates the local repo at the specified path (or all repos) to the trunk or specified branch")
+dev_doc("goto_branch() - Updates the local repo at the specified path (or all repos) to the trunk or specified branch", "REVIEW")
 _pragma(classify_level=debug)
 ##
 ## Updates the local repo at the specified path (or all repos) to the trunk or
@@ -1320,7 +1320,7 @@ _proc @method_lines( a_method, _optional source_file )
 _endproc
 $
 
-
+dev_doc("mjump - Send a method in mfind results to your current editor", "CLASS BROWSER")
 _pragma(classify_level=debug)
 ##
 ## Send a method in the mfind results to Emacs.
@@ -1405,7 +1405,7 @@ _endproc
 $
 
 
-dev_doc("mfind(METHOD_STRING) OR mf() - Find Methods matching METHOD_STRING and open in your current editor")
+dev_doc("mfind(METHOD_STRING) OR mf() - Find Methods matching METHOD_STRING and open in your current editor", "CLASS BROWSER")
 _pragma(classify_level=debug)
 ##
 ## Displays methods matching the method and class name string.
@@ -2177,7 +2177,7 @@ _endproc
 $
 
 
-dev_doc("open_class() OR oc() - Open the source file for CLASS_OR_NAME i nyur current editor")
+dev_doc("open_class() OR oc() - Open the source file for CLASS_OR_NAME in your current editor", "CLASS BROWSER")
 _pragma(classify_level=debug)
 ##
 ## Opens the source file in Emacs for CLASS_OR_NAME which can
@@ -2412,7 +2412,7 @@ _proc @class_source( class_or_name, _optional prompt_string )
 _endproc
 $
 
-dev_doc("find_file() - Find files matching the search string and displays the file in your current editor")
+dev_doc("find_file() - Find files matching the search string and displays the file in your current editor", "FIND")
 _pragma(classify_level=debug)
 ##
 ## Searches for files matching the search string and displays the file in your current editor
@@ -2551,7 +2551,7 @@ _global dev_test_thread << _unset
 $
 
 
-dev_doc("run_tests(TESTS) - Run specified collection of test cases")
+dev_doc("run_tests(TESTS) - Run specified collection of test cases", "TESTS")
 _pragma(classify_level=debug)
 ##
 ## Runs the supplied collection of test cases.
@@ -2731,7 +2731,7 @@ _endproc
 $
 
 
-dev_doc("run_test(TEST_METHOD_NAME) - Run loaded tests matching TEST_METHOD_NAME")
+dev_doc("run_test(TEST_METHOD_NAME) - Run loaded tests matching TEST_METHOD_NAME", "TESTS")
 _pragma(classify_level=debug)
 ##
 ## Runs any loaded tests matching the supplied test method name.
@@ -2784,7 +2784,7 @@ _proc @run_test( test_method_name, _optional test_class_name, background? )
 _endproc
 $
 
-dev_doc("test_module(MODULE_NAME) - Run all of the tests for MODULE_NAME")
+dev_doc("test_module(MODULE_NAME) - Run all of the tests for MODULE_NAME", "TESTS")
 _pragma(classify_level=debug)
 ##
 ## Runs all of the tests for the specified module.
@@ -2850,7 +2850,7 @@ _endproc
 $
 
 
-dev_doc("test_changes() - Run all of the tests for the modules containing changes in a repository")
+dev_doc("test_changes() - Run all of the tests for the modules containing changes in a repository", "TESTS")
 _pragma(classify_level=debug)
 ##
 ## Runs all of the tests for the modules containing changes in
@@ -2970,7 +2970,7 @@ _proc @test_changes(_optional repo_path, trunk_branch_name, reload_tests?, ignor
 $
 
 
-dev_doc("test_class(A_CLASS) - Search unit tests for references of A_CLASS and run them")
+dev_doc("test_class(A_CLASS) - Search unit tests for references of A_CLASS and run them", "TESTS")
 _pragma(classify_level=debug)
 ##
 ## Searches the unit tests for references of the supplied class
@@ -3095,7 +3095,7 @@ _endproc
 $
 
 
-dev_doc("run_all_tests() -  Run all tests in a product or module or specific test")
+dev_doc("run_all_tests() -  Run all tests in a product or module or specific test", "TESTS")
 _pragma(classify_level=debug)
 ##
 ## Run all tests in a product or module or specific test.
@@ -3333,7 +3333,7 @@ _endproc
 $
 
 
-dev_doc("run_sanity_test() - Run a sanity scenario test")
+dev_doc("run_sanity_test() - Run a sanity scenario test", "TESTS")
 _pragma(classify_level=debug)
 ##
 ## Run a sanity scenario test.
@@ -3348,7 +3348,7 @@ _endproc
 $
 
 
-dev_doc("review_branch() - Launch a visual diff on the changes in the named branch")
+dev_doc("review_branch() - Launch a visual diff on the changes in the named branch", "REVIEW")
 _pragma(classify_level=debug)
 ##
 ## Launches a visual diff on the changes in the named branch.
@@ -3476,7 +3476,7 @@ _endproc
 $
 
 
-dev_doc("find_branches(A_STRING) - Return all branch names matching A_STRING")
+dev_doc("find_branches(A_STRING) - Return all branch names matching A_STRING", "FIND")
 _pragma(classify_level=debug)
 ##
 ## Returns all branch names matching the supplied regular expression.
@@ -3535,7 +3535,7 @@ _endproc
 $
 
 
-dev_doc("load_modules(MODULE_NAMES) - Load modules in MODULE_NAMES")
+dev_doc("load_modules(MODULE_NAMES) - Load modules in MODULE_NAMES", "LOADING CODE")
 _pragma(classify_level=debug)
 ##
 ## Loads the specified module(s).
@@ -3564,7 +3564,7 @@ _endproc
 $
 
 
-dev_doc("load_module(MODULE_NAME) - Load module MODULE_NAME")
+dev_doc("load_module(MODULE_NAME) - Load module MODULE_NAME", "LOADING CODE")
 _pragma(classify_level=debug)
 ##
 ## Loads the specified module.
@@ -3676,7 +3676,7 @@ _endproc
 $
 
 
-dev_doc("lod_file_name(FILE_NAME) - Load the module containing FILE_NAME")
+dev_doc("load_file_name(FILE_NAME) - Load the module containing FILE_NAME", "LOADING CODE")
 _pragma(classify_level=debug)
 ##
 ## Load the module containing the specified file.
@@ -3879,7 +3879,7 @@ _endproc
 $
 
 
-dev_doc("load_class(CLASS_OR_NAME) - Load the source file for CLASS_OR_NAME")
+dev_doc("load_class(CLASS_OR_NAME) - Load the source file for CLASS_OR_NAME", "LOADING CODE")
 _pragma(classify_level=debug)
 ##
 ## Loads the source file for CLASS_OR_NAME which can be a class
@@ -3902,7 +3902,7 @@ _endproc
 $
 
 
-dev_doc("reload_class(A_CLASS) - Remex and reload A_CLASS and its subclasses")
+dev_doc("reload_class(A_CLASS) - Remex and reload A_CLASS and its subclasses", "LOADING CODE")
 _pragma(classify_level=debug)
 ##
 ## Remex and reload the class and its subclasses.
@@ -4009,7 +4009,7 @@ _proc @reload_class( a_class, _optional supers?, reregister_mutated_methods? )
 _endproc
 $
 
-dev_doc("compile_messages(MODULE_NAME_OR_CLASS) - Recompile message files for MODULE_NAMEOR_CLASS")
+dev_doc("compile_messages(MODULE_NAME_OR_CLASS) - Recompile message files for MODULE_NAMEOR_CLASS", "LOADING CODE")
 _pragma(classify_level=debug)
 ##
 ## Ensures compiled message files in the specified module or
@@ -4123,7 +4123,7 @@ _endmethod
 $
 
 
-dev_doc("mdump() - Save a thread dump for the current system process to file and opens the file.")
+dev_doc("mdump() - Save a thread dump for the current system process to file and opens the file.", "DEBUG")
 _pragma(classify_level=debug)
 ##
 ## Saves a thread dump for the current system process to file and
@@ -4346,7 +4346,7 @@ _global _constant filter_thread_dump <<
 $
 
 
-dev_doc("get_components(A_STRING) OR gc() - Return components with a name or class name matching A_STRING")
+dev_doc("get_components(A_STRING) OR gc() - Return components with a name or class name matching A_STRING", "FIND")
 _pragma(classify_level=debug)
 ##
 ## Returns a rope of application components with a name or class name
@@ -4410,7 +4410,7 @@ _global _constant gc << get_components
 $
 
 
-dev_doc("get_type(A_CLASS) OR gt() - Return instances of the supplied class")
+dev_doc("get_type(A_CLASS) OR gt() - Return instances of the supplied class", "FIND")
 _pragma(classify_level=debug)
 ##
 ## Returns a rope of instances of the supplied class.
@@ -4466,7 +4466,7 @@ _global _constant gt << get_type
 $
 
 
-dev_doc("get_objects() OR mget() - Return objects with a name or class name matching A_STRING")
+dev_doc("get_objects() OR mget() - Return objects with a name or class name matching A_STRING", "FIND")
 _pragma(classify_level=debug)
 ##
 ## Returns a rope of objects with a name or class name
@@ -4736,7 +4736,7 @@ _pragma(classify_level=debug)
 _global _constant mget << get_objects
 $
 
-dev_doc("get_related_items(OBJ) - Return objects 'related' to OBJ")
+dev_doc("get_related_items(OBJ) - Return objects 'related' to OBJ", "FIND")
 _pragma(classify_level=debug)
 ##
 ## Returns a set of objects related to the object OBJ.
@@ -4929,7 +4929,7 @@ _endproc
 $
 
 
-dev_doc("get_gui(A_STRING) - Return UI widgets matching the supplied string")
+dev_doc("get_gui(A_STRING) - Return UI widgets matching the supplied string", "FIND")
 _pragma(classify_level=debug)
 ##
 ## Searches for UI widgets matching the supplied string.
@@ -5047,7 +5047,7 @@ _global get_gui <<
 $
 
 
-dev_doc("git_search(A_STRING) OR gs() - Search git commits for the supplied string")
+dev_doc("git_search(A_STRING) OR gs() - Search git commits for the supplied string", "FIND")
 _pragma(classify_level=debug)
 ##
 ## Search git commits for the supplied string.
@@ -5607,13 +5607,14 @@ _global is_mutated <<
 $
 
 
-dev_doc("app_dev - simple_obj to return useful data about running application")
+dev_doc("app_dev - simple_obj to return useful data about running application", "APPLICATION")
 # Creates the app_dev simple_obj containing helper procedures to get handles on application objects
 # (e.g. app_dev.app(), app_dev.map_rwos())
 _block
 	_global app_dev
 	_global obj # simple_obj helper proc
 	_global this # global used by simple_obj
+	_global admin_application
 
 	_if obj _is _unset _then _return _endif
 

@@ -14,7 +14,7 @@ magik_rep.prompt_generator <<
 	_endproc
 $
 
-dev_doc("object.p OR p(object) - Print an object - print()")
+dev_doc("object.p OR p(object) - Print an object - print()", "OBJECT")
 _method object.p
 	print(_self)
 _endmethod
@@ -23,7 +23,7 @@ _global p << _proc(_gather args)
 		_return print(_scatter args)
 	_endproc
 
-dev_doc("object.dp OR dp(object) - Debugu print and object - debug_print()")
+dev_doc("object.dp OR dp(object) - Debug print and object - debug_print()", "OBJECT")
 _method object.dp
 	debug_print(_self)
 _endmethod
@@ -32,7 +32,7 @@ _global dp << _proc(_gather args)
 		_return debug_print(_scatter args)
 	_endproc
 
-dev_doc("object.ap OR ap(object) - Shorthand for object.apropos(arg, true, true)")
+dev_doc("object.ap OR ap(object) - Shorthand for object.apropos(arg, true, true)", "CLASS BROWSER")
 _method object.ap(arg)
 	_return _self.apropos(arg, _true, _true)
 _endmethod
@@ -41,12 +41,12 @@ _global ap << _proc(arg)
 		_return apropos(arg, _true, _true)
 	_endproc
 
-dev_doc("object.kap - Shorthand for object.key_apropos(arg, true, true)")
+dev_doc("object.kap - Shorthand for object.key_apropos(arg, true, true)", "CLASS BROWSER")
 _method object.kap(arg)
 	_return _self.key_apropos(arg, _true, _true)
 _endmethod
 
-dev_doc("object.md - Print an object's module")
+dev_doc("object.md - Print an object's module", "PRODUCT")
 _method object.md
 	name << _self.module_name
 	m << sw_module_manager.module(name)
@@ -54,7 +54,7 @@ _method object.md
 	_return m
 _endmethod
 
-dev_doc("object.ph OR ph(object) - print an object's class hierarchy - print_hierarchy()")
+dev_doc("object.ph OR ph(object) - print an object's class hierarchy - print_hierarchy()", "CLASS BROWSER")
 _method object.ph
 	_return print_hierarchy(_self)
 _endmethod
@@ -63,7 +63,7 @@ _global ph << _proc@ph(arg)
 		_return arg.ph
 	_endproc
 
-dev_doc("object.pa OR pa(object) - print an object's class ancestors - print_ancestry()")
+dev_doc("object.pa OR pa(object) - print an object's class ancestors - print_ancestry()", "CLASS BROWSER")
 _method object.pa
 	_return print_ancestry(_self)
 _endmethod
@@ -72,7 +72,7 @@ _global pa << _proc@pa(arg)
 		_return arg.pa
 	_endproc
 
-dev_doc("object.pd OR pd(object) - print an object's dependencies")
+dev_doc("object.pd OR pd(object) - print an object's dependencies", "OBJECT")
 _method object.pd
 	_for a, b _over _self.dependencies()
 		_loop
@@ -80,13 +80,13 @@ _method object.pd
 		_endloop
 _endmethod
 
-dev_doc("df() - Describe a record's fields - describe_fields()")
+dev_doc("df() - Describe a record's fields - describe_fields()", "DATABASE")
 _method dd_record_and_collection_mixin.df()
 	_self.describe_fields()
 _endmethod
 $
 
-dev_doc("view.apn() - Shorthand for alternative_path_name()")
+dev_doc("view.apn() - Shorthand for alternative_path_name()", "DATABASE")
 _method ds_version_view.apn(_optional name_or_up)
 	>> _self.alternative_path_name(name_or_up)
 _endmethod
@@ -96,7 +96,7 @@ _global pd << _proc@pd(arg)
 		_return arg.pd
 	_endproc
 
-dev_doc("db() - Print the open ACE view's searchpath")
+dev_doc("db() - Print the open ACE view's searchpath", "DATABASE")
 _global db << _proc@db()
 		_if (av << gis_program_manager.ace_top_view) _isnt _unset
 		_then
@@ -104,7 +104,7 @@ _global db << _proc@db()
 		_endif
 	_endproc
 
-dev_doc("print_databases() - Print details of open database")
+dev_doc("print_databases() - Print details of open database", "DATABASE")
 _global print_databases <<
 	_proc @print_databases(_optional keys_only?)
 		ace_view << gis_program_manager.ace_view
@@ -134,7 +134,7 @@ _global print_databases <<
 		_endloop
 	_endproc
 
-dev_doc("print_observers(object) - Print details of object's observers")
+dev_doc("print_observers(object) - Print details of object's observers", "OBJECT")
 _global print_observers <<
 	_proc(obj)
 		_for col, obs _over obj.sys!slot(:observers).fast_keys_and_elements()
@@ -147,7 +147,7 @@ _global print_observers <<
 		_endloop
 	_endproc
 
-dev_doc("report_ds(dsv_or_dsv_name) - Print details of a ds view, or a ds view named ")
+dev_doc("report_ds(dsv_or_dsv_name) - Print details of a ds view, or a ds view named ", "DATABASE")
 _global report_ds <<
 	_proc@report_ds(name_or_v _optional label)
 		_if name_or_v _is _unset
@@ -194,7 +194,7 @@ _global report_ds <<
 		_endif
 	_endproc
 
-dev_doc("ds_env_info() - Print details of the ds_environment")
+dev_doc("ds_env_info() - Print details of the ds_environment", "DATABASE")
 _global ds_env_info <<
 	_proc()
 		ht << ds_environment.sys!perform(:allowed_methods)
@@ -210,7 +210,7 @@ _global ds_env_info <<
 		_endloop
 	_endproc
 
-dev_doc("print_job_types() - Print details of all sw_job types")
+dev_doc("print_job_types() - Print details of all sw_job types", "JOBS")
 _global print_job_types <<
 	_proc()
 		_local mh << message_handler(:sw_job)
@@ -238,7 +238,7 @@ _global projects_path << _proc(_gather rel_path)
 		>> path
 	_endproc
 
-dev_doc("report_products() - Print details of all products loaded in the session")
+dev_doc("report_products() - Print details of all products loaded in the session", "PRODUCTS")
 _global report_products <<
 	_proc@report_products()
 		
@@ -366,9 +366,9 @@ _global int!rpp << _proc@int!rpp(pname, _optional new_path)
 _endproc
 $
 
-dev_doc("repoint_product() OR rpp() - Print repointable products & groups")
-dev_doc("rpp(<product OR group>) - Repoint specified products in the session to local directories")
-dev_doc("relocate_products() - Relocate all products in a session to local directories")
+dev_doc("repoint_product() OR rpp() - Print repointable products & groups", "PRODUCTS")
+dev_doc("rpp(<product OR group>) - Repoint specified products in the session to local directories", "PRODUCTS")
+dev_doc("relocate_products() - Relocate all products in a session to local directories", "PRODUCTS")
 _global repoint_product << _proc@repoint_product(_optional pname, new_path)
 		_if pname _is _unset
 		_then
@@ -401,7 +401,7 @@ _global repoint_product << _proc@repoint_product(_optional pname, new_path)
 
 _global rpp << repoint_product
 
-dev_doc("print_product_history() to list details of all products installed in all open ds views")
+dev_doc("print_product_history() to list details of all products installed in all open ds views", "IMPLEMENTERS")
 _global print_product_history <<
 	_proc @print_product_history(_gather ds_names)
 		
@@ -432,7 +432,7 @@ _global print_product_history <<
 		_endif
 	_endproc
 
-dev_doc("load_dev_tools() - Load the dev_tools product")
+dev_doc("load_dev_tools() - Load the dev_tools product", "LOADING CODE")
 _global load_dev_tools <<
 	_proc@load_dev_tools()
 		_handling sw_product_warning, sw_product_information, sw_module_warning, sw_module_information _with procedure
@@ -459,7 +459,7 @@ _global load_dev_tools <<
 	_endproc
 $
 
-dev_doc("dev_app() - Load the dev tools application and munit gui")
+dev_doc("dev_app() - Load the dev tools application and munit gui", "LOADING CODE")
 _global dev_app << _proc @dev_app()
 		
 		_handling sw_product_warning, sw_product_information, sw_module_warning, sw_module_information _with procedure
@@ -485,7 +485,7 @@ _global !debug_tracebacks?! << _false
 _global setvars_procs << rope.new()
 $
 
-dev_doc("setvars() - Set miscellaneous globals useful to the current session")
+dev_doc("setvars() - Set miscellaneous globals useful to the current session", "APPLICATION")
 _global setvars << _proc@setvars(_optional print?)
 		
 		_dynamic !output!
@@ -745,7 +745,7 @@ _global core_setvars << _proc@core_setvars()
 
 setvars_procs.add_first(core_setvars)
 
-dev_doc("source_files(class) - Print all source files providing code for CLASS")
+dev_doc("source_files(class) - Print all source files providing code for CLASS", "FIND")
 _global source_files <<
 _proc@source_files(ex)
 	files << equality_set.new()
@@ -770,7 +770,7 @@ _proc@source_files(ex)
 _endproc
 $
 
-dev_doc("imps(module_name) Return a handle on all the implementers in MODULE_NAME. Takes the same optional arguments as sw_module.datamodel_implementers()")
+dev_doc("imps(module_name) Return a handle on all the implementers in MODULE_NAME. Takes the same optional arguments as sw_module.datamodel_implementers()", "IMPLEMENTERS")
 _global imps <<
 _proc@imps(module_name, _optional datamodel_name, sub_datamodel_name, version, force_reload?)
 	>> sw_module_manager.module(module_name).datamodel_implementers(datamodel_name, sub_datamodel_name, version, force_reload?)

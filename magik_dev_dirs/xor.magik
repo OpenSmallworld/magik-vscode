@@ -23,10 +23,10 @@ _proc @get_map_view(_optional an_app, a_map_view)
 	_return cmv
 _endproc
 
-dev_doc("xor_line_style<< line_style - Set line style for use in xor procs: e.g. xor_line_style << line_style.new(colour.new_rgb(1,0,0), 5)")
+dev_doc("xor_line_style<< line_style - Set line style for use in xor procs: e.g. xor_line_style << line_style.new(colour.new_rgb(1,0,0), 5)", "APPLICATION")
 _global xor_line_style << line_style
 
-dev_doc("xor_coord(coord) - Draw/Undraw COORD on a map_view")
+dev_doc("xor_coord(coord) - Draw/Undraw COORD on a map_view", "APPLICATION")
 _global xor_coord <<
 _proc@xor_coord(a_coord _optional app, text, a_map_view)
 	
@@ -54,7 +54,7 @@ _proc@xor_coord(a_coord _optional app, text, a_map_view)
 	_endif 
 _endproc
 
-dev_doc("xor_line(coords) - Draw/Undraw a line between COORDS on a map_view")
+dev_doc("xor_line(coords) - Draw/Undraw a line between COORDS on a map_view", "APPLICATION")
 _global xor_line <<
 _proc@xor_line(coords  _optional show_label?, app, text, a_map_view)
 	
@@ -84,7 +84,7 @@ _proc@xor_line(coords  _optional show_label?, app, text, a_map_view)
 	_endif
 _endproc
 
-dev_doc("xor_geom(geom) - Draw/Undraw GEOM on a map_view")
+dev_doc("xor_geom(geom) - Draw/Undraw GEOM on a map_view", "APPLICATION")
 _global xor_geom <<
 _proc@xor_geom(a_geom _optional app, text, a_map_view)
 	
@@ -97,7 +97,7 @@ _proc@xor_geom(a_geom _optional app, text, a_map_view)
 	_endloop
 _endproc
 
-dev_doc("xor_xy(x, y, text) - Draw/Undraw TEST at X,Y on a map_view ")
+dev_doc("xor_xy(x, y, text) - Draw/Undraw TEST at X,Y on a map_view", "APPLICATION")
 _global xor_xy <<
 _proc@xor_xy(x, y _optional text)
 	
@@ -112,7 +112,7 @@ _proc@xor_xy(x, y _optional text)
 	xor_coord(coordinate(x, y), _unset, str)
 _endproc
 
-dev_doc("xor_rect(x1, y1, x2, y2) - Draw/Undraw a rectangle on a map_view")
+dev_doc("xor_rect(x1, y1, x2, y2) - Draw/Undraw a rectangle on a map_view", "APPLICATION")
 _global xor_rect <<
 _proc@xor_rect(xmin, ymin, xmax, ymax)
 	
@@ -121,7 +121,7 @@ _proc@xor_rect(xmin, ymin, xmax, ymax)
 	xor_line({coordinate(xmin, ymin), coordinate(xmin, ymax), coordinate(xmax, ymax), coordinate(xmax, ymin), coordinate(xmin, ymin)})	
 _endproc
 
-dev_doc("xor_bounds(bounds) - Draw/Undraw a bounding box")
+dev_doc("xor_bounds(bounds) - Draw/Undraw a bounding box", "APPLICATION")
 _global xor_bounds <<
 _proc@xor_rect(bounds)
 	
