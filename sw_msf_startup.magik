@@ -134,6 +134,7 @@ _global dev << load_magik_dev
 $
 
 _global dev_docs << concurrent_hash_map.new()
+_global dev_docs_by_file << concurrent_hash_map.new()
 $
 
 _global dev_doc << _proc@document_dev_util(str, _optional category)
@@ -151,23 +152,36 @@ _global dev_doc << _proc@document_dev_util(str, _optional category)
 			file_docs << dev_docs[category] <<
 				sorted_collection.new(0, _proc(a,b) >> a[1] < b[1] _endproc)
 		_endif
+		_if (file_docs_by_file << dev_docs_by_file[!compiler_file!]) _is _unset
+		_then
+			file_docs_by_file << dev_docs_by_file[!compiler_file!] <<
+				sorted_collection.new(0, _proc(a,b) >> a[1] < b[1] _endproc)
+		_endif
 					
 		file_docs.add({str,!compiler_file!})
+		file_docs_by_file.add({str,!compiler_file!})
 _endproc
 $
 
-_global output_dev_docs << _proc@output_dev_docs()
+_global output_dev_docs << _proc@output_dev_docs(_optional by_file?)
 		##
 		## List out the dev utilities' descriptions, as stored in dev_docs
 		##
 		write(newline_char, "DEV UTILS:")
-		_for category, file_docs _over dev_docs.fast_keys_and_elements()
-		_loop
-			write(category)
-			_for i _over file_docs.elements()
+		_if by_file? _is _true
+		_then 
+			data << dev_docs_by_file
+		_else 
+			data << dev_docs
+		_endif
+		
+			_for key, file_docs _over data.fast_keys_and_elements()
 			_loop
-				write(tab_char, i[1])
+				write(key)
+				_for i _over file_docs.elements()
+				_loop
+					write(tab_char, i[1])
+				_endloop
 			_endloop
-		_endloop
 	_endproc
 $	
