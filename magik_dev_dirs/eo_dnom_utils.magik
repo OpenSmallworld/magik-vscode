@@ -1,0 +1,41 @@
+!global_auto_declare?! << _true
+$
+
+#% text_encoding = iso8859_1
+_package sw
+
+## EO DNOM Sessions
+##
+confirm_magik_dev_file(:eo_dnom)
+$
+
+add_test_product("gis_adapter/tests")
+$
+
+# Include EO CIM here, some of its modules are loaded, even in a DNOM session
+local_product_path(:sw_cim_adapter_base, projects_path("gis_adapter\sw_cim_adapter_base"), :gisa)
+local_product_path(:sw_cim_adapter, projects_path("gis_adapter\sw_cim_adapter"), :gisa)
+local_product_path(:eo_cim, projects_path("gis_adapter\eo_cim"), :gisa)
+local_product_path(:sw_dnom_adapter_base, projects_path("gis_adapter\sw_dnom_adapter_base"), :gisa)
+local_product_path(:sw_dnom_adapter, projects_path("gis_adapter\sw_dnom_adapter"), :gisa)
+local_product_path(:eo_dnom, projects_path("gis_adapter\eo_dnom"), :gisa)
+$
+
+dev_doc("get_dnom_station(station_name) Return the station(s) with that name", "APPLICATION")
+_global get_dnom_station << _proc@get_dnom_station(station_name)
+	_return get_eo_object(:sub_substation, :name, station_name)
+_endproc
+$
+
+dev_doc("generate_golden_files(_true/_false) - Switch between generating golden files and validating them", "DEBUG")
+_global generate_golden_files << _proc@generate_golden_files(enabled?)
+	sw_module_manager.load_module(:dnom_canonicalization_mod, _unset, :force_reload, _false)
+
+    # If true, files are updated. If false, files are compared
+    _global canonicalize_dnom?
+    canonicalize_dnom? << enabled?
+_endproc
+$
+
+!global_auto_declare?! << _maybe
+$

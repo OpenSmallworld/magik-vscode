@@ -1,0 +1,8 @@
+#% text_encoding = iso8859_1
+_package sw
+
+confirm_magik_dev_file(:cambridge_db)
+
+local_product_path(:cambridge_db, projects_path("cambridge_db\cambridge_db"))
+
+add_test_product("cambridge_db\tests")

@@ -1,0 +1,110 @@
+#% text_encoding = iso8859_1
+
+_package sw
+$
+
+dev_doc("load_munit() - Load munit and application_test", "LOADING CODE")
+_global load_munit <<
+	_proc@load_munit()
+		_global test_case
+		_if smallworld_product.product(:munit) _is _unset
+		_then			
+			_try
+				smallworld_product.add_product( :munit )
+			_when sw_product_not_found
+					smallworld_product.add_product(projects_path("munit")) 
+			_endtry			
+		_endif
+		_if _not sw_module_manager.module(:munit_base).loaded?
+		_then 
+			sw_module_manager.load_module("munit_base")
+		_endif
+		_if _not sw_module_manager.module(:application_test).loaded?
+		_then 
+			sw_module_manager.load_module("application_test")
+		_endif
+		test_case.ignore_aspects? << _true
+	_endproc
+$
+
+dev_doc("load_munit_gui() - Load and start the test_runner_dialog", "LOADING CODE")
+_global load_munit_gui <<
+	_proc@load_munit_gui()
+		load_munit()
+		
+		_if _not sw_module_manager.module(:munit_magik_gui).loaded?
+		_then
+			load_dev_tools()
+			sw_module_manager.load_module(:munit_magik_gui)	
+		_endif
+        _global test_runner_dialog
+        test_runner_dialog.open()
+	_endproc
+
+_global test_product_dirs << rope.new()
+_global add_test_product << _proc@add_test_product(rel_dir, _optional abs_dir)
+		
+		dir << abs_dir.default(projects_path(rel_dir))
+		_if system.file_exists?(dir)
+		_then
+			test_product_dirs.add(dir)
+		_else 
+			write("Skipping missing test file - ", dir)
+		_endif
+	_endproc
+
+_global default_test_module_names << rope.new()
+
+
+dev_doc("load_tests() - Add all relevant test products for this session and start the test runner dialog", "LOADING CODE")
+dev_doc("load_tests(test_modules...) - Add all relevant test products for this session, load TEST_MODULES and start the test runner dialog", "LOADING CODE")
+_global load_tests <<
+_proc@load_tests(_gather test_module_names)
+	load_dev_tools()
+	load_munit()
+	_for ip _over test_product_dirs.elements()
+	_loop
+		smallworld_product.add_product(ip)
+	_endloop
+	
+	test_modules << rope.new_from(test_module_names)
+	test_modules.add_all_last(default_test_module_names)
+	_for m _over test_modules.elements()
+	_loop
+		sw_module_manager.load_module(m)
+	_endloop
+	
+	load_munit_gui()
+
+_endproc
+$
+
+_global test_case << _unset
+_pragma(classify_level=restricted)
+_method test_case.debug(str)
+	write(str)
+	>> _self 
+_endmethod
+$
+
+_global o << _proc(ref)
+		_global last_test
+		>> last_test.properties[ref]
+	_endproc
+$
+
+_global ao << _proc(ref)
+		obj << o(ref)
+		_global abs_v
+		_return abs_v.get_abstracted_object_for(obj)
+	_endproc
+$
+
+_block
+	_if system.file_exists?(projects_path("core"))
+	_then
+		add_test_product("core/tests")
+	_else 
+		add_test_product("corerepo/tests")
+	_endif
+_endblock

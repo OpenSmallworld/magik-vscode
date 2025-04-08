@@ -1,0 +1,42 @@
+#% text_encoding = iso8859_1
+_package sw
+
+## Common helpers, for both CIM and DNOM GISA Sessions.
+##
+confirm_magik_dev_file(:sw_cim_adapter)
+$
+
+dev_doc("gisa_debug() - Enable GIS Adapter debug mode, allowing exports to run directly in the desktop application", "DEBUG")
+_global gisa_debug << _proc@gisa_debug(_optional enabled?)
+	##
+	## Enable/Disable GISA debug mode.
+	## Allow substations/circuits to be exported locally from the NME dialog
+	##
+	_global !gisa_interactive_debug_export?!
+	!gisa_interactive_debug_export?! << enabled?.default(_true)
+_endproc
+$
+
+dev_doc("load_gisa_topology_helpers() - View topology node ID's on the map", "APPLICATION")
+_global load_gisa_topology_helpers << _proc@load_gisa_topology_helpers()
+	##
+	## Loads the topology helper code. Tools -> Edit Topology -> Manifolds to view node ID's
+	##
+	smallworld_product.add_product(projects_path("gis_adapter\tests\test_utils\product.def"))
+	sw_module_manager.load_module(:cim_connectivity_viewer)
+	write("")
+	write("To view node ID's: Tools -> Edit Topology -> Manifolds")
+_endproc
+$
+
+_global gisa_setvars << _proc@gisa_setvars()
+	##
+	##
+	_global cimv
+	cimv << gis_program_manager.databases[:cim_metadata]
+
+	report_ds(cimv, "cimv (:Cim_metadata)")
+_endproc
+$
+
+setvars_procs.add_last(gisa_setvars)

@@ -1,0 +1,11 @@
+#% text_encoding = iso8859_1
+_package sw
+
+confirm_magik_dev_file(:pni_ftth)
+local_product_path(:pni_ftth, projects_path("ftth\pni_ftth"), :ftth)
+local_product_path(:pni_ftth_resources, projects_path("ftth\pni_ftth_resources"), :ftth)
+
+add_test_product("pni/pni_custom")
+add_test_product("ftth/pni_ftth_testing")
+
+default_test_module_names.add_last(:ftth_munit_tests)

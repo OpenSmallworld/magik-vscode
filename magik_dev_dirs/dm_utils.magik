@@ -1,0 +1,107 @@
+#% text_encoding = iso8859_1
+_package sw
+
+confirm_magik_dev_file(:sw_dm)
+
+local_product_path(:sw_dm, projects_path("dm\design_manager"))
+local_product_path(:sw_dm_config, projects_path("dm\design_manager\config"))
+local_product_path(:sw_dm_modules, projects_path("dm\design_manager\design_manager"))
+local_product_path(:sw_dlt_modules, projects_path("dm\design_manager\design_layout_tools"))
+local_product_path(:sw_emst_modules, projects_path("dm\design_manager\emst"))
+
+group_product(:dm, :sw_dm)
+group_product(:dm, :sw_dm_config)
+group_product(:dm, :sw_dm_modules)
+group_product(:dm, :sw_dlt_modules)
+group_product(:dm, :sw_emst_modules)
+
+add_test_product("dm\tests")
+
+_global open_dm <<
+_proc @open_dm()
+    gis_program_manager.open_dataset(:design_admin)
+    gis_program_manager.open_dataset(:design_work)
+_endproc
+
+_global dm_sizes <<
+	_proc @dm_sizes()
+		_local dav << gis_program_manager.databases[:design_admin]
+		write("Projects:", tab_char, dav.collection(:swg_dsn_project).size)
+		write("Designs:", tab_char, dav.collection(:swg_dsn_scheme).size)
+		write("Phases: ", tab_char, dav.collection(:swg_dsn_build_phase).size)
+	_endproc
+
+_global dm_setvars << _proc@dm_setvars()
+		
+		_global dav, dcv, dwv
+
+		dav << gis_program_manager.databases[:design_admin]
+		dcv << gis_program_manager.databases[:design_config]
+		dwv << gis_program_manager.databases[:design_work]	
+		report_ds(dav, "dav (Design Admin)")
+		report_ds(dcv, "dcv (Design Config)")
+		report_ds(dwv, "dwv (Design Work)")
+
+		app << setapp()
+
+		_if app _is _unset
+		_then 
+			_return 
+		_endif
+		
+		_global dbp, dmb, dmm
+		_global dtp, dtf
+		_global dwp, dwfw, dwc, dwcm, dwrm
+		_global cap, cad
+		
+		dbp  << app.plugin(:dm_design_browser)
+		dtp  << app.plugin(:dm!design_tab_plugin)
+		dwp  << app.plugin(:dm!config_tools_cu_menu_fw)
+		cap  << app.plugin(:config_assistant)
+		
+		_if dbp _isnt _unset
+		_then
+			dmb << dbp.dialogs[:browser]
+			dmm << dbp.design_manager
+		_endif 
+		_if dtp _isnt _unset
+		_then
+			dtf << dtp.dialogs.an_element()
+		_endif
+		_if dwp _isnt _unset
+		_then 
+			dwfw << dwp.dialogs.an_element()
+			_if dwfw _isnt _unset 
+			_then 
+				dwc << dwfw.component(:cu_config)
+				_if dwc _isnt _unset
+				_then 
+					dwcm << dwc.dialogs[:dw!cu_configuration_menu]
+					_if dwc.dialogs[:maintenance_menu] _isnt _unset
+					_then 
+						dwrm << dwc.dialogs[:maintenance_menu].dialogs.an_element()
+					_endif 
+				_endif 
+			_endif 
+		_endif
+		_if cap _isnt _unset
+		_then
+			cad << cap.dialogs[:config_assistant]
+		_endif
+		write("")
+		_if dbp   _isnt _unset _then write("dbp",   tab_char, dbp) _endif
+		_if dmb   _isnt _unset _then write("dmb",   tab_char, dmb) _endif
+		_if dmm   _isnt _unset _then write("dmm",   tab_char, dmm) _endif
+		_if dtp   _isnt _unset _then write("dtp",   tab_char, dtp) _endif
+		_if dtf   _isnt _unset _then write("dtf",   tab_char, dtf) _endif
+		_if dwp   _isnt _unset _then write("dwp",   tab_char, dwp) _endif
+		_if dwfw  _isnt _unset _then write("dwfw",  tab_char, dwfw) _endif
+		_if dwc   _isnt _unset _then write("dwc",   tab_char, dwc) _endif
+		_if dwcm  _isnt _unset _then write("dwcm",  tab_char, dwcm) _endif
+		_if dwrm  _isnt _unset _then write("dwrm",  tab_char, dwrm) _endif
+		_if cap   _isnt _unset _then write("cap",   tab_char, cap) _endif
+		_if cad   _isnt _unset _then write("cad",   tab_char, cad) _endif
+		
+	_endproc
+
+setvars_procs.add_last(dm_setvars)

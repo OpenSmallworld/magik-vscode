@@ -1,0 +1,778 @@
+#% text_encoding = iso8859_1
+_package sw
+
+confirm_magik_dev_file(:sw_core)
+$
+
+########################################################################
+# Put package in prompt
+########################################################################
+
+magik_rep.prompt_generator <<
+	_proc(prompt)
+		>> write_string(%(, !current_package!.name, %), prompt)
+	_endproc
+$
+
+dev_doc("object.p OR p(object) - Print an object - print()", "OBJECT")
+_method object.p
+	print(_self)
+_endmethod
+
+_global p << _proc(_gather args)
+		_return print(_scatter args)
+	_endproc
+
+dev_doc("object.dp OR dp(object) - Debug print and object - debug_print()", "OBJECT")
+_method object.dp
+	debug_print(_self)
+_endmethod
+
+_global dp << _proc(_gather args)
+		_return debug_print(_scatter args)
+	_endproc
+
+dev_doc("object.ap OR ap(object) - Shorthand for object.apropos(arg, true, true)", "CLASS BROWSER")
+_method object.ap(arg)
+	_return _self.apropos(arg, _true, _true)
+_endmethod
+
+_global ap << _proc(arg)
+		_return apropos(arg, _true, _true)
+	_endproc
+
+dev_doc("object.kap - Shorthand for object.key_apropos(arg, true, true)", "CLASS BROWSER")
+_method object.kap(arg)
+	_return _self.key_apropos(arg, _true, _true)
+_endmethod
+
+dev_doc("object.md - Print an object's module", "PRODUCT")
+_method object.md
+	name << _self.module_name
+	m << sw_module_manager.module(name)
+	print(m)
+	_return m
+_endmethod
+
+dev_doc("object.ph OR ph(object) - print an object's class hierarchy - print_hierarchy()", "CLASS BROWSER")
+_method object.ph
+	_return print_hierarchy(_self)
+_endmethod
+
+_global ph << _proc@ph(arg)
+		_return arg.ph
+	_endproc
+
+dev_doc("object.pa OR pa(object) - print an object's class ancestors - print_ancestry()", "CLASS BROWSER")
+_method object.pa
+	_return print_ancestry(_self)
+_endmethod
+
+_global pa << _proc@pa(arg)
+		_return arg.pa
+	_endproc
+
+dev_doc("object.pd OR pd(object) - print an object's dependencies", "OBJECT")
+_method object.pd
+	_for a, b _over _self.dependencies()
+		_loop
+			write(a, tab_char, b)
+		_endloop
+_endmethod
+
+dev_doc("df() - Describe a record's fields - describe_fields()", "DATABASE")
+_method dd_record_and_collection_mixin.df()
+	_self.describe_fields()
+_endmethod
+$
+
+dev_doc("view.apn() - Shorthand for alternative_path_name()", "DATABASE")
+_method ds_version_view.apn(_optional name_or_up)
+	>> _self.alternative_path_name(name_or_up)
+_endmethod
+$
+
+_global pd << _proc@pd(arg)
+		_return arg.pd
+	_endproc
+
+dev_doc("db() - Print the open ACE view's searchpath", "DATABASE")
+_global db << _proc@db()
+		_if (av << gis_program_manager.ace_top_view) _isnt _unset
+		_then
+			write(_scatter av.searchpath)
+		_endif
+	_endproc
+
+dev_doc("print_databases() - Print details of open database", "DATABASE")
+_global print_databases <<
+	_proc @print_databases(_optional keys_only?)
+		ace_view << gis_program_manager.ace_view
+		style_view << gis_program_manager.style_view
+		write(newline_char)
+		write("Key".space_pad(30),   "64bit",              tab_char, "write?",             tab_char, "Dataset    ",  tab_char, "Searchpath")
+		write("ace".space_pad(30),   ace_view.system64?,   tab_char, ace_view.writable?,   tab_char, ace_view.class_name,   tab_char, ace_view.searchpath[1])
+		write("style".space_pad(30), style_view.system64?, tab_char, style_view.writable?, tab_char, style_view.class_name, tab_char, style_view.searchpath[1])
+		_for k, v _over gis_program_manager.databases.fast_keys_and_elements()
+		_loop
+			_try 
+				sp << v.searchpath[1]
+			_when error
+				sp << "Unknown"
+			_endtry 
+			_try
+				sys64? << v.system64?
+			_when error
+				sys64? << "?    "
+			_endtry
+			_if keys_only? _is _true
+			_then 
+				write(k)
+			_else
+				write(k.as_charvec().space_pad(30), sys64?, tab_char, v.writable?, tab_char, v.class_name, tab_char, sp)
+			_endif 
+		_endloop
+	_endproc
+
+dev_doc("print_observers(object) - Print details of object's observers", "OBJECT")
+_global print_observers <<
+	_proc(obj)
+		_for col, obs _over obj.sys!slot(:observers).fast_keys_and_elements()
+		_loop
+			write(col)
+			_for aspect, deps _over obs.fast_keys_and_elements()
+			_loop
+				write_with_spaces(tab_char, aspect, tab_char, _scatter deps)
+			_endloop
+		_endloop
+	_endproc
+
+dev_doc("report_ds(dsv_or_dsv_name) - Print details of a ds view, or a ds view named ", "DATABASE")
+_global report_ds <<
+	_proc@report_ds(name_or_v _optional label)
+		_if name_or_v _is _unset
+		_then 
+			_return
+		_elif name_or_v.is_kind_of?(symbol)
+		_then 
+			v << gis_program_manager.databases[name_or_v]
+		_else 
+			v << name_or_v
+		_endif 
+		_if v _is _unset
+		_then
+			write("Cannot find dataset called ", name_or_v)
+		_else
+			_local str << internal_text_output_stream.new()
+			_if label _isnt _unset
+			_then 
+				str.write(label.space_pad(20.max(label.size+1)))
+			_endif
+			str.write(v.vm_flavour.as_charvec().space_pad(8))
+			str.write(v.class_name.as_charvec().space_pad(15))
+			_if v.responds_to?(:|alternative_path_name()|)
+			_then 
+				a_path << v.alternative_path_name().as_charvec()
+				str.write(a_path.space_pad(20.max(a_path.size+1)))
+			_endif 
+			_if v.responds_to?(:mode)
+			_then 
+				str.write(v.mode)
+			_endif
+			_if v.responds_to?(:in_short_transaction?) _andif v.in_short_transaction?
+			_then
+				str.write(tab_char, "(short transaction mode)")
+			_endif
+			_try 
+				sp << v.searchpath[1]
+			_when error
+				sp << "Unknown"
+			_endtry
+			str.write(tab_char, sp)
+			write(str.string)
+
+		_endif
+	_endproc
+
+dev_doc("ds_env_info() - Print details of the ds_environment", "DATABASE")
+_global ds_env_info <<
+	_proc()
+		ht << ds_environment.sys!perform(:allowed_methods)
+		
+		_for k _over ht.fast_keys()
+		_loop
+			_if _not (k.includes?(%<))
+			_then 
+				s << k.write_string.space_pad(35, _false, _true)
+				
+				write(s, ds_environment.perform(k))
+			_endif 
+		_endloop
+	_endproc
+
+dev_doc("print_job_types() - Print details of all sw_job types", "JOBS")
+_global print_job_types <<
+	_proc()
+		_local mh << message_handler(:sw_job)
+		_for jt, data _over sw_job_engine.all_job_types.fast_keys_and_elements()
+		_loop
+			(a_class, a_method) << (_scatter data)
+			write(jt, %,, mh.human_string(jt), %,, a_class, %,, a_method)
+		_endloop
+	_endproc
+
+_global projects_dir << _proc()
+		_if (proj_dir << system.getenv("PROJECTS_DIR")) _is _unset
+		_then
+			proj_dir << "C:\projects\hg"
+		_endif 
+		_return system.canonicalise(proj_dir)
+	_endproc
+
+_global projects_path << _proc(_gather rel_path)
+		path << system.pathname_down(projects_dir(), _scatter rel_path)
+		_if _not system.file_exists?(path)
+		_then
+			write("!!!! No such path: ", path)
+		_endif
+		>> path
+	_endproc
+
+dev_doc("report_products() - Print details of all products loaded in the session", "PRODUCTS")
+_global report_products <<
+	_proc@report_products()
+		
+		## Write out all products in the session identifying local products (which are
+		## those loaded from C:\projects)
+		sort_proc << _proc(a,b) >> a.name _cf b.name _endproc
+		my_products  << sorted_collection.new(_unset, sort_proc)
+		gen_products << sorted_collection.new(_unset, sort_proc)
+		longest      << 10
+		proj_dir << projects_dir()
+		
+		_for p _over smallworld_product.products.fast_elements()
+		_loop
+			p_dir << system.canonicalise(p.directory)
+			_if p_dir.index_of_seq(proj_dir) _is _unset
+			_then
+				gen_products.add(p)
+			_else 
+				my_products.add(p)
+			_endif
+			longest << max(longest, p.name.size)
+		_endloop
+		longest +<< 1
+		write("Canonical products")
+		_for p2 _over gen_products.fast_elements()
+		_loop
+			write(tab_char, p2.name.as_charvec().space_pad(longest), p2.directory)
+		_endloop 
+		write("Local products")
+		_for p3 _over my_products.fast_elements()
+		_loop
+			write(tab_char, p3.name.as_charvec().space_pad(longest), p3.directory)
+		_endloop 
+	_endproc
+$
+
+_global set_product_dir<< _proc @set_product_dir(name, dir, _optional add?, reload?)
+		_global load_module
+				 _local pr<< smallworld_product.product(name)
+				 _if pr _is _unset
+				 _then
+					 _if add? _isnt _false
+					 _then 
+						 smallworld_product.add_product(dir)
+					 _else
+						 write("There is not a product: ", name)
+					 _endif 
+					 _return 
+				 _endif 
+				 pr.directory<< dir
+				 pr.reinitialise()
+
+				 _for m _over pr.defined_modules.fast_elements()
+				 _loop
+					 _if m.loaded?
+					 _then
+						 _if reload? _is _true 
+						 _then 
+							 load_module(m.name, _true, _true)
+						 _else
+							 m.compile_messages()
+						 _endif
+					 _endif 
+				 _endloop
+			 _endproc
+
+_global local_product_paths << concurrent_hash_map.new()
+_global local_product_groups << concurrent_hash_map.new_with(:all, rope.new())
+
+_global group_product <<
+	_proc@group_product(group_name, product_name)
+		_if (grp << local_product_groups[group_name]) _is _unset
+		_then
+			grp << local_product_groups[group_name] << rope.new()
+		_endif
+		grp.add(product_name)
+	_endproc
+
+_global local_product_path <<
+	_proc@local_product_path(name, path, _optional group)
+		local_product_paths[name] << path
+		group_product(:all, name)
+		_if group _isnt _unset
+		_then
+			group_product(group, name)
+		_endif
+	_endproc
+
+_block
+	_local core_path, kernel_path
+	_if _not system.file_exists?(core_path << projects_path("core/sw_core"))
+	_then
+		write("No core/sw_core, trying corerepo/sw_core")
+		core_path << projects_path("corerepo/sw_core")
+		kernel_path << projects_path("corerepo/sw_core/modules/sw_kernel")
+	_endif
+	
+	_if core_path _isnt _unset
+	_then
+		local_product_path(:sw_core, core_path)
+		local_product_path(:sw_kernel, kernel_path)
+	_endif
+_endblock
+
+_global int!rpp << _proc@int!rpp(pname, _optional new_path)
+		
+		write("Reinitialising ", pname)
+		
+	_if (pr << smallworld_product.product(pname)) _is _unset
+	_then
+		write("NO SUCH PRODUCT - define in session using local_product_path()")
+		_return
+	_endif
+		
+	path << new_path.default(local_product_paths[pname])
+	_if path _is _unset _orif
+		_not system.file_exists?(path)
+	_then
+		write("Invalid path: ", path)
+		_return 
+	_endif
+	
+	pr.directory << path
+	pr.reinitialise()
+_endproc
+$
+
+dev_doc("repoint_product() OR rpp() - Print repointable products & groups", "PRODUCTS")
+dev_doc("rpp(<product OR group>) - Repoint specified products in the session to local directories", "PRODUCTS")
+dev_doc("relocate_products() - Relocate all products in a session to local directories", "PRODUCTS")
+_global repoint_product << _proc@repoint_product(_optional pname, new_path)
+		_if pname _is _unset
+		_then
+			write("Pre-configured products & paths:")
+			_for prod, path _over local_product_paths.fast_keys_and_elements()
+			_loop
+				write(prod, tab_char, path)
+			_endloop
+			
+			write("Groups:")
+			_for grp, prods _over local_product_groups.keys_and_elements()
+			_loop
+				write(grp, tab_char, write_string_with_separator(prods, ", "))					
+			_endloop
+			_return
+		
+		_elif (grps << local_product_groups[pname]) _isnt _unset
+		_then
+			_for pn _over grps.elements()
+			_loop
+				int!rpp(pn)
+			_endloop
+			
+		_else 
+			int!rpp(pname, new_path)
+		_endif
+
+		report_products()
+	_endproc
+
+_global rpp << repoint_product
+
+dev_doc("print_product_history() to list details of all products installed in all open ds views", "IMPLEMENTERS")
+_global print_product_history <<
+	_proc @print_product_history(_gather ds_names)
+		
+		## Write out product history of all open databases
+		## Pass in specific dataset names to view specific datasets
+		## Pass in :ace or :style for ace and style datasets
+		
+		_for k, v _over gis_program_manager.databases.fast_keys_and_elements()
+		_loop
+			_if ds_names.empty? _orif ds_names.includes?(k)
+			_then
+				write(k, tab_char, v)
+				_if v.responds_to?(:|product_history()|)
+				_then
+					print(v.product_history())
+				_else 
+					write("DOESN'T RESPOND TO PRODUCT_HISTORY()")
+				_endif
+			_endif
+		_endloop
+		_if ds_names.includes?(:ace)
+		_then 
+			print(gis_program_manager.ace_top_view.product_history())
+		_endif
+		_if ds_names.includes?(:style)
+		_then 
+			print(gis_program_manager.style_view.product_history())
+		_endif
+	_endproc
+
+dev_doc("load_dev_tools() - Load the dev_tools product", "LOADING CODE")
+_global load_dev_tools <<
+	_proc@load_dev_tools()
+		_handling sw_product_warning, sw_product_information, sw_module_warning, sw_module_information _with procedure
+		write("Information and Warning messages suppressed in load_dev_tools()")
+		_if sw_module_manager.module_is_loaded?(:dev_tools_application)
+		_then _return _endif
+
+		_if _not system.file_exists?(core_dir << projects_path("core"))
+		_then
+			write("No core, trying corerepo")
+			core_dir << projects_path("corerepo")
+		_endif
+		
+		_if smallworld_product.product(:sw_dev_tools) _is _unset
+		_then 
+			p << smallworld_product.add_product(system.pathname_down(core_dir, "sw_core", "modules", "sw_dev_tools"))
+			write("ADDED: ", p)
+		_endif
+		
+		sw_module_manager.load_module(:dev_tools_application)
+		_global !debug_tracebacks?!
+		!debug_tracebacks?! << _true
+		write("LOADED: dev_tools_application")
+	_endproc
+$
+
+dev_doc("dev_app() - Load the dev tools application and munit gui", "LOADING CODE")
+_global dev_app << _proc @dev_app()
+		
+		_handling sw_product_warning, sw_product_information, sw_module_warning, sw_module_information _with procedure
+		write("Information and Warning messages suppressed in dev_app()")
+
+		load_dev_tools()
+		_global load_munit
+		load_munit()
+	
+		write("dev_app loaded successfully")
+	
+	_endproc
+
+# Switch off compiler warnings
+_global !show_dd_compiler_warnings?! << _false
+
+# Store UI build methods for use in Swift GUI Explorer
+_global !swift_build_method?! << _true
+
+# Use alternative traceback format - but only works if dev tools have been loaded
+_global !debug_tracebacks?! << _false
+
+_global setvars_procs << rope.new()
+$
+
+dev_doc("setvars() - Set miscellaneous globals useful to the current session", "APPLICATION")
+_global setvars << _proc@setvars(_optional print?)
+		
+		_dynamic !output!
+		_if print? _is _false
+		_then 
+			!output! << internal_text_output_stream.new()
+		_endif 
+
+		# Run setvars procs for each product
+		_for setvars_proc _over setvars_procs.elements()
+		_loop
+			# write(newline_char, setvars_proc.name, "...")
+			setvars_proc.invoke()
+		_endloop
+	_endproc
+$
+
+_global setapp << _proc@setapp(_optional show_apps?)
+		
+		_global apps, app
+		# Set variables for first application with a map manager
+		apps << smallworld_product.applications
+		_for an_app _over apps.fast_elements()
+		_loop
+			_if an_app.get_service_provider(:map_manager) _isnt _unset
+			_then
+				app << an_app
+				_leave
+			_endif
+		_endloop
+		
+		_if app _is _unset _andif smallworld_product.applications.size = 1
+		_then
+			app << smallworld_product.applications.an_element()
+		_endif 
+		
+		_if show_apps? _is _true 
+		_then 
+			write("Applications:")
+			_for an_app _over apps.fast_elements()
+			_loop
+				write(an_app)
+			_endloop
+			write("")
+			_if app _isnt _unset
+			_then
+				write("app", tab_char, app)
+			_endif
+		_endif
+		
+		_return app
+	_endproc
+
+_global core_appvars << _proc@core_appvars(app)
+		
+		_if app _is _unset
+		_then 
+			_return 
+		_endif 
+
+		_global mm, mt, cm, cmv, cmg, mvs, selg, selr
+		_global edm, edv, ed, r
+		_global exp, exv, exrwo
+		_global lp, ld
+		_global cp, cpa, cpt, lsp, lsv
+		_global ahp, ahd, ahv
+		_global scvp, scvf
+		_global sva, svac, svc
+		_global jsap, jm, je, jmq, jmp, jms, jmpd, jmqd
+		_global nap, nad, nat, nac 
+		
+		mm << app.get_service_provider(:map_manager)
+		edm << app.get_service_provider(:editor_manager)
+		lp << app.get_service_provider(:layout_plugin)
+		exp << app.plugin(:explorer) 
+		cp << app.plugin(:construction_pack)
+		gmp << app.plugin(:geometry_manipulation)
+		ahp << app.plugin(:audit_history)
+		scvp << app.plugin(:spatial_context_viewer)
+		sva << app.plugin(:streetview)
+		jsap << app.plugin(:job_gui)
+		nap << app.plugin(:analysis)
+		_if mm _isnt _unset
+		_then
+			mt << mm.current_trail
+			cm << mm.current_map
+			cmv << mm.current_map_view
+			cmg << mm.current_map_document_gui
+			_if cm _isnt _unset
+			_then 
+				selg << cm.current_selection
+				selr << rope.new_from(selg.rwo_set())
+			_endif
+		_endif
+		_if edm _isnt _unset
+		_then
+			edv << edm.sys!slot(:embedded_viewer)
+		_endif
+		_if edv _isnt _unset
+		_then 
+			ed << edv.current_editor
+			_if ed _isnt _unset
+			_then 
+				r << ed.current_object
+			_endif 
+		_endif 
+		_if exp _isnt _unset
+		_then
+			exv << exp.sys!slot(:dialogs)[:explorer]
+			_if exv _isnt _unset
+			_then 
+				exrwo << exv.plugin(:explorer_rwo_set_output)
+			_endif
+		_endif
+		_if lp _isnt _unset
+		_then
+			ld << lp.sys!slot(:dialogs)[:layout_designer]
+		_endif
+		_if cp _isnt _unset
+		_then
+			cpa << cp.dialogs.an_element()
+		_endif
+		_if cpa _isnt _unset
+		_then
+			cpt << cpa.sys!slot(:dialogs)[:construction_plot]
+			lsp << cpa.plugin(:layout_series)
+			lsv << lsp.sys!slot(:previewer)
+			lst << lsp.sys!slot(:controller)
+			lse << lsp.sys!slot(:engine)
+			lsk << lsv.plugin(:layout_sketch_plugin)
+		_endif
+		_if ahp _isnt _unset
+		_then
+			ahd << ahp.sys!perform(:|get_dialog()|, :audit_history_dialog)
+			_if ahd _isnt _unset
+			_then 
+				ahe << ahd.sys!slot(:engine)
+			_endif 
+		_endif
+		_if scvp _isnt _unset 
+		_then
+			scvf << scvp.sys!slot(:embedded_viewer)
+		_endif
+		_if sva _isnt _unset
+		_then
+			svac << sva.sys!slot(:streetview_component)
+			_if svac _isnt _unset
+			_then 
+				svc << svac.sys!slot(:streetview)
+			_endif 
+		_endif
+		_if jsap _isnt _unset
+		_then
+			jm << jsap.sys!perform(:|get_dialog()|, :job_server_admin)
+			_if jm _isnt _unset
+			_then
+				je << jm.sys!slot(:server)
+				jmq << jm.plugin(:schedule_pi)
+				jmp << jm.plugin(:processed_pi)
+				jms << jm.plugin(:server_pi)
+				jmpd << jmp.sys!slot(:embedded_viewer)
+				jmqd << jmq.sys!slot(:embedded_viewer)
+			_endif 
+		_endif 
+		_if nap _isnt _unset
+		_then
+			nad << nap.dialogs[:network_analysis]
+			nat << nap.dialogs[:floating_network_analysis_tool]
+			_if nat _isnt _unset
+			_then 
+				nac << nat.sys!slot(:engine)
+			_endif 
+		_endif 
+		
+		_if mm    _isnt _unset _then write("mm",    tab_char, mm) _endif
+		_if mt    _isnt _unset _then write("mt",    tab_char, mt) _endif
+		_if cm    _isnt _unset _then write("cm",    tab_char, cm) _endif
+		_if cmv   _isnt _unset _then write("cmv",   tab_char, cmv) _endif
+		_if cmg   _isnt _unset _then write("cmg",   tab_char, cmg) _endif
+		_if selg  _isnt _unset _then write("selg",  tab_char, selg) _endif
+		_if selr  _isnt _unset _then write("selr",  tab_char, selr) _endif
+		_if edm   _isnt _unset _then write("edm",   tab_char, edm) _endif
+		_if edv   _isnt _unset _then write("edv",   tab_char, edv) _endif
+		_if ed    _isnt _unset _then write("ed",    tab_char, ed) _endif
+		_if r     _isnt _unset _then write("r",     tab_char, r) _endif
+		_if exp   _isnt _unset _then write("exp",   tab_char, exp) _endif
+		_if exv   _isnt _unset _then write("exv",   tab_char, exv) _endif
+		_if exrwo _isnt _unset _then write("exrwo", tab_char, exrwo) _endif
+		_if lp    _isnt _unset _then write("lp",    tab_char, lp) _endif
+		_if ld    _isnt _unset _then write("ld",    tab_char, ld) _endif
+		_if cp    _isnt _unset _then write("cp",    tab_char, cp) _endif
+		_if cpa   _isnt _unset _then write("cpa",   tab_char, cpa) _endif
+		_if cpt   _isnt _unset _then write("cpt",   tab_char, cpt) _endif
+		_if lsp   _isnt _unset _then write("lsp",   tab_char, lsp) _endif
+		_if lsv   _isnt _unset _then write("lsv",   tab_char, lsv) _endif
+		_if lst   _isnt _unset _then write("lst",   tab_char, lst) _endif
+		_if lse   _isnt _unset _then write("lse",   tab_char, lse) _endif
+		_if lsk   _isnt _unset _then write("lsk",   tab_char, lsk) _endif
+		_if gmp   _isnt _unset _then write("gmp",   tab_char, gmp) _endif
+		_if ahp   _isnt _unset _then write("ahp",   tab_char, ahp) _endif
+		_if ahd   _isnt _unset _then write("ahd",   tab_char, ahd) _endif
+		_if ahe   _isnt _unset _then write("ahe",   tab_char, ahe) _endif
+		_if scvp  _isnt _unset _then write("scvp",  tab_char, scvp) _endif
+		_if scvf  _isnt _unset _then write("scvf",  tab_char, scvf) _endif
+		_if sva   _isnt _unset _then write("sva",   tab_char, sva) _endif
+		_if svac  _isnt _unset _then write("svac",  tab_char, svac) _endif
+		_if svc   _isnt _unset _then write("svc",   tab_char, svc) _endif
+		_if jsap  _isnt _unset _then write("jsap",  tab_char, jsap) _endif
+		_if je    _isnt _unset _then write("je",    tab_char, je) _endif
+		_if jm    _isnt _unset _then write("jm",    tab_char, jm) _endif
+		_if jmq   _isnt _unset _then write("jmq",   tab_char, jmq) _endif
+		_if jmp   _isnt _unset _then write("jmp",   tab_char, jmp) _endif
+		_if jms   _isnt _unset _then write("jms",   tab_char, jms) _endif
+		_if jmqd  _isnt _unset _then write("jmqd",  tab_char, jmqd) _endif
+		_if jmpd  _isnt _unset _then write("jmpd",  tab_char, jmpd) _endif
+		_if nap   _isnt _unset _then write("nap",   tab_char, nap) _endif
+		_if nad   _isnt _unset _then write("nad",   tab_char, nad) _endif
+		_if nat   _isnt _unset _then write("nat",   tab_char, nat) _endif
+		_if nac   _isnt _unset _then write("nac",   tab_char, nac) _endif
+		
+	_endproc
+
+_global core_setvars << _proc@core_setvars()
+		
+		_global gpm, v, av, auv, sv, jv, jcol
+		gpm << gis_program_manager
+		v << gis_program_manager.databases[:gis]
+		av << gpm.ace_view
+		auv << gpm.authorisation_view
+		sv << gpm.style_view
+		
+		_if sw_job_engine _isnt _unset 
+		_then
+			_try _with c
+				jv << sw_job_engine.job_view
+				jcol << jv.collection(:sw_job)
+			_when no_datasets_opened
+				write(c.report_contents_string)
+			_endtry
+		_else
+			jv << "sw_job_engine is _unset"
+		_endif
+
+		report_ds(v,   "v   (GIS)")
+		report_ds(av,  "av  (ACE)")
+		report_ds(auv, "auv (AUTH)")
+		report_ds(sv,  "sv  (STYLE)")
+		report_ds(jv,  "jv  (JOB)")
+		write("")
+		write("gpm", tab_char, gis_program_manager)				
+		
+		app << setapp(_true)
+		
+		core_appvars(app)
+		
+	_endproc 
+
+setvars_procs.add_first(core_setvars)
+
+dev_doc("source_files(class) - Print all source files providing code for CLASS", "FIND")
+_global source_files <<
+_proc@source_files(ex)
+	files << equality_set.new()
+	_for i _over ex.define_method_target.local_methods(_true)
+	_loop
+		ok? << _true
+		_try _with c
+			sf << i.source_file
+		_when does_not_understand
+			ok? << _false
+			write("dnu ", c.report_string)
+		_endtry
+		_if _not ok? _then _continue _endif 
+		
+		_if ok? _andif i.source_file _isnt _unset
+		_then 
+			files.add(i.source_file)
+		_endif
+
+	_endloop
+	print(files)
+_endproc
+$
+
+dev_doc("imps(module_name) Return a handle on all the implementers in MODULE_NAME. Takes the same optional arguments as sw_module.datamodel_implementers()", "IMPLEMENTERS")
+_global imps <<
+_proc@imps(module_name, _optional datamodel_name, sub_datamodel_name, version, force_reload?)
+	>> sw_module_manager.module(module_name).datamodel_implementers(datamodel_name, sub_datamodel_name, version, force_reload?)
+_endproc
+$

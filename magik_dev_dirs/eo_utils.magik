@@ -1,0 +1,54 @@
+#% text_encoding = iso8859_1
+_package sw
+
+confirm_magik_dev_file(:sw_electric_office)
+
+add_test_product("eo\tests")
+
+local_product_path(:sw_electric_office, projects_path("eo\electric_office"), :eo)
+local_product_path(:eo_implementers, projects_path("eo\electric_office\eo_implementers"), :eo)
+
+_global open_eo_db <<
+	_proc @open_eo_db(path _optional startup?, vvmds?)
+		_if vvmds? _is _true
+		_then
+			smallworld_product.set_startup_option(:vvmds_temp_dir, _true)
+		_endif
+		open_database(path, :electric_dm)
+		_if startup? _is _true
+		_then
+			startup()
+		_endif
+	_endproc
+
+dev_doc("get_eo_object(collection, field_name, value) - Return the EO object(s) in COLLECTION where FIELD_NAME=VALUE", "APPLICATION")
+_global get_eo_object << _proc@get_eo_object(collection, field_name, value)
+	_if (ev << gis_program_manager.databases[:electric]) _is _unset
+	_then
+		write("Unable to find the electric dataset - check that the DB is open.")
+		_return
+	_endif
+
+	_if (coll << ev.collections[collection]) _is _unset
+	_then
+		write("Collection '", collection, "' not found in the electric dataset.")
+		_return
+	_endif
+
+	returned_records << coll.select(predicate.eq(field_name, value))
+	_if returned_records.size > 1
+	_then
+		_return returned_records
+	_else
+		_return returned_records.an_element()
+	_endif
+_endproc
+
+_global eo_setvars << _proc@eo_setvars()
+		_global ev
+		ev << gis_program_manager.databases[:electric]
+		report_ds(ev, "ev (:electric)")
+
+	_endproc
+
+setvars_procs.add_last(eo_setvars)

@@ -1,0 +1,15 @@
+#% text_encoding = iso8859_1
+_package sw
+
+# Grid OS product
+confirm_magik_dev_file(:elec_smallworld_eo_svc)
+
+local_product_path(:cmn_smallworld, projects_path("gnm-data-services-magik\cmn_smallworld"))
+local_product_path(:elec_smallworld_eo_svc, projects_path("gnm-data-services-magik\elec_smallworld_eo_svc"))
+
+group_product(:cmn_smallworld, :cmn_smallworld) # loads test products from the cmn_smallworld
+group_product(:cmn_smallworld, :elec_smallworld_eo_svc)
+
+add_test_product("gss\tests\geospatial_server_tests_base")
+add_test_product("gnm-data-services-magik\tests\elec_smallworld_eo_svc_int_tests")
+

@@ -1,0 +1,7 @@
+#% text_encoding = iso8859_1
+_package sw
+
+confirm_magik_dev_file(:bearer)
+
+local_product_path(:bearer, projects_path("bm\bearer"), :bm)
+local_product_path(:bearer_resources, projects_path("bm\bearer_resources"), :bm)

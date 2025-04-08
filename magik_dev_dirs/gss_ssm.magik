@@ -1,0 +1,56 @@
+#% text_encoding = iso8859_1
+_package sw
+
+
+confirm_magik_dev_file(:gss_ssm)
+$
+
+local_product_path(:gss, projects_path("gss\geospatial_server"))
+local_product_path(:gss_config, projects_path("gss\geospatial_server\config"))
+local_product_path(:gss_ssm, projects_path("gss\gss_ssm"))
+local_product_path(:service_framework, projects_path("gss\service_framework"))
+
+add_test_product("gss\tests\geospatial_server_tests_base")
+add_test_product("gss\tests\gss_ssm_tests")
+add_test_product("gss\tests\geospatial_server_tests")
+add_test_product("gss\tests\geospatial_server_int_tests")
+$
+
+dev_doc("stub_rabbit() - Prevent ssm_connection attempts to rabbitmq")
+$
+_global stub_rabbit << _proc@stub_rabbit()
+		write("Stubbing ssm_connection.start() for the session")
+		ssm_connection.sys!save_and_replace_method(
+			:|start()|,
+			_proc() write("Permanently STUBBED ssm_connection.start()") _endproc
+		)
+_endproc
+$
+	
+_global ssm_setvars << _proc@ssm_setvars()
+		_global ssm_app, rabbit, ssm_ing
+		ssm_app <<
+			_for a _over smallworld_product.applications.fast_elements()
+			_loop
+				_if a.is_kind_of?(ssm_server_framework)
+				_then
+					_leave _with a
+				_endif
+			_endloop
+		
+		_if ssm_app _isnt _unset
+		_then 
+			write("ssm_app: ", ssm_app)
+			rabbit << ssm_app.component(:rabbit_connection)
+			_if rabbit _isnt _unset
+			_then
+				write("rabbit: ", rabbit)
+				write("ssm_ing: ", ssm_ing << rabbit.component(:ssm_ingestion))
+			_endif 
+		_endif 
+		
+	_endproc
+$
+
+setvars_procs.add_last(ssm_setvars)
+$

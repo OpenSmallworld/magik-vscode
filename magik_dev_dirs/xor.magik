@@ -1,0 +1,135 @@
+_package sw
+
+_global get_map_view <<
+_proc @get_map_view(_optional an_app, a_map_view)
+	_global app
+	_if a_map_view _is _unset
+	_then 
+		_if an_app _is _unset
+		_then
+			_if app _is _unset
+			_then 
+				write("Use setapp() or setvars() to set application")
+				_return 
+			_else 
+				an_app << app
+			_endif 
+		_endif 
+		mm << an_app.get_service_provider(:map_manager)
+		cmv << mm.current_map_view
+	_else
+		cmv << a_map_view
+	_endif
+	_return cmv
+_endproc
+
+dev_doc("xor_line_style<< line_style - Set line style for use in xor procs: e.g. xor_line_style << line_style.new(colour.new_rgb(1,0,0), 5)", "APPLICATION")
+_global xor_line_style << line_style
+
+dev_doc("xor_coord(coord) - Draw/Undraw COORD on a map_view", "APPLICATION")
+_global xor_coord <<
+_proc@xor_coord(a_coord _optional app, text, a_map_view)
+	
+	## XOR Draw A_COORD 
+	## If app is not provided use global set from setapp or setvars
+	## If A_MAP_VIEW is provided, draw on that map view otherwise draw on the main
+	## map of application APP
+	
+	_global xor_line_style
+	cmv << get_map_view(app, a_map_view)
+	_if cmv _is _unset
+	_then 
+		write("Cannot find a suitable map view")
+		_return
+	_endif 
+	
+	len << 4 / cmv.current_transform.nominal_scale
+	cv << coords_vector.new_with(a_coord + coordinate( - len, - len), a_coord + coordinate(len, len))
+	cmv.window.xor_line_transform(xor_line_style, cv)
+	cv << coords_vector.new_with(a_coord + coordinate( - len, len), a_coord + coordinate(len, - len))
+	cmv.window.xor_line_transform(xor_line_style, cv)
+	_if text _isnt _unset
+	_then
+		cmv.window.xor_text_transform(text_style, a_coord.x, a_coord.y, text)
+	_endif 
+_endproc
+
+dev_doc("xor_line(coords) - Draw/Undraw a line between COORDS on a map_view", "APPLICATION")
+_global xor_line <<
+_proc@xor_line(coords  _optional show_label?, app, text, a_map_view)
+	
+	## XOR A line joining COORDS 
+	## If app is not provided use global set from setapp or setvars
+	## If A_MAP_VIEW is provided, draw on that map view otherwise draw on the main
+	## map of application APP
+	_global xor_line_style
+	cmv << get_map_view(app, a_map_view)
+	_if cmv _is _unset
+	_then 
+		write("Cannot find a suitable map view")
+		_return
+	_endif 
+
+	cv << coords_vector.new_with(_scatter coords)
+	cmv.window.xor_line_transform(xor_line_style, cv)
+	_if text _isnt _unset
+	_then
+		x << (coords.first.x + coords.last.x) / 2
+		y << (coords.first.y + coords.last.y) / 2
+		cmv.window.xor_text_transform(text_style, x, y, text)
+	_elif show_label? _is _true
+	_then 
+		cmv.window.xor_text_transform(text_style, coords.first.x, coords.first.y, "Start")
+		cmv.window.xor_text_transform(text_style, coords.last.x,  coords.last.y, "End")
+	_endif
+_endproc
+
+dev_doc("xor_geom(geom) - Draw/Undraw GEOM on a map_view", "APPLICATION")
+_global xor_geom <<
+_proc@xor_geom(a_geom _optional app, text, a_map_view)
+	
+	## XOR Draw A_GEOM on the main map of application APP
+	
+	xor_line(a_geom.sectors.an_element().coords, _false, app, text)
+	_for i, c _over a_geom.sectors.an_element().keys_and_elements()
+	_loop
+		xor_coord(c, app, write_string(i), text, a_map_view)
+	_endloop
+_endproc
+
+dev_doc("xor_xy(x, y, text) - Draw/Undraw TEST at X,Y on a map_view", "APPLICATION")
+_global xor_xy <<
+_proc@xor_xy(x, y _optional text)
+	
+	## XOR Coordinate at X,Y
+	
+	str << _if text _is _unset
+		_then 
+			>> write_string(x, ",", y)
+		_else 
+			>> write_string(x, ",", y, " ", text)
+		_endif
+	xor_coord(coordinate(x, y), _unset, str)
+_endproc
+
+dev_doc("xor_rect(x1, y1, x2, y2) - Draw/Undraw a rectangle on a map_view", "APPLICATION")
+_global xor_rect <<
+_proc@xor_rect(xmin, ymin, xmax, ymax)
+	
+	## XOR a rectangle from Xmin,Ymin to Xmax Ymax
+	
+	xor_line({coordinate(xmin, ymin), coordinate(xmin, ymax), coordinate(xmax, ymax), coordinate(xmax, ymin), coordinate(xmin, ymin)})	
+_endproc
+
+dev_doc("xor_bounds(bounds) - Draw/Undraw a bounding box", "APPLICATION")
+_global xor_bounds <<
+_proc@xor_rect(bounds)
+	
+	## XOR a bounding box BOUNDS
+	
+	xmin << bounds.bottom_left.x
+	ymin << bounds.bottom_left.y
+	xmax << bounds.top_right.x
+	ymax << bounds.top_right.y
+	xor_rect(xmin, ymin, xmax, ymax)
+_endproc
