@@ -23,6 +23,9 @@ IF NOT DEFINED PROJECTS_DIR (
         SET PROJECTS_DIR=C:\projects\hg
         )
 
+REM Get parent directory for use when calling local_product below
+set PARENT_DIR=%~dp0
+
 REM Local installation path:
 SET target=C:\Smallworld
 
@@ -45,6 +48,7 @@ SET java_debugger=
 IF [%1]==[] GOTO date
 
 IF %1==-help (
+    :help
     ECHO local_magik [alias name] [?-debug] [?-days=] [?-version=] [?-vvmds] [?-no_login] [?-noinit] [?-use_s] [?-print]
     ECHO Arguments:
     ECHO  -debug       - enable debugger
@@ -630,8 +634,7 @@ IF %count%==14 (
 
 IF %alias%==unset (
     ECHO Alias is unset!!!!
-    %PROJECTS_DIR%/magik-dev/local_magik -help
-    GOTO end
+    GOTO help
 )
 
 SET /A count+=1
@@ -655,7 +658,7 @@ IF "%DEFAULT_DB_DIR%" == "TRUE" (
         SET SW_ACE_DB_DIR=%SMALLWORLD_GIS%%SW_ACE_DB_DIR%
     )
 
-CALL %PROJECTS_DIR%\magik-dev\local_product -print
+CALL %PARENT_DIR%\local_product -print
 ECHO Starting %alias%...
 ECHO %command%
 CMD /C %command%
