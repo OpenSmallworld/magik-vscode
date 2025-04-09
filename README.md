@@ -35,6 +35,7 @@ The hotkey `<CTRL>+<SHFT>+P` is used to open the command palette in Visual Studi
 
 * See [Compiling code and running tests](./docs/compiling.md) to understand how to compile code in your session.
 * See [Using the class browser](./docs/navigation.md) to understand how to use the class browser tool and navigate in VS Code.
+* See [Using the magik console](./docs/console.md) to understand how to use a Magik Console
 * See [Formatting and Editing](./docs/formatting.md) for information on formatting Magik code and using editing templates.
 * See [Linting and Debugging](./docs/debugging.md) for information on finding code problems with the Magik Linter and using the Magik debugger.
 * See [Development Tools](./docs/dev_tools.md) for information on available development tools.
