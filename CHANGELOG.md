@@ -1,7 +1,13 @@
 # Change Log
+
 All notable changes to the "magik" extension will be documented in this file.
 
+## 0.2.5
+
+* Consolidate development tools from sw_dev_tools/magik_tools
+
 ## 0.2.4
+
 - Updates and refactoring of README.md
 
 ## 0.2.3
