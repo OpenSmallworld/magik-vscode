@@ -97,7 +97,7 @@ _global load_magik_dev << _proc@load_magik_dev(_optional output_docs?)
 		
 		_handling sw_product_warning, sw_product_information, sw_module_warning, sw_module_information _with procedure
 		
-		_global dev_docs, output_dev_docs
+		_global dev_docs, print_dev_docs
 		dev_docs.empty()
 				
 		_for dir _over sw_magik_dev_dirs().elements()
@@ -125,7 +125,7 @@ _global load_magik_dev << _proc@load_magik_dev(_optional output_docs?)
 		
 		_if output_docs?.default(_true)
 		_then
-			output_dev_docs()
+			print_dev_docs()
 		_endif
 	_endproc
 $
@@ -163,25 +163,57 @@ _global dev_doc << _proc@document_dev_util(str, _optional category)
 _endproc
 $
 
-_global output_dev_docs << _proc@output_dev_docs(_optional by_file?)
+
+_global output_dev_docs << _proc(data _optional category)
 		##
 		## List out the dev utilities' descriptions, as stored in dev_docs
 		##
-		write(newline_char, "DEV UTILS:")
-		_if by_file? _is _true
-		_then 
-			data << dev_docs_by_file
-		_else 
-			data << dev_docs
-		_endif
 		
-			_for key, file_docs _over data.fast_keys_and_elements()
+		_if category _is _unset
+		_then
+			write(newline_char, "DEV UTILS:")
+		_elif _not dev_docs.includes_key?(category)
+		_then
+			write("Invalid category. Choose one of:")
+			_for a_key _over dev_docs.keys()
 			_loop
+				write(tab_char, a_key)
+			_endloop
+			_return
+		_endif 
+		
+		_for key, file_docs _over data.fast_keys_and_elements()
+		_loop
+			_if category _is _unset _orif category = key
+			_then
 				write(key)
 				_for i _over file_docs.elements()
 				_loop
 					write(tab_char, i[1])
 				_endloop
-			_endloop
+			_endif 
+		_endloop
+	_endproc
+$	
+
+dev_doc("print_dev_docs() - Print list of available tools organised by category")
+_global print_dev_docs << _proc@print_dev_docs(_optional category)
+		
+		## List out the dev utilities' descriptions organised by category
+		
+		output_dev_docs(dev_docs, category)
+		
+	_endproc
+$	
+
+
+dev_doc("print_dev_docs_by_file() - Print list of available tools organised by file")
+_global print_dev_docs_by_file << _proc@print_dev_docs_by_file()
+		##
+		## List out the dev utilities' descriptions organised by file
+		##
+		
+		output_dev_docs(dev_docs_by_file, _unset)
+
 	_endproc
 $	

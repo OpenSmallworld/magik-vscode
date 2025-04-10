@@ -99,12 +99,3 @@ _global ao << _proc(ref)
 		_return abs_v.get_abstracted_object_for(obj)
 	_endproc
 $
-
-_block
-	_if system.file_exists?(projects_path("core"))
-	_then
-		add_test_product("core/tests")
-	_else 
-		add_test_product("corerepo/tests")
-	_endif
-_endblock

@@ -1,0 +1,68 @@
+#% text_encoding = iso8859_1
+_package sw
+
+confirm_magik_dev_file(:sw_core)
+
+add_test_product(_unset, system.pathname_down(core_product_root, "tests"))
+$
+
+_block 	
+	_global core_test_suite_names
+	core_test_suite_names << equality_set.new()
+	_local btl_root << system.pathname_down(core_product_root, "tests", "bulk_test_launchers")
+	_local dc << _unset
+	_if system.file_exists?(btl_root)
+	_then 
+		_protect
+			dc << directory_channel.new(btl_root, "test_*.magik")
+			_local it
+			_loop
+				_if (it << dc.get()) _is _unset 
+				_then 
+					_leave 
+				_endif
+				# Strip .magik off the end
+				core_test_suite_names.add(it.slice(6, it.size - 6))
+			_endloop
+		_protection
+			dc.close()
+		_endprotect 
+	_endif 
+	
+_endblock
+
+dev_doc("load_core_test_suite(SUITE_NAME) - Load and return core test suite SUITE_NAME", "TESTS")
+_global load_core_test_suite <<
+	_proc @load_core_test_suite(test_name)
+		_if _not core_test_suite_names.includes?(test_name)
+		_then
+			write_with_spaces("TEST_NAME must be one of:")
+			_for tn _over core_test_suite_names.fast_elements()
+			_loop
+				write(tn)
+			_endloop
+			_return
+		_endif 
+		load_file(system.pathname_down(core_product_root, "tests", "bulk_test_launchers", "test_" + test_name + ".magik"))
+		_return (:test_ + test_name).evaluate().suite()
+	_endproc
+$
+
+dev_doc("print_core_test_suites() - Print a list of available core test suites", "TESTS")
+_global print_core_test_suites <<
+_proc @print_core_test_suites()
+	_for a_name _over sorted_collection.new_from(core_test_suite_names).fast_elements()
+	_loop
+		write(a_name)
+	_endloop
+_endproc
+$
+
+dev_doc("run_core_test_suite(SUITE_NAME) - Run core test suite SUITE_NAME", "TESTS")
+_global run_core_test_suite <<
+_proc @run_core_test_suites(suite_name)
+	ts << load_core_test_suite(suite_name)
+	tr << get_global_value(:test_runner)
+	tr.run(ts)
+_endproc
+$

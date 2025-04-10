@@ -46,7 +46,7 @@ _method object.kap(arg)
 	_return _self.key_apropos(arg, _true, _true)
 _endmethod
 
-dev_doc("object.md - Print an object's module", "PRODUCT")
+dev_doc("object.md - Print an object's module", "PRODUCTS")
 _method object.md
 	name << _self.module_name
 	m << sw_module_manager.module(name)
@@ -327,11 +327,16 @@ _global local_product_path <<
 		_endif
 	_endproc
 
+_global core_product_root << _unset
+
 _block
 	_local core_path, kernel_path
-	_if _not system.file_exists?(core_path << projects_path("core/sw_core"))
+	_if system.file_exists?(core_path << projects_path("core/sw_core"))
 	_then
+		core_product_root << projects_path("core")
+	_else 
 		write("No core/sw_core, trying corerepo/sw_core")
+		core_product_root << projects_path("corerepo")
 		core_path << projects_path("corerepo/sw_core")
 		kernel_path << projects_path("corerepo/sw_core/modules/sw_kernel")
 	_endif
@@ -438,17 +443,13 @@ _global load_dev_tools <<
 		_handling sw_product_warning, sw_product_information, sw_module_warning, sw_module_information _with procedure
 		write("Information and Warning messages suppressed in load_dev_tools()")
 		_if sw_module_manager.module_is_loaded?(:dev_tools_application)
-		_then _return _endif
-
-		_if _not system.file_exists?(core_dir << projects_path("core"))
-		_then
-			write("No core, trying corerepo")
-			core_dir << projects_path("corerepo")
+		_then 
+			_return 
 		_endif
-		
+
 		_if smallworld_product.product(:sw_dev_tools) _is _unset
 		_then 
-			p << smallworld_product.add_product(system.pathname_down(core_dir, "sw_core", "modules", "sw_dev_tools"))
+			p << smallworld_product.add_product(system.pathname_down(core_product_root, "sw_core", "modules", "sw_dev_tools"))
 			write("ADDED: ", p)
 		_endif
 		
