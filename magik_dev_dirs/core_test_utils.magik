@@ -3,10 +3,15 @@ _package sw
 
 confirm_magik_dev_file(:sw_core)
 
-add_test_product(_unset, system.pathname_down(core_product_root, "tests"))
-$
-
-_block 	
+_block 
+	_local tests_dir << system.pathname_down(core_product_root, "tests")
+	add_test_product(_unset, tests_dir)
+	
+	_if system.getenv("SW_CORE_TEST_DIR") _is _unset
+	_then 
+		system.putenv("SW_CORE_TEST_DIR", tests_dir)
+	_endif 
+	
 	_global core_test_suite_names
 	core_test_suite_names << equality_set.new()
 	_local btl_root << system.pathname_down(core_product_root, "tests", "bulk_test_launchers")
