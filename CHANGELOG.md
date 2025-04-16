@@ -2,6 +2,10 @@
 
 All notable changes to the "magik" extension will be documented in this file.
 
+## 0.2.6
+
+* Updated project dependencies.
+
 ## 0.2.5
 
 * Consolidate development tools from sw_dev_tools/magik_tools
