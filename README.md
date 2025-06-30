@@ -23,6 +23,39 @@ Here is the quickest way to get started Programming Magik.
 
 ![magik-vscode](./docs/images/basic_screenshot.png)
 
+### ✨ New: Flexible Session Launching with Custom Configurations
+
+In addition to the standard methods, this extension now offers a powerful way to launch project-specific sessions using a custom configuration. This is ideal for developers managing multiple environments.
+
+1.  **Configure your sessions:** Add a `Smallworld.sessions` array to your `settings.json` file. Define a name and the full command for each session you need.
+
+     ```json
+    "Smallworld.sessions": [
+      {
+        "session": "My Project 01",
+        "command": "C:\\<SW-CORE-BIN>\\bin\\x86\\runalias.exe -a C:\\<PROJECT-DIR>\\gis_aliases -e C:\\<PROJECT-DIR>\\environment.bat eo_open",
+        "saveconfig": true
+      },
+      {
+        "session": "My Project 02",
+        "command": "C:\\<SW-CORE-BIN>\\bin\\x86\\runalias.exe -a C:\\<PROJECT-DIR>\\gis_aliases -e C:\\<PROJECT-DIR>\\environment.bat eo_open",
+        "saveconfig": false
+      },
+      {
+         ...
+      },
+      {
+        "session": "My Project N",
+        "command": "C:\\<SW-CORE-BIN>\\bin\\x86\\runalias.exe -a C:\\<PROJECT-DIR>\\gis_aliases -e C:\\<PROJECT-DIR>\\environment.bat alias",
+        "saveconfig": false
+      }
+    ]
+    ```
+
+2.  **Launch with the session picker:** Press the key sequence `<F2>` `<F2>` then `Z`. A dropdown will appear, allowing you to select and launch any of your configured sessions instantly.
+
+![magik-vscode](./docs/images/smallworld_session_selector.png)
+
 ## What's Next
 
 Once you are able to start a Magik session and associate the session with your editor, you are ready to start programming Magik.  If you are new to programming Magik in Smallworld GNM, go over to the [Application Development section](https://smallworld.gedigitalenergy.com/documentation/sw53/en/swDocs5.htm#../Subsystems/AppDev/Content/A_Navigation/Pages/HomeAppDev5.htm?TocPath=Technology%2520platform%257CApplication%2520Development%2520(Magik)%257C_____1) on the Smallworld GNM documentation web sight.

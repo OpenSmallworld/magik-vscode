@@ -19,6 +19,7 @@
         "onCommand:magik.refreshSymbols",
         "onCommand:magik.compileExtensionMagik",
         "onCommand:magik.startSession",
+        "onCommand:magik.startCustomSession",
         "onCommand:magik.startDebugSession"
     ],
     "main": "./src/magik",
@@ -256,6 +257,10 @@
                 "command": "magik.startSession",
                 "title": "Magik Start Session"
             },
+			            {
+                "command": "magik.startCustomSession",
+                "title": "Magik Start Custom Session"
+            },
             {
                 "command": "magik.startDebugSession",
                 "title": "Magik Start Debug Session"
@@ -465,6 +470,10 @@
             {
                 "key": "f2 z",
                 "command": "magik.startSession"
+            },
+            {
+                "key": "f2 f2 z",
+                "command": "magik.startCustomSession"
             }
         ],
         "menus": {
@@ -556,7 +565,30 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Search for definitions using the Class Browser instead of the Method Search List. Default value is true."
-                }
+                },
+                "Smallworld.sessions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "session": {
+                                "type": "string",
+                                "description": "Name of the Smallworld session"
+                            },
+                            "command": {
+                                "type": "string",
+                                "description": "Full command to execute (including paths, aliases and environment)"
+                            },
+                            "saveconfig": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Save session configuration for redial functionality"
+                            }
+                        },
+                        "required": ["session", "command"]
+                    },
+                    "description": "Configure Smallworld sessions with direct commands"
+				}
             }
         },
         "iconThemes": [

@@ -41,6 +41,11 @@ class MagikSession {
         )
       );
     }
+
+    // Register custom command
+    context.subscriptions.push(
+      vscode.commands.registerCommand('magik.startCustomSession', () => this.showSessionPicker())
+    );
   }
 
   _readAliasFile(fileName) {
@@ -224,6 +229,62 @@ class MagikSession {
           this._findRunAlias(searchDir, debug);
         }
       });
+    }
+  }
+
+  // Methods for Custom Session
+  async showSessionPicker() {
+    const config = vscode.workspace.getConfiguration('Smallworld');
+    const sessions = config.get('sessions') || [];
+
+    if (sessions.length === 0) {
+      vscode.window.showErrorMessage('No Smallworld sessions configured');
+      return;
+    }
+
+    const sessionItems = sessions.map((session, index) => ({
+      label: `${index + 1} ${session.session}`,
+      description: '',
+      session: session
+    }));
+
+    const selected = await vscode.window.showQuickPick(sessionItems, {
+      placeHolder: 'Select Smallworld session to start'
+    });
+
+    if (selected) {
+      this.startCustomSession(selected.session);
+    }
+  }
+
+  async startCustomSession(sessionConfig) {
+    try {
+          // Get active terminal or create new one
+      let terminal = vscode.window.activeTerminal;
+      if (!terminal) {
+        const terminalName = sessionConfig.session || 'Smallworld Session';
+        terminal = vscode.window.createTerminal(terminalName);
+      }
+      terminal.show();
+
+      if (sessionConfig.command) {
+        let command = sessionConfig.command;
+        command = command.replace(/(?<!\\)\\(?!\\)(\w)/g, '\\\\$1');
+        command = command.replace(/^\\(?!\\)/, '\\\\');
+
+        terminal.sendText(command);
+      }
+
+      if (sessionConfig.saveconfig) {
+        await vscode.workspace.getConfiguration().update(
+          'Smallworld.redialSession',
+          sessionConfig,
+          vscode.ConfigurationTarget.Global
+        );
+      }
+
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to start session: ${error.message}`);
     }
   }
 }
